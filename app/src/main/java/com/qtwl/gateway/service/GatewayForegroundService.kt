@@ -329,16 +329,12 @@ class GatewayForegroundService : Service() {
         private const val KEY_AUTO_FAILOVER = "auto_failover"
         private const val KEY_FAILOVER_MODEL = "failover_model"
         private const val KEY_QTAI_SJ_ENABLED = "qtai_sj_enabled"
-        private const val KEY_QTAI_SJ_BRAIN = "qtai_sj_brain_model"
-        private const val KEY_QTAI_SJ_NAME = "qtai_sj_name"
         private const val KEY_FORCED_MODEL = "forced_model"
         private const val KEY_LAST_REAL_MODEL = "last_real_model"
         private const val EXTRA_TOGGLE_WAKE = "toggle_wake"
         private const val KEY_TRAFFIC_UPLOAD = "traffic_upload"
         private const val KEY_TRAFFIC_DOWNLOAD = "traffic_download"
         private const val KEY_GATEWAY_RUNNING = "gateway_was_running" // ★★ 自启状态记录 ★★
-        private const val KEY_CONTINUOUS_CHAT = "continuous_chat" // ★★ 连续对话模式 ★★
-        private const val DISABLED_SKILLS = "disabled_skills" // ★★ 禁用的技能编码列表 ★★
         private const val KEY_PIPELINE_INTERVAL = "pipeline_interval_minutes" // ★★ 自动测速间隔（分钟）★★
         private const val DEFAULT_PORT = 8889
         private const val DEFAULT_PROXY_PORT = 7890
@@ -429,34 +425,6 @@ val totalDownloadBytes = java.util.concurrent.atomic.AtomicLong(0L)   // ★ APP
             GatewayApplication.getInstance().getSharedPreferences(PREF_NAME, 0).edit().putBoolean(KEY_QTAI_SJ_ENABLED, enabled).apply()
         }
         fun getQtaiSjEnabled(): Boolean = GatewayApplication.getInstance().getSharedPreferences(PREF_NAME, 0).getBoolean(KEY_QTAI_SJ_ENABLED, true)
-
-        /** ★★ qtai-sj 绑定的脑子模型ID ★★ */
-    fun saveQtaiSjBrain(modelId: String) {
-        GatewayApplication.getInstance().getSharedPreferences(PREF_NAME, 0).edit().putString(KEY_QTAI_SJ_BRAIN, modelId).apply()
-    }
-    fun getQtaiSjBrain(): String = GatewayApplication.getInstance().getSharedPreferences(PREF_NAME, 0).getString(KEY_QTAI_SJ_BRAIN, "") ?: ""
-    
-    /** ★★ qtai-sj 人格名称（动态绑定，用户可自定义） ★★ */
-    fun saveQtaiSjName(name: String) {
-        GatewayApplication.getInstance().getSharedPreferences(PREF_NAME, 0).edit().putString(KEY_QTAI_SJ_NAME, name).apply()
-    }
-    fun getQtaiSjName(): String = GatewayApplication.getInstance().getSharedPreferences(PREF_NAME, 0).getString(KEY_QTAI_SJ_NAME, "") ?: ""
-
-    // ★★ 连续对话模式 ★★
-    fun setContinuousChat(enabled: Boolean) {
-        GatewayApplication.getInstance().getSharedPreferences(PREF_NAME, 0).edit().putBoolean(KEY_CONTINUOUS_CHAT, enabled).apply()
-    }
-    fun isContinuousChat(): Boolean = GatewayApplication.getInstance().getSharedPreferences(PREF_NAME, 0).getBoolean(KEY_CONTINUOUS_CHAT, false)
-
-    // ★★ 禁用技能列表（逗号分隔编码） ★★
-    fun setDisabledSkills(skills: Set<String>) {
-        GatewayApplication.getInstance().getSharedPreferences(PREF_NAME, 0).edit().putString(DISABLED_SKILLS, skills.joinToString(",")).apply()
-    }
-    fun getDisabledSkills(): Set<String> {
-        val raw = GatewayApplication.getInstance().getSharedPreferences(PREF_NAME, 0).getString(DISABLED_SKILLS, "") ?: ""
-        return raw.split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()
-    }
-    fun isSkillEnabled(code: String): Boolean = code !in getDisabledSkills()
 
     /** ★★ 自动测速间隔（分钟），默认30分钟，范围5~240 ★★ */
     fun savePipelineInterval(minutes: Int) {

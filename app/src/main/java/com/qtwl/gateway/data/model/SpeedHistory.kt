@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * 测速历史记录实体 —— 保存每次测速的三指标，用于延迟趋势图
@@ -18,6 +19,7 @@ import androidx.room.PrimaryKey
         Index("measured_at")    // 按时间排序
     ]
 )
+@Serializable
 data class SpeedHistory(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

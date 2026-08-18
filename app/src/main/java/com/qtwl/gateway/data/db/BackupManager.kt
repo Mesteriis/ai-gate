@@ -1,8 +1,6 @@
 package com.qtwl.gateway.data.db
 
 import com.qtwl.gateway.data.model.AiModel
-import com.qtwl.gateway.data.model.ChatMessage
-import com.qtwl.gateway.data.model.Conversation
 import com.qtwl.gateway.data.model.Provider
 import com.qtwl.gateway.data.model.TokenUsage
 import com.qtwl.gateway.service.GatewayForegroundService
@@ -49,24 +47,23 @@ class BackupManager(private val database: AppDatabase) {
         try {
             val providers = database.providerDao().getAllProvidersOnce()
             val models = database.aiModelDao().getAllModelsOnce()
-            val conversations = database.conversationDao().getAllConversationsOnce()
-            val messages = database.chatMessageDao().getAllMessagesOnce()
             val tokenUsage = database.tokenUsageDao().getAllUsageOnce()
+            val speedHistory = database.speedHistoryDao().getAllOnce()
+            val routingRules = database.routingRuleDao().getAllOnce()
             val proxyListJson = GatewayForegroundService.getProxyListJson()
             val gatewayPort = GatewayForegroundService.getGatewayPort()
             val apiKeyEntriesJson = Json { ignoreUnknownKeys = true }.encodeToString(KeyManager.getAllKeys())
             // ★ 收集所有设置（SharedPreferences 中所有以 config_ 开头的键值对）
             val prefs = GatewayApplication.getInstance().getSharedPreferences("gateway_config", android.content.Context.MODE_PRIVATE)
-            val allEntries = prefs.all.filterKeys { it.startsWith("config_") || 
-                it in listOf("proxy_enabled", "auto_failover", "debug_mode", "qtai_sj_enabled", "wake_enabled", "hide_from_recents", 
-                    "gateway_port", "gateway_was_running", "continuous_chat", "disabled_skills", "searxng_url",
-                    "qtai_sj_brain", "qtai_sj_name", "forced_model", "last_real_model", "failover_model",
+            val allEntries = prefs.all.filterKeys { it.startsWith("config_") ||
+                it in listOf("proxy_enabled", "auto_failover", "debug_mode", "qtai_sj_enabled", "wake_enabled", "hide_from_recents",
+                    "gateway_port", "gateway_was_running",
+                    "forced_model", "last_real_model", "failover_model",
                     "current_model_idx", "auto_backup_enabled", "auto_backup_hour", "auto_backup_minute",
-                    "chat_memory_json", "chat_memory_enabled", "chat_memory_max", "capabilities_json_v2",
-                    "capabilities_auto_detect", "custom_skills_json", "app_version",
-                    "require_api_key", "brain_memory_config", "thinking_config", "group_chat_enabled",
-                    "pipeline_interval_minutes", "show_home_hint", "home_hint", "home_thinking_depth",
-                    "qtai_sj_brain_model", "traffic_upload_total", "traffic_download_total",
+                    "capabilities_json_v2", "capabilities_auto_detect", "app_version",
+                    "require_api_key",
+                    "pipeline_interval_minutes",
+                    "traffic_upload_total", "traffic_download_total",
                     "proxy_list_json", "allowed_api_keys", "proxy_protocol", "proxy_host", "proxy_port",
                     "last_auto_backup_time", "auto_backup_retention_days", "initial_setup_done")
             }
@@ -75,9 +72,9 @@ class BackupManager(private val database: AppDatabase) {
             val backupData = BackupData(
                 providers = providers,
                 models = models,
-                conversations = conversations,
-                messages = messages,
                 tokenUsage = tokenUsage,
+                speedHistory = speedHistory,
+                routingRules = routingRules,
                 proxyListJson = proxyListJson,
                 gatewayPort = gatewayPort,
                 apiKeyEntriesJson = apiKeyEntriesJson,
@@ -137,16 +134,16 @@ class BackupManager(private val database: AppDatabase) {
             val backupData = json.decodeFromString(BackupData.serializer(), jsonBytes.toString(Charsets.UTF_8))
 
             database.tokenUsageDao().clearAll()
-            database.chatMessageDao().deleteAll()
-            database.conversationDao().deleteAll()
+            database.speedHistoryDao().clearAll()
+            database.routingRuleDao().clearAll()
             database.aiModelDao().deleteAll()
             database.providerDao().deleteAll()
 
             if (backupData.providers.isNotEmpty()) database.providerDao().insertAll(backupData.providers)
             if (backupData.models.isNotEmpty()) database.aiModelDao().insertAll(backupData.models)
-            if (backupData.conversations.isNotEmpty()) database.conversationDao().insertAll(backupData.conversations)
-            if (backupData.messages.isNotEmpty()) database.chatMessageDao().insertAll(backupData.messages)
             if (backupData.tokenUsage.isNotEmpty()) database.tokenUsageDao().insertAll(backupData.tokenUsage)
+            if (backupData.speedHistory.isNotEmpty()) database.speedHistoryDao().insertAll(backupData.speedHistory)
+            backupData.routingRules.forEach { database.routingRuleDao().insert(it) }
 
             if (backupData.proxyListJson.isNotBlank()) GatewayForegroundService.saveProxyListJson(backupData.proxyListJson)
             if (backupData.gatewayPort != 8889) GatewayForegroundService.saveGatewayPort(backupData.gatewayPort)
@@ -167,11 +164,11 @@ class BackupManager(private val database: AppDatabase) {
                         for ((key, value) in settingsMap) {
                             when (key) {
                                 "proxy_enabled", "auto_failover", "debug_mode", "qtai_sj_enabled", "wake_enabled",
-                                "hide_from_recents", "gateway_was_running", "continuous_chat", "require_api_key",
-                                "chat_memory_enabled", "capabilities_auto_detect", "group_chat_enabled",
-                                "auto_backup_enabled", "show_home_hint", "home_hint" -> putBoolean(key, value.toBooleanStrictOrNull() ?: false)
-                                "gateway_port", "auto_backup_hour", "auto_backup_minute", "chat_memory_max",
-                                "current_model_idx", "pipeline_interval_minutes", "home_thinking_depth",
+                                "hide_from_recents", "gateway_was_running", "require_api_key",
+                                "capabilities_auto_detect",
+                                "auto_backup_enabled" -> putBoolean(key, value.toBooleanStrictOrNull() ?: false)
+                                "gateway_port", "auto_backup_hour", "auto_backup_minute",
+                                "current_model_idx", "pipeline_interval_minutes",
                                 "proxy_port", "auto_backup_retention_days" -> putInt(key, value.toIntOrNull() ?: 0)
                                 else -> putString(key, value)
                             }

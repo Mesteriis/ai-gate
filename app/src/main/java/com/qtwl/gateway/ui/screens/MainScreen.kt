@@ -50,7 +50,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qtwl.gateway.data.model.AiModel
 import com.qtwl.gateway.data.model.ModelRouteKey
-import com.qtwl.gateway.data.model.routeKey
 import com.qtwl.gateway.data.model.Provider
 import com.qtwl.gateway.ui.theme.Error
 import com.qtwl.gateway.ui.theme.Offline
@@ -63,19 +62,12 @@ import com.qtwl.gateway.ui.viewmodel.pipelineProgress
 import com.qtwl.gateway.ui.viewmodel.pipelineCountdown
 import com.qtwl.gateway.service.LiveSession
 import com.qtwl.gateway.service.GatewayForegroundService
-import com.qtwl.gateway.gateway.GatewayScheduler
 import com.qtwl.gateway.utils.TranslationManager
 import com.qtwl.gateway.utils.tr
 import kotlinx.coroutines.delay
 import com.qtwl.gateway.utils.localizedText
 import com.qtwl.gateway.utils.localizeRuntimeText
 import com.qtwl.gateway.utils.localizeGeneratedName
-import com.qtwl.gateway.service.ThinkingConfigManager
-import com.qtwl.gateway.service.GroupChatManager
-import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Person
 
 /**
  * 主屏幕 —— 带底部导航的容器
@@ -134,24 +126,18 @@ fun MainScreen(
                 NavigationBarItem(
                     selected = selectedTab == 3,
                     onClick = { selectedTab = 3 },
-                    icon = { Text("💬") },
-                    label = { Text(tr("nav_chat")) }
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 4,
-                    onClick = { selectedTab = 4 },
                     icon = { Text("📊") },
                     label = { Text(tr("nav_stats")) }
                 )
                 NavigationBarItem(
-                    selected = selectedTab == 5,
-                    onClick = { selectedTab = 5 },
+                    selected = selectedTab == 4,
+                    onClick = { selectedTab = 4 },
                     icon = { Text("⚙️") },
                     label = { Text(tr("nav_manage")) }
                 )
                 NavigationBarItem(
-                    selected = selectedTab == 6,
-                    onClick = { selectedTab = 6 },
+                    selected = selectedTab == 5,
+                    onClick = { selectedTab = 5 },
                     icon = { Text("ℹ️") },
                     label = { Text(tr("nav_about")) }
                 )
@@ -164,10 +150,9 @@ fun MainScreen(
                 0 -> HomeScreen(viewModel)
                 1 -> ProvidersScreen(viewModel)
                 2 -> ModelsScreen(viewModel)
-                3 -> ChatScreen(viewModel)
-                4 -> StatsScreen(viewModel)
-                5 -> DataManagementScreen(viewModel)
-                6 -> AboutScreen(viewModel)
+                3 -> StatsScreen(viewModel)
+                4 -> DataManagementScreen(viewModel)
+                5 -> AboutScreen(viewModel)
             }
         }
     }
@@ -182,13 +167,6 @@ fun HomeScreen(viewModel: GatewayViewModel) {
     val serviceRunning by viewModel.serviceRunning.collectAsState()
     val providers by viewModel.providers.collectAsState()
     val providerMap = remember(providers) { providers.associateBy { it.id } }
-
-    // 群聊模式状态变量（需在函数级别，供对话框使用）
-    val groupChatEnabled = remember { mutableStateOf(GroupChatManager.isEnabled()) }
-    val groupChatSummarizer = remember { mutableStateOf(GroupChatManager.getSummarizerModel()) }
-    val groupChatMaxRounds = remember { mutableStateOf(GroupChatManager.getMaxRounds().toString()) }
-    var showGroupChatModelPicker by remember { mutableStateOf(false) }
-    var showGroupChatSummarizerPicker by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -345,60 +323,6 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                 style = MaterialTheme.typography.titleMedium
             )
         }
-
-        Spacer(modifier = Modifier.height(12.dp))
-// ★★ 首页思考引导开关 & 卡片 ★★
-          // 读取/保存开关状态（SharedPreferences via GatewayForegroundService)
-          val showHintState = remember { mutableStateOf(true) }
-          LaunchedEffect(Unit) {
-              val stored = com.qtwl.gateway.service.GatewayForegroundService.getGatewayConfig("show_home_hint", "true")
-              showHintState.value = stored.toBoolean()
-          }
-          Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.SpaceBetween,
-              verticalAlignment = Alignment.CenterVertically
-          ) {
-              Text(tr("home_thinking_guide"), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-              Switch(
-                  checked = showHintState.value,
-                  onCheckedChange = { enabled ->
-                      showHintState.value = enabled
-                      com.qtwl.gateway.service.GatewayForegroundService.saveGatewayConfig("show_home_hint", enabled.toString())
-                  }
-              )
-          }
-          if (showHintState.value) {
-              Card(
-                  modifier = Modifier.fillMaxWidth(),
-                  colors = CardDefaults.cardColors(
-                      containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                  )
-              ) {
-                  Column(modifier = Modifier.padding(16.dp)) {
-                      Row(verticalAlignment = Alignment.CenterVertically) {
-                          Text("💡", style = MaterialTheme.typography.titleLarge)
-                          Spacer(modifier = Modifier.width(8.dp))
-                          Text(
-                              text = tr("quick_start"),
-                              style = MaterialTheme.typography.titleSmall,
-                              fontWeight = FontWeight.Bold,
-                              color = MaterialTheme.colorScheme.primary
-                          )
-                      }
-                      Spacer(modifier = Modifier.height(8.dp))
-                      Text(
-                          text = "1. ${tr("add_provider")} → ${tr("sync_models")}\n" +
-                                "2. ${tr("start_gateway")}\n" +
-                                "3. ${tr("set_base_url")}\n" +
-                                "4. ${tr("enable_failover")}",
-                          style = MaterialTheme.typography.bodySmall,
-                          color = MaterialTheme.colorScheme.onSurfaceVariant,
-                          lineHeight = MaterialTheme.typography.bodySmall.lineHeight
-                      )
-                  }
-              }
-          }
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -824,102 +748,6 @@ fun HomeScreen(viewModel: GatewayViewModel) {
             }
         }
 
-        // ★★ 思考引导配置 ★★
-        val thinkingEnabled = remember { mutableStateOf(ThinkingConfigManager.isEnabled()) }
-        val thinkingDepth = remember { mutableStateOf(ThinkingConfigManager.getDepth()) }
-        val depthOptions = ThinkingConfigManager.ThinkingDepth.entries
-        var depthExpanded by remember { mutableStateOf(false) }
-        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Psychology, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(localizedText("🧠 思考引导", "🧠 Thinking guide"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Switch(checked = thinkingEnabled.value, onCheckedChange = { e ->
-                        thinkingEnabled.value = e
-                        ThinkingConfigManager.setEnabled(e)
-                    })
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(localizedText("在 qtai-sj 回复前注入思考引导，让 AI 先分析再回答", "Inject a thinking guide before qtai-sj replies so the AI analyzes first, then answers"),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (thinkingEnabled.value) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    ExposedDropdownMenuBox(expanded = depthExpanded, onExpandedChange = { depthExpanded = it }) {
-                        OutlinedTextField(value = thinkingDepth.value.localizedLabel(), onValueChange = {}, readOnly = true,
-                            label = { Text(localizedText("思考深度", "Thinking depth")) }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = depthExpanded) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor())
-                        ExposedDropdownMenu(expanded = depthExpanded, onDismissRequest = { depthExpanded = false }) {
-                            depthOptions.forEach { opt ->
-                                DropdownMenuItem(text = { Text(opt.localizedLabel()) }, onClick = {
-                                    thinkingDepth.value = opt
-                                    ThinkingConfigManager.setDepth(opt)
-                                    if (opt == ThinkingConfigManager.ThinkingDepth.OFF) {
-                                        ThinkingConfigManager.setEnabled(false)
-                                        thinkingEnabled.value = false
-                                    }
-                                    depthExpanded = false
-                                })
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // ★★ 群聊模式配置 ★★
-        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Group, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(localizedText("💬 群聊模式", "💬 Group chat mode"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Switch(checked = groupChatEnabled.value, onCheckedChange = { e ->
-                        groupChatEnabled.value = e
-                        GroupChatManager.setEnabled(e)
-                    })
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(localizedText("虚拟沙箱：用户发消息 → AI依次发言 → 总结者输出", "Virtual sandbox: user sends a message → AIs speak in order → summarizer outputs"),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (groupChatEnabled.value) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(localizedText("参与模型: ", "Participant models: "), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(GroupChatManager.getParticipantModels().joinToString(", ").take(30) + if (GroupChatManager.getParticipantModels().joinToString(", ").length > 30) "..." else "",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Button(onClick = { showGroupChatModelPicker = true }, modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)) {
-                        Icon(Icons.Default.List, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(localizedText("📊 从测速排行榜选择模型 (", "📊 Select models from speed ranking (") + GroupChatManager.getParticipantModels().size + localizedText("个)", ")"))
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(localizedText("总结模型: ", "Summary model: "), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(GroupChatManager.getSummarizerModel().ifBlank { localizedText("未设置", "Not set") },
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Button(onClick = { showGroupChatSummarizerPicker = true }, modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)) {
-                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(localizedText("🎯 选择总结模型", "🎯 Select summary model"))
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    OutlinedTextField(value = groupChatMaxRounds.value, onValueChange = { v ->
-                        groupChatMaxRounds.value = v
-                        v.toIntOrNull()?.let { GroupChatManager.setMaxRounds(it) }
-                    }, label = { Text(localizedText("轮次", "Rounds")) }, singleLine = true, modifier = Modifier.width(100.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                }
-            }
-        }
         Spacer(modifier = Modifier.height(16.dp))
 
         // 使用说明
@@ -973,118 +801,6 @@ fun HomeScreen(viewModel: GatewayViewModel) {
         }
     }
 
-    // ★ 参与模型选择弹窗（排行榜列表勾选）★★
-    if (showGroupChatModelPicker) {
-        val snapshotModels = remember(viewModel) {
-            viewModel.enabledModels.value.ifEmpty {
-                listOf<com.qtwl.gateway.data.model.AiModel>()
-            }
-        }
-        val snapshotSortedIds = remember { com.qtwl.gateway.gateway.GatewayScheduler.pipelineSortedModelKeys.toList() }
-        val sortedModels = remember {
-            snapshotModels.sortedByDescending { snapshotSortedIds.indexOf(it.routeKey) }.reversed()
-        }
-        val currentParticipants = remember { mutableStateListOf<String>().apply { addAll(GroupChatManager.getParticipantModels()) } }
-        AlertDialog(
-            onDismissRequest = { showGroupChatModelPicker = false },
-            title = { Text(localizedText("选择参与模型", "Select participant models"), fontWeight = FontWeight.Bold) },
-            text = {
-                if (sortedModels.isEmpty()) {
-                    Text(localizedText("暂无可用模型，请先添加服务商和启用模型", "No available models. Add a provider and enable models first"))
-                } else {
-                    LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
-                        items(sortedModels) { model ->
-                            val isSelected = model.routeKey in currentParticipants
-                            val rank = snapshotSortedIds.indexOf(model.routeKey)
-                            val rankStr = if (rank >= 0) " #${rank + 1}" else ""
-                            Row(modifier = Modifier.fillMaxWidth().clickable {
-                                if (isSelected) currentParticipants.remove(model.routeKey)
-                                else currentParticipants.add(model.routeKey)
-                            }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(checked = isSelected, onCheckedChange = { c ->
-                                    if (c) currentParticipants.add(model.routeKey)
-                                    else currentParticipants.remove(model.routeKey)
-                                })
-                                Spacer(Modifier.width(4.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("P${model.providerId}·${model.modelId}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                                    Text(model.displayName.ifBlank { model.customAlias }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                if (rank >= 0) {
-                                    Text(rankStr, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                                }
-                            }
-                            HorizontalDivider()
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    GroupChatManager.setParticipantModels(currentParticipants.toList())
-                    showGroupChatModelPicker = false
-                }) { Text(localizedText("确定 (", "OK (") + currentParticipants.size + localizedText("个)", ")")) }
-            },
-            dismissButton = { TextButton(onClick = { showGroupChatModelPicker = false }) { Text(localizedText("取消", "Cancel")) } }
-        )
-    }
-    // ★ 总结模型选择弹窗 ★★
-    if (showGroupChatSummarizerPicker) {
-        val snapshotModels = remember(viewModel) {
-            viewModel.enabledModels.value.ifEmpty {
-                listOf<com.qtwl.gateway.data.model.AiModel>()
-            }
-        }
-        val snapshotSortedIds = remember { com.qtwl.gateway.gateway.GatewayScheduler.pipelineSortedModelKeys.toList() }
-        val sortedModels = remember {
-            snapshotModels.sortedByDescending { snapshotSortedIds.indexOf(it.routeKey) }.reversed()
-        }
-        var selectedSummarizer by remember { mutableStateOf(GroupChatManager.getSummarizerModel()) }
-        AlertDialog(
-            onDismissRequest = { showGroupChatSummarizerPicker = false },
-            title = { Text(localizedText("选择总结模型", "Select summary model"), fontWeight = FontWeight.Bold) },
-            text = {
-                if (sortedModels.isEmpty()) {
-                    Text(localizedText("暂无可用模型", "No available models"))
-                } else {
-                    LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
-                        item {
-                            Row(modifier = Modifier.fillMaxWidth().clickable { selectedSummarizer = "" }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(selected = selectedSummarizer == "", onClick = { selectedSummarizer = "" })
-                                Spacer(Modifier.width(4.dp))
-                                Text(localizedText("无总结者", "No summarizer"), style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                        item { HorizontalDivider() }
-                        items(sortedModels) { model ->
-                            val rank = snapshotSortedIds.indexOf(model.routeKey)
-                            val rankStr = if (rank >= 0) " #${rank + 1}" else ""
-                            Row(modifier = Modifier.fillMaxWidth().clickable { selectedSummarizer = model.routeKey }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(selected = selectedSummarizer == model.routeKey, onClick = { selectedSummarizer = model.routeKey })
-                                Spacer(Modifier.width(4.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("P${model.providerId}·${model.modelId}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                                    Text(model.displayName.ifBlank { model.customAlias }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                if (rank >= 0) {
-                                    Text(rankStr, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                                }
-                            }
-                            HorizontalDivider()
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    GroupChatManager.setSummarizerModel(selectedSummarizer)
-                    groupChatSummarizer.value = selectedSummarizer
-                    showGroupChatSummarizerPicker = false
-                }) { Text(localizedText("确定", "OK")) }
-            },
-            dismissButton = { TextButton(onClick = { showGroupChatSummarizerPicker = false }) { Text(localizedText("取消", "Cancel")) } }
-        )
-    }
 }
 
 @Composable
@@ -1781,8 +1497,8 @@ fun ModelsScreen(viewModel: GatewayViewModel) {
             it.modelId.contains(searchQuery, ignoreCase = true) ||
             it.customAlias.contains(searchQuery, ignoreCase = true)
         }
-        if (filterToolCall) fromDb = fromDb.filter { com.qtwl.gateway.ui.viewmodel.ModelCapabilityManager.getCapabilities(it.modelId).first }
-        if (filterVision) fromDb = fromDb.filter { com.qtwl.gateway.ui.viewmodel.ModelCapabilityManager.getCapabilities(it.modelId).second }
+        if (filterToolCall) fromDb = fromDb.filter { com.qtwl.gateway.gateway.ModelCapabilityManager.getCapabilities(it.modelId).first }
+        if (filterVision) fromDb = fromDb.filter { com.qtwl.gateway.gateway.ModelCapabilityManager.getCapabilities(it.modelId).second }
         listOfNotNull(
             AiModel(id = -1, modelId = "qtai-sj", displayName = localizedText("🔄 自动化切换", "🔄 Auto switch"), providerId = 0, isEnabled = true)
         ) + fromDb
@@ -2121,36 +1837,7 @@ private fun ModelCard(model: AiModel, viewModel: GatewayViewModel) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val qtaiSjEnabled by viewModel.qtaiSjEnabled.collectAsState()
-                    val brainModelId = com.qtwl.gateway.service.GatewayForegroundService.getQtaiSjBrain()
-                    var showBrainPicker by remember { mutableStateOf(false) }
                     Switch(checked = qtaiSjEnabled, onCheckedChange = { viewModel.toggleQtaiSj() })
-                    Spacer(Modifier.width(4.dp))
-                    TextButton(onClick = { showBrainPicker = true }) {
-                        Text(if (brainModelId.isNotBlank()) "🧠 ${ModelRouteKey.display(brainModelId)}" else localizedText("🧠绑定", "🧠 Bind"), style = MaterialTheme.typography.labelSmall)
-                    }
-                    if (showBrainPicker) {
-                        val enabledModels by viewModel.enabledModels.collectAsState()
-                        AlertDialog(
-                            onDismissRequest = { showBrainPicker = false },
-                            title = { Text(tr("select_brain")) },
-                            text = { LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
-                                item { TextButton(onClick = { com.qtwl.gateway.service.GatewayForegroundService.saveQtaiSjBrain(""); showBrainPicker = false }) { Text(tr("clear_brain")) } }
-                                items(enabledModels) { m ->
-                                    val isSelected = m.routeKey == brainModelId
-                                    Row(modifier = Modifier.fillMaxWidth().clickable {
-                                        com.qtwl.gateway.service.GatewayForegroundService.saveQtaiSjBrain(m.routeKey); showBrainPicker = false
-                                    }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        RadioButton(selected = isSelected, onClick = {
-                                            com.qtwl.gateway.service.GatewayForegroundService.saveQtaiSjBrain(m.routeKey); showBrainPicker = false
-                                        })
-                                        Spacer(Modifier.width(8.dp))
-                                        Text("P${m.providerId}·${m.modelId}", fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
-                                    }
-                                }
-                            } },
-                            confirmButton = { TextButton(onClick = { showBrainPicker = false }) { Text(tr("close")) } }
-                        )
-                    }
                 }
             } else {
                 Spacer(modifier = Modifier.height(4.dp))

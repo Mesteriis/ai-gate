@@ -35,12 +35,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qtwl.gateway.service.GatewayForegroundService
-import com.qtwl.gateway.service.ThinkingConfigManager
-import com.qtwl.gateway.service.GroupChatManager
 import com.qtwl.gateway.ui.theme.Error
 import com.qtwl.gateway.ui.theme.Online
 import com.qtwl.gateway.ui.theme.Warning
-import com.qtwl.gateway.ui.viewmodel.BrainMemoryManager
 import com.qtwl.gateway.ui.viewmodel.GatewayViewModel
 import com.qtwl.gateway.utils.AppLanguage
 import com.qtwl.gateway.utils.TranslationManager
@@ -63,30 +60,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import com.qtwl.gateway.utils.CrashHandler
-import com.qtwl.gateway.utils.SkillRegistry
-import com.qtwl.gateway.utils.CustomSkillManager
 import com.qtwl.gateway.utils.localizedText
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import com.qtwl.gateway.utils.localizeRuntimeText
 import com.qtwl.gateway.utils.localizeGeneratedName
-import com.qtwl.gateway.utils.localizeGeneratedContent
-
-@Composable
-private fun PersonaSlider(label: String, value: Int, range: IntRange, onChange: (Int) -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(label, style = MaterialTheme.typography.bodySmall)
-            Text("$value", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-        }
-        Slider(
-            value = value.toFloat(),
-            onValueChange = { onChange(it.toInt()) },
-            valueRange = range.first.toFloat()..range.last.toFloat(),
-            steps = range.last - range.first - 1
-        )
-    }
-}
 
 /**
  * 数据管理 & 添加服务 统一界面
@@ -147,7 +125,6 @@ fun DataManagementScreen(
     var showRoutingRules by remember { mutableStateOf(false) }
     var showDebugLogs by remember { mutableStateOf(false) }
     var showKeyManagement by remember { mutableStateOf(false) }
-    var showSkillManagement by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -526,366 +503,6 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
                 }
             }
 
-            // ★★ 记忆管理卡片（BrainMemory 大脑）★★
-            val cfg = BrainMemoryManager.getConfig()
-            var memEnabled by remember { mutableStateOf(cfg.enabled) }
-            var memMode by remember { mutableStateOf(cfg.saveMode) }
-            var memMax by remember { mutableStateOf(cfg.maxShortTerm.toString()) }
-            var showMemDetail by remember { mutableStateOf(false) }
-            var memSearchQuery by remember { mutableStateOf("") }
-            var memList by remember { mutableStateOf(BrainMemoryManager.getAll()) }
-            var editingMem by remember { mutableStateOf<com.qtwl.gateway.ui.viewmodel.BrainMemoryManager.MemoryItem?>(null) }
-            var editTitle by remember { mutableStateOf("") }
-            var editContent by remember { mutableStateOf("") }
-            var editEmotion by remember { mutableStateOf("neutral") }
-            var editImportance by remember { mutableStateOf("5") }
-
-            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Memory, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(localizedText("🧠 大脑记忆", "🧠 Brain memory"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        Switch(checked = memEnabled, onCheckedChange = { e ->
-                            memEnabled = e
-                            BrainMemoryManager.updateConfig(cfg.copy(enabled = e))
-                        })
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    // ★★ qtai-sj 绑定的大脑模型（按排行榜服务商分组选择）★★
-                    val providers by viewModel.providers.collectAsState()
-                    val allModels by viewModel.models.collectAsState()
-                    var showBrainModelPicker by remember { mutableStateOf(false) }
-                    val currentBrain = remember { mutableStateOf(GatewayForegroundService.getQtaiSjBrain()) }
-                    // 按服务商分组
-                    val brainGroupedModels = remember(providers, allModels) {
-                        val providersById = providers.associateBy { it.id }
-                        val providerOrder = providers.sortedBy { it.orderIndex }.map { it.id }
-                        allModels
-                            .groupBy { it.providerId }
-                            .entries
-                            .sortedBy { (providerId, _) ->
-                                providerOrder.indexOf(providerId).let { if (it < 0) Int.MAX_VALUE else it }
-                            }
-                            .map { (providerId, modelList) ->
-                                val providerName = providersById[providerId]?.name ?: localizedText("未知服务商", "Unknown provider")
-                                "P$providerId · $providerName" to modelList
-                            }
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(localizedText("🧠 绑定大脑模型: ", "🧠 Brain model: ") + (currentBrain.value.ifBlank { localizedText("未绑定", "Not bound") }),
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { showBrainModelPicker = true }) {
-                            Text(localizedText("选择", "Select"), style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                    // 大脑模型选择弹窗（排行榜风格）
-                    if (showBrainModelPicker) {
-                        AlertDialog(
-                            onDismissRequest = { showBrainModelPicker = false },
-                            title = { Text(localizedText("选择 qtai-sj 绑定大脑", "Select qtai-sj brain model"), fontWeight = FontWeight.Bold) },
-                            text = {
-                                LazyColumn(modifier = Modifier.heightIn(max = 400.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    brainGroupedModels.forEach { (providerLabel, modelList) ->
-                                        item {
-                                            Spacer(Modifier.height(4.dp))
-                                            Text("📌 $providerLabel", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                        }
-                                        items(modelList, key = { it.id }) { model ->
-                                            val isSelected = model.routeKey == currentBrain.value
-                                            Card(
-                                                modifier = Modifier.fillMaxWidth()
-                                                    .clickable {
-                                                        currentBrain.value = model.routeKey
-                                                        GatewayForegroundService.saveQtaiSjBrain(model.routeKey)
-                                                        showBrainModelPicker = false
-                                                    },
-                                                colors = CardDefaults.cardColors(
-                                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                                        else MaterialTheme.colorScheme.surface
-                                                )
-                                            ) {
-                                                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                    Text(if (isSelected) "●" else "○", color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                                                    Spacer(Modifier.width(8.dp))
-                                                    Column(Modifier.weight(1f)) {
-                                                        Text(model.modelId, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-                                                        if (model.customAlias.isNotBlank()) {
-                                                            Text(model.customAlias, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            confirmButton = { TextButton(onClick = { showBrainModelPicker = false }) { Text(localizedText("关闭", "Close")) } }
-                        )
-                    }
-                    Text(localizedText("qtai-sj 大脑：", "qtai-sj brain: ") + memList.size + localizedText("条记忆 · 模式:", " memories · mode:") + memMode + localizedText(" · 情感感知:", " · emotional awareness:") + if (cfg.emotionalAwareness) localizedText("开", "on") else localizedText("关", "off"),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-                    if (memEnabled) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        // ★★ 模型独立记忆开关 ★★
-                        var modelIndependentMem by remember { mutableStateOf(cfg.modelIndependentMemory) }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(localizedText("模型独立记忆", "Model-independent memory"), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-                                Text(localizedText("开启后各模型记忆互相隔离，模型间互不干扰", "Each model's memories are isolated and don't interfere with each other"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
-                            }
-                            Switch(
-                                checked = modelIndependentMem,
-                                onCheckedChange = { e ->
-                                    modelIndependentMem = e
-                                    BrainMemoryManager.updateConfig(cfg.copy(modelIndependentMemory = e))
-                                }
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        // 保存模式
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(localizedText("保存模式:", "Save mode:"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.width(8.dp))
-                            val modes = listOf("frequent" to localizedText("频繁", "Frequent"), "normal" to localizedText("正常", "Normal"), "occasional" to localizedText("偶尔", "Occasional"))
-                            modes.forEach { (k, v) ->
-                                FilterChip(selected = memMode == k, onClick = {
-                                    memMode = k
-                                    BrainMemoryManager.updateConfig(cfg.copy(saveMode = k))
-                                }, label = { Text(v, style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.padding(end = 4.dp))
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        // 上限设置
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(localizedText("上限:", "Limit:"), style = MaterialTheme.typography.labelSmall)
-                            Spacer(Modifier.width(4.dp))
-                            OutlinedTextField(value = memMax, onValueChange = { v ->
-                                memMax = v; v.toIntOrNull()?.let { n ->
-                                    BrainMemoryManager.updateConfig(cfg.copy(maxShortTerm = n))
-                                }
-                            }, singleLine = true, modifier = Modifier.width(80.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                            Spacer(Modifier.width(8.dp))
-                            OutlinedButton(onClick = { BrainMemoryManager.clearAll(); memList = emptyList(); scope.launch { snackbarHostState.showSnackbar(localizedText("🧹 所有记忆已清空", "🧹 All memories cleared")) } },
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Error)) {
-                                Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(2.dp)); Text(localizedText("清空", "Clear"), style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        // 展开/折叠
-                        TextButton(onClick = { showMemDetail = !showMemDetail }) {
-                            Text(text = if (showMemDetail) localizedText("▲ 收起记忆列表", "▲ Collapse memory list") else localizedText("▼ 展开记忆列表 (", "▼ Expand memory list (") + memList.size + localizedText("条)", ")"), style = MaterialTheme.typography.labelMedium)
-                        }
-                        if (showMemDetail) {
-                            // 搜索框
-                            OutlinedTextField(value = memSearchQuery, onValueChange = { memSearchQuery = it },
-                                placeholder = { Text(localizedText("搜索记忆...", "Search memories..."), style = MaterialTheme.typography.bodySmall) },
-                                singleLine = true, modifier = Modifier.fillMaxWidth(), leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp)) })
-                            Spacer(modifier = Modifier.height(4.dp))
-                            // 记忆列表
-                            val filtered = if (memSearchQuery.isBlank()) memList else BrainMemoryManager.search(memSearchQuery)
-                            if (filtered.isEmpty()) {
-                                Text(localizedText("暂无记忆", "No memories yet"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp))
-                            } else {
-                                LazyColumn(modifier = Modifier.heightIn(max = 300.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    items(filtered) { mem ->
-                                        Card(modifier = Modifier.fillMaxWidth().clickable {
-                                            editingMem = mem; editTitle = mem.title; editContent = mem.content; editEmotion = mem.emotion; editImportance = mem.importance.toString()
-                                        }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                                            Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                                // 情感图标
-                                                val emoji = when (mem.emotion) { "happy" -> "😊"; "sad" -> "😢"; "angry" -> "😠"; "surprised" -> "😮"; else -> "😐" }
-                                                Text(emoji, style = MaterialTheme.typography.bodyMedium)
-                                                Spacer(Modifier.width(6.dp))
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(mem.title, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                    Text(localizedText("重要:", "Importance:") + "${mem.importance}/10 · ${mem.type} · ${java.text.SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(java.util.Date(mem.timestamp))}",
-                                                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                }
-                                                IconButton(onClick = { BrainMemoryManager.deleteMemory(mem.id); memList = BrainMemoryManager.getAll() }, modifier = Modifier.size(28.dp)) {
-                                                    Icon(Icons.Default.Delete, contentDescription = localizedText("删除", "Delete"), tint = Error, modifier = Modifier.size(16.dp))
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            // 编辑记忆弹窗
-            if (editingMem != null) {
-                AlertDialog(onDismissRequest = { editingMem = null },
-                    title = { Text(localizedText("✏️ 编辑记忆", "✏️ Edit memory"), fontWeight = FontWeight.Bold) },
-                    text = {
-                        Column {
-                            OutlinedTextField(value = editTitle, onValueChange = { editTitle = it }, label = { Text(localizedText("标题", "Title")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                            Spacer(Modifier.height(8.dp))
-                            OutlinedTextField(value = editContent, onValueChange = { editContent = it }, label = { Text(localizedText("内容", "Content")) }, modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp), maxLines = 5)
-                            Spacer(Modifier.height(8.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(localizedText("情感:", "Emotion:"), style = MaterialTheme.typography.labelSmall)
-                                Spacer(Modifier.width(8.dp))
-                                listOf("neutral" to "😐", "happy" to "😊", "sad" to "😢", "angry" to "😠", "surprised" to "😮").forEach { (k, v) ->
-                                    FilterChip(selected = editEmotion == k, onClick = { editEmotion = k },
-                                        label = { Text(v, style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.padding(end = 2.dp))
-                                }
-                            }
-                            Spacer(Modifier.height(8.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(localizedText("重要性 (0-10):", "Importance (0-10):"), style = MaterialTheme.typography.labelSmall)
-                                Spacer(Modifier.width(8.dp))
-                                OutlinedTextField(value = editImportance, onValueChange = { editImportance = it }, singleLine = true, modifier = Modifier.width(80.dp), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                            }
-                        }
-                    },
-                    confirmButton = {
-                        Button(onClick = {
-                            BrainMemoryManager.updateMemory(editingMem!!.id, title = editTitle, content = editContent, emotion = editEmotion, importance = editImportance.toIntOrNull())
-                            editingMem = null; memList = BrainMemoryManager.getAll()
-                            scope.launch { snackbarHostState.showSnackbar(localizedText("✅ 记忆已更新", "✅ Memory updated")) }
-                        }) { Text(localizedText("保存", "Save")) }
-                    },
-                    dismissButton = { TextButton(onClick = { editingMem = null }) { Text(localizedText("取消", "Cancel")) } }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // ★★ 人格设置卡片（綦小桐）★★
-            // ★ 实时读取配置，避免 stale 数据 ★
-            val pCfg = BrainMemoryManager.getConfig()
-            var personaEnabled by remember { mutableStateOf(pCfg.personaEnabled) }
-            var personaName by remember { mutableStateOf(pCfg.personaName) }
-            var personaAge by remember { mutableStateOf(pCfg.personaAge.toString()) }
-            var personaTraits by remember { mutableStateOf(pCfg.personaTraits) }
-            var personaStyle by remember { mutableStateOf(pCfg.personaStyle) }
-            var personaBg by remember { mutableStateOf(pCfg.personaBackground) }
-            var envAware by remember { mutableStateOf(pCfg.envAwareness) }
-
-            // ★ 监听 config 变化刷新本地状态
-            LaunchedEffect(Unit) {
-                while (true) {
-                    delay(500)
-                    val cfg = BrainMemoryManager.getConfig()
-                    if (cfg.personaEnabled != personaEnabled) personaEnabled = cfg.personaEnabled
-                    if (cfg.personaName != personaName) personaName = cfg.personaName
-                    if (cfg.personaAge.toString() != personaAge) personaAge = cfg.personaAge.toString()
-                    if (cfg.personaTraits != personaTraits) personaTraits = cfg.personaTraits
-                    if (cfg.personaStyle != personaStyle) personaStyle = cfg.personaStyle
-                    if (cfg.personaBackground != personaBg) personaBg = cfg.personaBackground
-                    if (cfg.envAwareness != envAware) envAware = cfg.envAwareness
-                }
-            }
-
-            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Face, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(localizedText("🧑 人格设定", "🧑 Persona settings"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(localizedText("定制 qtai-sj 的个性化形象", "Customize the qtai-sj persona"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(localizedText("启用人格系统", "Enable persona system"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                        Switch(checked = personaEnabled, onCheckedChange = { e ->
-                            personaEnabled = e
-                            BrainMemoryManager.updateConfig(BrainMemoryManager.getConfig().copy(personaEnabled = e))
-                        })
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(value = personaName, onValueChange = { v ->
-                            personaName = v
-                            BrainMemoryManager.updateConfig(BrainMemoryManager.getConfig().copy(personaName = v))
-                            GatewayForegroundService.saveQtaiSjName(v)
-                        }, label = { Text(localizedText("名字", "Name")) }, singleLine = true, modifier = Modifier.weight(1f))
-                        OutlinedTextField(value = personaAge, onValueChange = { v ->
-                            personaAge = v
-                            v.toIntOrNull()?.let { BrainMemoryManager.updateConfig(BrainMemoryManager.getConfig().copy(personaAge = it)) }
-                        }, label = { Text(localizedText("年龄", "Age")) }, singleLine = true, modifier = Modifier.width(80.dp),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    OutlinedTextField(value = localizeGeneratedContent(personaTraits), onValueChange = { v ->
-                        personaTraits = v
-                        BrainMemoryManager.updateConfig(BrainMemoryManager.getConfig().copy(personaTraits = v))
-                    }, label = { Text(localizedText("性格特征（逗号分隔）", "Personality traits (comma-separated)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    val styleOptions = listOf(
-                        "亲切自然" to localizedText("亲切自然", "Friendly and natural"),
-                        "专业严谨" to localizedText("专业严谨", "Professional and precise"),
-                        "活泼可爱" to localizedText("活泼可爱", "Lively and cute"),
-                    )
-                    var styleExpanded by remember { mutableStateOf(false) }
-                    ExposedDropdownMenuBox(expanded = styleExpanded, onExpandedChange = { styleExpanded = it }) {
-                        OutlinedTextField(value = localizeGeneratedName(personaStyle), onValueChange = {}, readOnly = true,
-                            label = { Text(localizedText("语气风格", "Tone style")) }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = styleExpanded) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor())
-                        ExposedDropdownMenu(expanded = styleExpanded, onDismissRequest = { styleExpanded = false }) {
-                            styleOptions.forEach { (storedValue, label) ->
-                                DropdownMenuItem(text = { Text(label) }, onClick = {
-                                    personaStyle = storedValue
-                                    BrainMemoryManager.updateConfig(BrainMemoryManager.getConfig().copy(personaStyle = storedValue))
-                                    styleExpanded = false
-                                })
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    OutlinedTextField(value = localizeGeneratedContent(personaBg), onValueChange = { v ->
-                        personaBg = v
-                        BrainMemoryManager.updateConfig(BrainMemoryManager.getConfig().copy(personaBackground = v))
-                    }, label = { Text(localizedText("背景设定", "Background setting")) }, modifier = Modifier.fillMaxWidth(),
-                    minLines = 2, maxLines = 3)
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(localizedText("环境感知（时间/网络）", "Context awareness (time/network)"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                        Switch(checked = envAware, onCheckedChange = { e ->
-                            envAware = e
-                            BrainMemoryManager.updateConfig(BrainMemoryManager.getConfig().copy(envAwareness = e))
-                        })
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider()
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // ★★ 人格维度滑块 ★★
-                    Text(localizedText("🎭 人格维度（大五人格）", "🎭 Personality Dimensions"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    val pCfg = BrainMemoryManager.getConfig()
-                    var openness by remember { mutableStateOf(pCfg.openness) }
-                    var conscientiousness by remember { mutableStateOf(pCfg.conscientiousness) }
-                    var extraversion by remember { mutableStateOf(pCfg.extraversion) }
-                    var agreeableness by remember { mutableStateOf(pCfg.agreeableness) }
-                    var neuroticism by remember { mutableStateOf(pCfg.neuroticism) }
-                    var humorLevel by remember { mutableStateOf(pCfg.humorLevel) }
-                    var empathyLevel by remember { mutableStateOf(pCfg.empathyLevel) }
-
-                    PersonaSlider(label = localizedText("开放性", "Openness"), value = openness, range = 1..10, onChange = { openness = it; BrainMemoryManager.updateConfig(BrainMemoryManager.getConfig().copy(openness = it)) })
-                    PersonaSlider(label = localizedText("尽责性", "Conscientiousness"), value = conscientiousness, range = 1..10, onChange = { conscientiousness = it; BrainMemoryManager.updateConfig(BrainMemoryManager.getConfig().copy(conscientiousness = it)) })
-                    PersonaSlider(label = localizedText("外向性", "Extraversion"), value = extraversion, range = 1..10, onChange = { extraversion = it; BrainMemoryManager.updateConfig(BrainMemoryManager.getConfig().copy(extraversion = it)) })
-                    PersonaSlider(label = localizedText("宜人性", "Agreeableness"), value = agreeableness, range = 1..10, onChange = { agreeableness = it; BrainMemoryManager.updateConfig(BrainMemoryManager.getConfig().copy(agreeableness = it)) })
-                    PersonaSlider(label = localizedText("神经质", "Neuroticism"), value = neuroticism, range = 1..10, onChange = { neuroticism = it; BrainMemoryManager.updateConfig(BrainMemoryManager.getConfig().copy(neuroticism = it)) })
-                    PersonaSlider(label = localizedText("幽默感", "Humor"), value = humorLevel, range = 1..10, onChange = { humorLevel = it; BrainMemoryManager.updateConfig(BrainMemoryManager.getConfig().copy(humorLevel = it)) })
-                    PersonaSlider(label = localizedText("共情力", "Empathy"), value = empathyLevel, range = 1..10, onChange = { empathyLevel = it; BrainMemoryManager.updateConfig(BrainMemoryManager.getConfig().copy(empathyLevel = it)) })
-                }
-            }
-
             // ★ 多语言设置卡片
             var showLangSelector by remember { mutableStateOf(false) }
             val currentLang by TranslationManager.currentLanguageFlow.collectAsState()
@@ -967,42 +584,6 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // ★★★ 綦小桐技能管理 ★★★
-            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.SmartToy, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(8.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(localizedText("🤖 綦小桐技能管理", "🤖 QiTong AI skills"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text(localizedText("管理綦小桐的连续对话和技能开关", "Manage continuous chat and skill toggles"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    // 连续对话模式开关
-                    val continuousChat = remember { mutableStateOf(GatewayForegroundService.isContinuousChat()) }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text(localizedText("💬 连续对话模式", "💬 Continuous chat mode"), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                        Switch(checked = continuousChat.value, onCheckedChange = { e ->
-                            continuousChat.value = e
-                            GatewayForegroundService.setContinuousChat(e)
-                            scope.launch { snackbarHostState.showSnackbar(if (e) localizedText("✅ 连续对话已开启，所有消息自动走綦小桐大脑", "✅ Continuous chat ON") else localizedText("✅ 连续对话已关闭，需喊綦小桐才能触发", "✅ Continuous chat OFF")) }
-                        })
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Text(if (continuousChat.value) localizedText("🔵 开启后所有消息自动由綦小桐大脑处理，无需喊前缀", "🔵 All messages auto-processed by 綦小桐 brain, no prefix needed") else localizedText("⚪ 关闭后需喊「綦小桐」或前缀才能触发大脑", "⚪ Say '綦小桐' or prefix to trigger brain"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    
-                    // 技能列表
-                    Spacer(Modifier.height(8.dp))
-                    Button(onClick = { showSkillManagement = true }, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.List, contentDescription = null)
-                        Spacer(Modifier.width(4.dp))
-                        Text(localizedText("📋 管理技能 (${SkillRegistry.allSkills.size}内置 + ${CustomSkillManager.getAll().size}自定义)", "📋 Manage skills (${SkillRegistry.allSkills.size} built-in + ${CustomSkillManager.getAll().size} custom)"))
-                    }
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            // ★ 密钥管理按钮
             Card(modifier = Modifier.fillMaxWidth().clickable { showKeyManagement = true }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1258,12 +839,6 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
     if (showKeyManagement) {
         Box(modifier = Modifier.fillMaxSize()) {
             KeyManagementScreen(onDismiss = { showKeyManagement = false })
-        }
-    }
-    // 技能管理全屏覆盖
-    if (showSkillManagement) {
-        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-            SkillManagementScreen(onDismiss = { showSkillManagement = false })
         }
     }
 

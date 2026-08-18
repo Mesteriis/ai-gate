@@ -17,6 +17,9 @@ interface RoutingRuleDao {
     @Query("SELECT * FROM routing_rule WHERE enabled = 1 ORDER BY priority ASC, id ASC")
     suspend fun getEnabledRules(): List<RoutingRule>
 
+    @Query("SELECT * FROM routing_rule ORDER BY priority ASC, id ASC")
+    suspend fun getAllOnce(): List<RoutingRule>
+
     @Query("SELECT * FROM routing_rule WHERE id = :id")
     suspend fun getRule(id: Long): RoutingRule?
 

@@ -17,10 +17,6 @@
     <!-- 文件存储权限（备份/恢复使用，Android 10+ 用 MediaStore，Android 11+ 需 MANAGE_EXTERNAL_STORAGE） -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
-    <!-- Android 13+ 媒体文件读取 -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
     <application
         android:name=".GatewayApplication"

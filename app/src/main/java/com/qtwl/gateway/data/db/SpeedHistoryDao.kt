@@ -21,6 +21,10 @@ interface SpeedHistoryDao {
     @Query("SELECT * FROM speed_history WHERE model_key = :modelKey ORDER BY measured_at ASC")
     suspend fun getHistoryByModelOnce(modelKey: String): List<SpeedHistory>
 
+    /** 获取所有测速历史（一次性，用于备份） */
+    @Query("SELECT * FROM speed_history ORDER BY measured_at ASC")
+    suspend fun getAllOnce(): List<SpeedHistory>
+
     /** 插入一条测速记录 */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(history: SpeedHistory): Long
