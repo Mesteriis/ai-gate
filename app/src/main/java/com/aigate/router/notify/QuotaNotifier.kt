@@ -10,8 +10,9 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.aigate.router.R
 import com.aigate.router.data.db.AppDatabase
+import com.aigate.router.quota.QuotaBurn
 import com.aigate.router.quota.QuotaRepository
-import com.aigate.router.quota.ResourcePressure
+import com.aigate.router.quota.ResourcePoolKind
 import com.aigate.router.service.GatewayForegroundService
 
 /**
@@ -42,33 +43,69 @@ object QuotaNotifier {
         GatewayForegroundService.saveGatewayConfig(KEY_THRESHOLD, value.coerceIn(0.01, 0.99).toString())
     }
 
+    /**
+     * Проверить все ресурсы и разослать заслуженные уведомления.
+     *
+     * Каждый ресурс оценивается своими настройками ([NotifyPrefs]), а темповые
+     * триггеры считаются от собственной истории расхода ([QuotaBurn]). Одно
+     * уведомление на цикл: повтор до сброса квоты не шлётся.
+     */
     suspend fun checkAndNotify(context: Context, db: AppDatabase) {
         if (!isEnabled()) return
         if (!hasNotificationPermission(context)) return
 
-        val quotas = QuotaRepository.latest(db)
-        val alerting = quotas.filter {
-            it.pressure == ResourcePressure.CRITICAL || it.pressure == ResourcePressure.CONSERVE
+        val now = System.currentTimeMillis()
+        val pools = QuotaRepository.latest(db)
+        val fresh = mutableListOf<QuotaTriggers.Alert>()
+
+        for (pq in pools) {
+            val kind = ResourcePoolKind.fromName(pq.pool.kind)
+            val snapshot = pq.snapshot
+            val resetsAt = snapshot?.resetsAt
+
+            // Сброс произошёл — прошлые уведомления цикла больше не в счёт.
+            val seenReset = NotifyPrefs.resetSeenAt(pq.pool.id)
+            if (resetsAt != null && seenReset != null && resetsAt != seenReset) {
+                NotifyPrefs.clearSent(pq.pool.id)
+            }
+
+            val history = runCatching { db.quotaSnapshotDao().getHistoryForPool(pq.pool.id) }
+                .getOrDefault(emptyList())
+            val alerts = QuotaTriggers.evaluate(
+                QuotaTriggers.Input(
+                    poolName = pq.pool.name,
+                    kind = kind,
+                    remaining = snapshot?.remaining,
+                    limit = snapshot?.limit,
+                    unit = snapshot?.unit ?: pq.pool.unit,
+                    resetsAt = resetsAt,
+                    rate = QuotaBurn.rate(history, now),
+                    settings = NotifyPrefs.load(pq.pool.id, kind),
+                    now = now,
+                    resetSeenAt = if (resetsAt != null && resetsAt == seenReset) seenReset else null,
+                )
+            )
+
+            for (alert in alerts) {
+                val trigger = alert.kind.name.lowercase()
+                if (NotifyPrefs.sentAt(pq.pool.id, trigger) != null) continue
+                fresh += alert
+                NotifyPrefs.markSent(pq.pool.id, trigger, now)
+                if (alert.kind == QuotaTriggers.Kind.RESET && resetsAt != null) {
+                    NotifyPrefs.markResetSeen(pq.pool.id, resetsAt)
+                }
+            }
+            if (resetsAt != null && seenReset == null) NotifyPrefs.markResetSeen(pq.pool.id, resetsAt)
         }
-        if (alerting.isEmpty()) {
+
+        if (fresh.isEmpty()) {
             NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
             return
         }
 
         ensureChannel(context)
-        val worst = if (alerting.any { it.pressure == ResourcePressure.CRITICAL })
-            ResourcePressure.CRITICAL else ResourcePressure.CONSERVE
-        val title = if (worst == ResourcePressure.CRITICAL)
-            "Ресурс на исходе" else "Пора экономить ресурс"
-        val lines = alerting.take(5).joinToString("\n") { pq ->
-            val name = pq.pool.name
-            val snap = pq.snapshot
-            val detail = if (snap?.remaining != null && snap.limit != null)
-                "осталось ${fmt(snap.remaining)} из ${fmt(snap.limit)} ${snap.unit}"
-            else "давление: ${pq.pressure.label}"
-            "• $name — $detail"
-        }
-
+        val title = fresh.first().title
+        val lines = fresh.joinToString("\n") { it.body }
         val notif = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_gate_fg)
             .setContentTitle(title)
@@ -106,6 +143,4 @@ object QuotaNotifier {
         }
     }
 
-    private fun fmt(v: Double): String =
-        if (v >= 100) "%.0f".format(v) else "%.2f".format(v)
 }
