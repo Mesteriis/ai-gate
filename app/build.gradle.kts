@@ -22,8 +22,12 @@ android {
     }
 
     lint {
-        checkReleaseBuilds = false
-        abortOnError = false
+        // Проверять релизные сборки и падать на новых ошибках; ранее известные
+        // проблемы зафиксированы в baseline, чтобы фейлить только регрессии.
+        checkReleaseBuilds = true
+        abortOnError = true
+        warningsAsErrors = false
+        baseline = file("lint-baseline.xml")
     }
 
     // Release signing is env-only; nothing keystore-shaped is committed to the repo.
@@ -102,7 +106,6 @@ dependencies {
     // OkHttp
     implementation(libs.okhttp)
     implementation(libs.okhttp.sse)
-    implementation(libs.okhttp.logging)
 
     // Kotlinx Serialization
     implementation(libs.kotlinx.serialization.json)
@@ -110,8 +113,8 @@ dependencies {
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
-    // WorkManager (定时备份)
-    implementation("androidx.work:work-runtime-ktx:2.9.1")
+    // WorkManager (плановое резервное копирование + обновление квот)
+    implementation(libs.androidx.work.runtime.ktx)
 
     // Test
     testImplementation(libs.junit)
