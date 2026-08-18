@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aigate.router.data.credential.CredentialStore
 import com.aigate.router.data.model.AiModel
+import com.aigate.router.data.model.routeKey
 import com.aigate.router.data.model.ModelRouteKey
 import com.aigate.router.data.model.Provider
 import com.aigate.router.gateway.VirtualModel
@@ -376,7 +377,23 @@ fun ModelsScreen(viewModel: GatewayViewModel) {
 }
 @Composable
 private fun ModelCard(model: AiModel, viewModel: GatewayViewModel) {
+    // Замер этой модели показываем прямо в строке: скорость нужна там, где
+    // выбирают модель, а не на главном экране.
+    val speeds by viewModel.latestSpeedHistory.collectAsState()
+    val providers by viewModel.providers.collectAsState()
+    val speed = remember(speeds, model.id) { speeds.firstOrNull { it.modelKey == model.routeKey } }
+    var showDetail by remember(model.id) { mutableStateOf(false) }
+
+    if (showDetail) {
+        ModelDetailSheet(
+            model = model,
+            provider = providers.firstOrNull { it.id == model.providerId },
+            onDismiss = { showDetail = false },
+        )
+    }
+
     Card(
+        onClick = { showDetail = true },
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = if (model.isEnabled)
@@ -413,6 +430,13 @@ private fun ModelCard(model: AiModel, viewModel: GatewayViewModel) {
                     }
                     Text(
                         text = "ID: ${model.modelId}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = speed?.takeIf { it.success }?.let {
+                            "${com.aigate.router.ui.design.Fmt.latency(it.ttftMs)} · ${"%.0f".format(it.tps)} ток/с"
+                        } ?: "замера нет",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

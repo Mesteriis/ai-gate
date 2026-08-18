@@ -20,6 +20,21 @@ object Fmt {
     }
 
     /** Компактные числа: 842 · 12,4K · 3,1M */
+    /**
+     * Русское склонение по числу: plural(2, "вызов", "вызова", "вызовов").
+     * Без него в интерфейсе появлялись строки вида «за 2 вызовов».
+     */
+    fun plural(count: Long, one: String, few: String, many: String): String {
+        val mod100 = count % 100
+        val mod10 = count % 10
+        return when {
+            mod100 in 11..14 -> many
+            mod10 == 1L -> one
+            mod10 in 2..4 -> few
+            else -> many
+        }
+    }
+
     fun compact(value: Long): String = when {
         value < 1_000 -> value.toString()
         value < 1_000_000 -> "%.1fK".format(value / 1_000.0)
