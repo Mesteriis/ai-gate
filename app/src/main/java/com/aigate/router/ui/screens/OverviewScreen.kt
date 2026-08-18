@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.outlined.AllInclusive
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.OutlinedButton
@@ -50,6 +52,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.aigate.router.GatewayApplication
 import com.aigate.router.quota.QuotaRepository
+import com.aigate.router.quota.QuotaBurn
 import com.aigate.router.quota.ResourcePoolKind
 import com.aigate.router.service.GatewayForegroundService
 import com.aigate.router.ui.design.AppCard
@@ -60,6 +63,7 @@ import com.aigate.router.ui.design.Gateway
 import com.aigate.router.ui.design.HelpSection
 import com.aigate.router.ui.design.HelpSheet
 import com.aigate.router.ui.design.MetricTile
+import com.aigate.router.ui.design.ProviderAvatar
 import com.aigate.router.ui.design.QuotaRing
 import com.aigate.router.ui.design.SectionHeader
 import com.aigate.router.ui.design.StatusChip
@@ -154,7 +158,10 @@ fun OverviewScreen(
         }
 
         SectionHeader("Ресурсы провайдеров")
-        QuotaStrip(pools = pools)
+        QuotaStrip(
+            pools = pools,
+            providerTypes = providers.associate { it.id to it.type },
+        )
 
         val forecast = usage?.first
         val days = usage?.second.orEmpty()
@@ -296,7 +303,10 @@ private fun AddressRow(label: String, value: String, onCopy: (String, String) ->
 
 /** Кольца квот по пулам — вместо тонкой полоски, спрятанной в подразделе. */
 @Composable
-private fun QuotaStrip(pools: List<QuotaRepository.PoolQuota>) {
+private fun QuotaStrip(
+    pools: List<QuotaRepository.PoolQuota>,
+    providerTypes: Map<Long, String>,
+) {
     if (pools.isEmpty()) {
         AppCard(tone = CardTone.Raised) {
             Text(
@@ -309,13 +319,28 @@ private fun QuotaStrip(pools: List<QuotaRepository.PoolQuota>) {
     }
     // Все пулы, а не первые три: скрывать часть ресурсов на дашборде нельзя,
     // поэтому ряд горизонтально прокручивается.
+    var notifyFor by remember { mutableStateOf<QuotaRepository.PoolQuota?>(null) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(Gateway.spacing.md),
     ) {
-        pools.forEach { pq -> ResourceTile(pq) }
+        pools.forEach { pq ->
+            ResourceTile(
+                pq = pq,
+                providerType = providerTypes[pq.pool.providerId].orEmpty(),
+                onClick = { notifyFor = pq },
+            )
+        }
+    }
+
+    notifyFor?.let { pq ->
+        ResourceNotifySheet(
+            pool = pq.pool,
+            kind = ResourcePoolKind.fromName(pq.pool.kind),
+            onDismiss = { notifyFor = null },
+        )
     }
 }
 
@@ -325,23 +350,56 @@ private fun QuotaStrip(pools: List<QuotaRepository.PoolQuota>) {
  * только сумма на счету, у бесплатного ресурса нет ни того, ни другого.
  */
 @Composable
-private fun ResourceTile(pq: QuotaRepository.PoolQuota) {
+private fun ResourceTile(
+    pq: QuotaRepository.PoolQuota,
+    providerType: String,
+    onClick: () -> Unit,
+) {
     val kind = ResourcePoolKind.fromName(pq.pool.kind)
     val snapshot = pq.snapshot
     val unit = snapshot?.unit ?: pq.pool.unit
+    // Прогноз считаем от истории расхода: он даёт «хватит до» или «сгорит».
+    val db = remember { GatewayApplication.getInstance().database }
+    val outlook by produceState<QuotaBurn.Outlook?>(initialValue = null, pq.pool.id, snapshot?.updatedAt) {
+        val remaining = snapshot?.remaining
+        val resetsAt = snapshot?.resetsAt
+        value = if (remaining == null || resetsAt == null) null else withContext(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+            QuotaBurn.rate(db.quotaSnapshotDao().getHistoryForPool(pq.pool.id), now)
+                ?.let { QuotaBurn.outlook(remaining, resetsAt, it, now) }
+        }
+    }
 
-    AppCard(tone = CardTone.Raised, modifier = Modifier.width(168.dp)) {
+    AppCard(
+        tone = CardTone.Raised,
+        onClick = onClick,
+        // Одинаковая высота: плитки не «прыгают» от разного набора данных.
+        modifier = Modifier.width(168.dp).height(190.dp),
+    ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(Gateway.spacing.sm),
+            verticalArrangement = Arrangement.SpaceBetween,
         ) {
+            // Шапка: тип несёт логотип, крупно — имя провайдера.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ProviderAvatar(name = pq.pool.name, type = providerType, size = 16.dp)
+                Spacer(Modifier.width(Gateway.spacing.xs))
+                Text(
+                    text = pq.pool.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
             when {
                 kind == ResourcePoolKind.FREE -> Icon(
-                    imageVector = Icons.Outlined.Dns,
+                    imageVector = Icons.Outlined.AllInclusive,
                     contentDescription = null,
                     tint = Gateway.colors.success,
-                    modifier = Modifier.size(84.dp).padding(Gateway.spacing.lg),
+                    modifier = Modifier.size(72.dp).padding(Gateway.spacing.md),
                 )
 
                 kind.hasFraction -> {
@@ -352,13 +410,12 @@ private fun ResourceTile(pq: QuotaRepository.PoolQuota) {
                             (used / limit).toFloat()
                         } else null,
                         pressure = pq.pressure,
-                        size = 84.dp,
+                        size = 86.dp,
                     )
                 }
 
                 else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    // У баланса нет «процента остатка»: доля от изначального
-                    // пополнения провайдером не отдаётся, поэтому только сумма.
+                    // У баланса процентов нет: изначальное пополнение неизвестно.
                     Text(
                         text = snapshot?.remaining?.let { Fmt.quota(it, unit) } ?: "—",
                         style = MaterialTheme.typography.headlineMedium,
@@ -366,9 +423,9 @@ private fun ResourceTile(pq: QuotaRepository.PoolQuota) {
                         color = if (snapshot?.remaining != null) MaterialTheme.colorScheme.onSurface
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    snapshot?.used?.let { spent ->
+                    snapshot?.used?.let {
                         Text(
-                            text = "потрачено ${Fmt.quota(spent, unit)}",
+                            text = "потрачено ${Fmt.quota(it, unit)}",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -376,31 +433,38 @@ private fun ResourceTile(pq: QuotaRepository.PoolQuota) {
                 }
             }
 
+            // Нижняя строка: что будет дальше — из расчёта, а не из порога.
             Text(
-                text = pq.pool.name,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
+                text = tileFooter(kind, snapshot?.resetsAt, outlook),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            StatusChip(
-                text = if (kind == ResourcePoolKind.FREE) kind.label else "${kind.label} · ${pq.pressure.label}",
-                tone = if (kind == ResourcePoolKind.FREE) StatusTone.Success else pressureTone(pq.pressure),
-            )
-            if (kind.hasReset) {
-                snapshot?.resetsAt?.let { resetsAt ->
-                    val left = resetsAt - System.currentTimeMillis()
-                    if (left > 0) {
-                        Text(
-                            text = "сброс через ${Fmt.duration(left)}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
         }
     }
+}
+
+/**
+ * Подпись под значением: «хватит до …», если квота кончится раньше сброса;
+ * «сгорит …», если часть останется неиспользованной; иначе срок сброса.
+ * У бесплатного ресурса и без данных — пустая строка, а не выдумка.
+ */
+private fun tileFooter(
+    kind: ResourcePoolKind,
+    resetsAt: Long?,
+    outlook: QuotaBurn.Outlook?,
+): String {
+    if (kind == ResourcePoolKind.FREE) return "без лимита"
+    outlook?.let { o ->
+        o.exhaustAtMs?.let { return "хватит до ${Fmt.time(it)}" }
+        if (o.surplus > 0.0) return "сгорит ${Math.round(o.surplus)}"
+    }
+    if (kind.hasReset && resetsAt != null) {
+        val left = resetsAt - System.currentTimeMillis()
+        if (left > 0) return "сброс через ${Fmt.duration(left)}"
+    }
+    return ""
 }
 
 /**
