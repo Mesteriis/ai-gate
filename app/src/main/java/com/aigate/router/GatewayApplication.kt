@@ -30,7 +30,12 @@ class GatewayApplication : Application() {
         // ★★ 预加载凭据缓存（Keystore 解密），确保网关启动后能解析上游密钥 ★★
         applicationScope.launch(Dispatchers.IO) {
             try { CredentialStore.load(database) } catch (_: Exception) { }
+            // Засев встроенной таблицы цен + первичный расчёт квот (локальный usage).
+            try { com.aigate.router.pricing.PricingTable.seedIfNeeded(database) } catch (_: Exception) { }
+            try { com.aigate.router.quota.QuotaRepository.refreshAll(database) } catch (_: Exception) { }
         }
+        // Периодическое обновление квот (каждые 6ч; не поллинг).
+        com.aigate.router.quota.QuotaRefreshWorker.schedule(this)
         // ★★ 从 SharedPreferences 恢复上次网关运行状态（进程重建时最可靠的初始化）★★
         if (GatewayForegroundService.getGatewayWasRunning()) {
             GatewayForegroundService.isServiceRunning = true

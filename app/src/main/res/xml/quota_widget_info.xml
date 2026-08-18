@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Один изменяемый по размеру виджет (2×2 / 4×1 / 4×2 через resizeMode).
+    updatePeriodMillis=0 — систему НЕ просим обновлять; обновления гонит WorkManager
+    (QuotaRefreshWorker) через QuotaWidgetProvider.refresh(context).
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/widget_quota"
+    android:previewLayout="@layout/widget_quota"
+    android:widgetCategory="home_screen" />

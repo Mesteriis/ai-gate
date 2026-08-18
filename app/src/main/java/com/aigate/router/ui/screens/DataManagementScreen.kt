@@ -128,6 +128,7 @@ fun DataManagementScreen(
     var showModelsOverlay by remember { mutableStateOf(false) }
     var showStatsOverlay by remember { mutableStateOf(false) }
     var showAboutOverlay by remember { mutableStateOf(false) }
+    var showResourcesOverlay by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -177,6 +178,21 @@ fun DataManagementScreen(
                         Column(Modifier.weight(1f)) {
                             Text("О программе", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                             Text("Версия и информация", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            // Ресурсы и квоты (полноэкранный оверлей)
+            Card(modifier = Modifier.fillMaxWidth().clickable { showResourcesOverlay = true }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("💳 Ресурсы и квоты", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text("Квоты, бюджет, стратегия маршрутизации", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -968,6 +984,10 @@ Text("💡 Формат копии: .qtbk (GZIP+SHA256+AES-256)")
                 AboutScreen(viewModel)
             }
         }
+    }
+    // Ресурсы и квоты — экран уже содержит собственную шапку с кнопкой «назад»
+    if (showResourcesOverlay) {
+        ResourcesScreen(onBack = { showResourcesOverlay = false })
     }
 
     // 代理管理弹窗（AboutScreen 连点触发）

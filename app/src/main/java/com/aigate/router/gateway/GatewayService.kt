@@ -1416,7 +1416,7 @@ private suspend fun proxyRequest(call: ApplicationCall, database: AppDatabase) {
 
             // 已移除 refreshHealthCache — 每次请求都触发健康检查会导致模型一直在跑
             val allEnabled = database.aiModelDao().getEnabledModelsList().filter { it.isEnabled }
-val attemptModels: List<AiModel> = if (allEnabled.isNotEmpty()) {
+val baseAttempts: List<AiModel> = if (allEnabled.isNotEmpty()) {
                     // ★★ 自动化切换 (auto) ★★
                     if (VirtualModel.isVirtual(modelId)) {
                         val autoModelEnabled = GatewayForegroundService.getAutoModelEnabled()
@@ -1471,6 +1471,13 @@ val attemptModels: List<AiModel> = if (allEnabled.isNotEmpty()) {
             } else {
                 emptyList()
             }
+
+            // ★★ Resource-aware routing (Phase 13): переупорядочить кандидатов auto по стратегии ★★
+            val attemptModels: List<AiModel> = if (VirtualModel.isVirtual(modelId) && baseAttempts.size > 1) {
+                com.aigate.router.routing.ResourceAwareRouter.reorder(
+                    database, baseAttempts, call.request.headers["X-AIGate-Workload"]
+                )
+            } else baseAttempts
 
             var lastError: String? = null
             var failCount = 0
@@ -1647,6 +1654,9 @@ private suspend fun pipeNormalResponse(
         val url = resolvedUrl + upstreamPath
         val pipeStartTime = System.currentTimeMillis()
 
+        // OAuth pre-flight: обновить истекающий токен (single-flight) до чтения из кэша.
+        com.aigate.router.auth.AuthRegistry.ensureFreshForProvider(database, provider)
+
         val reqBody = rawBody.toRequestBody(DEFAULT_CT)
         val request = okhttp3.Request.Builder()
             .url(url)
@@ -1806,6 +1816,9 @@ private suspend fun pipeStreamResponse(
     } else path
     val url = resolvedUrl + upstreamPath
     val httpClient = if (useProxy) UpstreamClient.getOkHttpClient() else UpstreamClient.getDirectClient()
+
+    // OAuth pre-flight: обновить истекающий токен (single-flight) до чтения из кэша.
+    com.aigate.router.auth.AuthRegistry.ensureFreshForProvider(database, provider)
 
     // 在 IO 线程发起请求，拿到 response 对象（不读 body）
     val response = withContext(Dispatchers.IO) {
