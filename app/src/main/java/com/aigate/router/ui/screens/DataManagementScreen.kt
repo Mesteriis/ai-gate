@@ -85,9 +85,9 @@ fun DataManagementScreen(
     ) { granted ->
         scope.launch {
             if (granted) {
-                snackbarHostState.showSnackbar(localizedText("✅ 文件存储权限已授予", "✅ File storage permission granted"))
+                snackbarHostState.showSnackbar("✅ Разрешение на доступ к файлам предоставлено")
             } else {
-                snackbarHostState.showSnackbar(localizedText("⚠️ 权限被拒，备份将使用 MediaStore 保存到 Downloads", "⚠️ Permission denied; backup will be saved to Downloads via MediaStore"))
+                snackbarHostState.showSnackbar("⚠️ Доступ запрещён; резервная копия будет сохранена в Downloads через MediaStore")
             }
         }
     }
@@ -109,12 +109,12 @@ fun DataManagementScreen(
                         viewModel.restoreFromFile(tempFile.absolutePath)
                     }
                     result.onSuccess {
-                        snackbarHostState.showSnackbar(localizedText("✅ 数据恢复成功！", "✅ Data restored successfully!"))
+                        snackbarHostState.showSnackbar("✅ Данные успешно восстановлены!")
                     }.onFailure { e ->
-                        snackbarHostState.showSnackbar(localizedText("❌ 恢复失败: ", "❌ Restore failed: ") + e.message)
+                        snackbarHostState.showSnackbar("❌ Ошибка восстановления: " + e.message)
                     }
                 } catch (e: Exception) {
-                    snackbarHostState.showSnackbar(localizedText("❌ 读取文件失败: ", "❌ Failed to read file: ") + e.message)
+                    snackbarHostState.showSnackbar("❌ Не удалось прочитать файл: " + e.message)
                 }
             }
         }
@@ -142,8 +142,8 @@ fun DataManagementScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
             // 标题
-            Text(localizedText("⚙️ Настройки", "⚙️ Settings"), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text(localizedText("Провайдеры, ключи, прокси, резервные копии и разделы приложения", "Providers, keys, proxy, backups and app sections"),
+            Text("⚙️ Настройки", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text("Провайдеры, ключи, прокси, резервные копии и разделы приложения",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(8.dp))
@@ -155,8 +155,8 @@ fun DataManagementScreen(
                         Icon(Icons.Default.SmartToy, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(localizedText("Модели", "Models"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text(localizedText("Список моделей и синхронизация", "Model list & sync"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Модели", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text("Список моделей и синхронизация", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -165,8 +165,8 @@ fun DataManagementScreen(
                         Icon(Icons.Default.BarChart, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(localizedText("Статистика", "Statistics"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text(localizedText("Токены, трафик, скорость", "Tokens, traffic, speed"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Статистика", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text("Токены, трафик, скорость", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -175,8 +175,8 @@ fun DataManagementScreen(
                         Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(localizedText("О программе", "About"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text(localizedText("Версия и информация", "Version & info"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("О программе", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text("Версия и информация", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -189,14 +189,14 @@ fun DataManagementScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.BatterySaver, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(localizedText("🔄 自启管理", "🔄 Auto-start management"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("🔄 Управление автозапуском", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(localizedText("确保应用能在后台自启动，不被系统杀死。", "Ensure the app can auto-start in the background and is not killed by the system."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Гарантирует автозапуск приложения в фоне и защиту от завершения системой.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(onClick = { viewModel.bindBackgroundPermissions() }, modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)) {
-                        Text(localizedText("🔗 一键引导自启授权", "🔗 One-tap auto-start authorization guide"))
+                        Text("🔗 Настроить разрешения автозапуска в один тап")
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -210,7 +210,7 @@ fun DataManagementScreen(
                         }, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Default.Settings, contentDescription = null)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(localizedText("系统设置", "System settings"))
+                            Text("Системные настройки")
                         }
                         OutlinedButton(onClick = {
                             try {
@@ -220,7 +220,7 @@ fun DataManagementScreen(
                         }, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Default.BatterySaver, contentDescription = null)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(localizedText("电池优化", "Battery optimization"))
+                            Text("Оптимизация батареи")
                         }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
@@ -234,8 +234,8 @@ fun DataManagementScreen(
                         Icon(Icons.Default.VisibilityOff, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(localizedText("👻 隐藏多任务", "👻 Hide from recents"), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                            Text(localizedText("开启后APP不在多任务列表中显示", "When enabled, the app won't appear in the recent tasks list"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("👻 Скрыть из недавних", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Text("Если включено, приложение не отображается в списке недавних задач", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Switch(
                             checked = hideFromRecents,
@@ -262,10 +262,10 @@ fun DataManagementScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Save, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(localizedText("💾 备份 & 恢复", "💾 Backup & Restore"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("💾 Резервное копирование и восстановление", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(localizedText("手动备份 / 定时自动备份 / 从备份文件一键恢复", "Manual backup / scheduled automatic backup / one-tap restore from backup file"),
+                    Text("Ручная копия / автоматическое копирование по расписанию / восстановление из файла в один тап",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(12.dp))
 
@@ -282,7 +282,7 @@ fun DataManagementScreen(
                     var showTimePicker by remember { mutableStateOf(false) }
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text(localizedText("⏰ 定时自动备份", "⏰ Scheduled automatic backup"), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                        Text("⏰ Автоматическое копирование по расписанию", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                         Switch(
                             checked = autoBackupEnabled.value,
                             onCheckedChange = { enabled ->
@@ -303,7 +303,7 @@ fun DataManagementScreen(
                     if (autoBackupEnabled.value) {
                         Spacer(modifier = Modifier.height(4.dp))
                         TextButton(onClick = { showTimePicker = true }) {
-                            Text(localizedText("🕐 备份时间: ", "🕐 Backup time: ") + String.format("%02d", autoBackupHour.value) + ":" + String.format("%02d", autoBackupMinute.value), style = MaterialTheme.typography.bodySmall)
+                            Text("🕐 Время копирования: " + String.format("%02d", autoBackupHour.value) + ":" + String.format("%02d", autoBackupMinute.value), style = MaterialTheme.typography.bodySmall)
                         }
                     }
 
@@ -311,16 +311,16 @@ fun DataManagementScreen(
                     if (showTimePicker) {
                         AlertDialog(
                             onDismissRequest = { showTimePicker = false },
-                            title = { Text(localizedText("设置自动备份时间", "Set automatic backup time")) },
+                            title = { Text("Настроить время автоматического копирования") },
                             text = {
                                 Column {
-                                    Text(localizedText("选择每天自动备份的小时和分钟", "Choose the hour and minute for daily automatic backup"), style = MaterialTheme.typography.bodySmall)
+                                    Text("Выберите час и минуту ежедневного автоматического копирования", style = MaterialTheme.typography.bodySmall)
                                     Spacer(modifier = Modifier.height(12.dp))
                                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                         OutlinedTextField(
                                             value = autoBackupHour.value.toString(),
                                             onValueChange = { v -> v.toIntOrNull()?.let { if (it in 0..23) autoBackupHour.value = it } },
-                                            label = { Text(localizedText("小时 (0-23)", "Hour (0-23)")) },
+                                            label = { Text("Час (0-23)") },
                                             singleLine = true, modifier = Modifier.width(120.dp),
                                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                         )
@@ -328,7 +328,7 @@ fun DataManagementScreen(
                                         OutlinedTextField(
                                             value = autoBackupMinute.value.toString(),
                                             onValueChange = { v -> v.toIntOrNull()?.let { if (it in 0..59) autoBackupMinute.value = it } },
-                                            label = { Text(localizedText("分钟 (0-59)", "Minute (0-59)")) },
+                                            label = { Text("Минута (0-59)") },
                                             singleLine = true, modifier = Modifier.width(120.dp),
                                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                         )
@@ -340,9 +340,9 @@ fun DataManagementScreen(
                                     GatewayForegroundService.saveGatewayConfig("auto_backup_hour", autoBackupHour.value.toString())
                                     GatewayForegroundService.saveGatewayConfig("auto_backup_minute", autoBackupMinute.value.toString())
                                     showTimePicker = false
-                                }) { Text(localizedText("确定", "OK")) }
+                                }) { Text("OK") }
                             },
-                            dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text(localizedText("取消", "Cancel")) } }
+                            dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text("Отмена") } }
                         )
                     }
 
@@ -363,23 +363,23 @@ fun DataManagementScreen(
                                     val file = java.io.File(dir, "backup_$timeStr.qtbk")
                                     val result = manager.exportToFile(file)
                                     result.onSuccess {
-                                        snackbarHostState.showSnackbar(localizedText("✅ 备份完成: ", "✅ Backup complete: ") + file.name)
-                                    }.onFailure { e -> snackbarHostState.showSnackbar(localizedText("❌ 备份失败: ", "❌ Backup failed: ") + e.message) }
+                                        snackbarHostState.showSnackbar("✅ Копирование завершено: " + file.name)
+                                    }.onFailure { e -> snackbarHostState.showSnackbar("❌ Ошибка копирования: " + e.message) }
                                 } catch (e: Exception) {
-                                    snackbarHostState.showSnackbar(localizedText("❌ 备份失败: ", "❌ Backup failed: ") + e.message)
+                                    snackbarHostState.showSnackbar("❌ Ошибка копирования: " + e.message)
                                 }
                             }
                         }, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Default.Save, contentDescription = null)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(localizedText("立即备份", "Back up now"))
+                            Text("Создать копию сейчас")
                         }
                         OutlinedButton(onClick = {
                             showBackupList = true
                         }, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Default.Restore, contentDescription = null)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(localizedText("恢复备份", "Restore backup"))
+                            Text("Восстановить из копии")
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
@@ -390,14 +390,14 @@ fun DataManagementScreen(
                                 val result = withContext(Dispatchers.IO) { viewModel.getBackupJson() }
                                 result.onSuccess { json ->
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    clipboard.setPrimaryClip(ClipData.newPlainText(localizedText("AI网关备份", "AI Gateway Backup"), json))
-                                    snackbarHostState.showSnackbar(localizedText("✅ 备份 JSON 已复制到剪贴板", "✅ Backup JSON copied to clipboard"))
-                                }.onFailure { e -> snackbarHostState.showSnackbar(localizedText("❌ 导出失败: ", "❌ Export failed: ") + e.message) }
+                                    clipboard.setPrimaryClip(ClipData.newPlainText("Резервная копия AI-шлюза", json))
+                                    snackbarHostState.showSnackbar("✅ JSON резервной копии скопирован в буфер обмена")
+                                }.onFailure { e -> snackbarHostState.showSnackbar("❌ Ошибка экспорта: " + e.message) }
                             }
                         }, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Default.ContentCopy, contentDescription = null)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(localizedText("复制到剪贴板", "Copy to clipboard"))
+                            Text("Копировать в буфер обмена")
                         }
                         OutlinedButton(onClick = {
                             scope.launch {
@@ -405,13 +405,13 @@ fun DataManagementScreen(
                                 result.onSuccess { json ->
                                     context.startActivity(Intent.createChooser(Intent().apply {
                                         action = Intent.ACTION_SEND; putExtra(Intent.EXTRA_TEXT, json); type = "application/json"
-                                    }, localizedText("分享备份", "Share backup")))
-                                }.onFailure { e -> snackbarHostState.showSnackbar(localizedText("❌ 导出失败: ", "❌ Export failed: ") + e.message) }
+                                    }, "Поделиться копией"))
+                                }.onFailure { e -> snackbarHostState.showSnackbar("❌ Ошибка экспорта: " + e.message) }
                             }
                         }, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Default.Share, contentDescription = null)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(localizedText("分享", "Share"))
+                            Text("Поделиться")
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
@@ -421,25 +421,25 @@ fun DataManagementScreen(
                     }, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Default.NoteAdd, contentDescription = null)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(localizedText("📂 手动导入（选择 .qtbk 文件）", "📂 Manual import (select .qtbk file)"))
+                        Text("📂 Ручной импорт (выбрать файл .qtbk)")
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     if (autoBackupEnabled.value) {
-                        Text(localizedText("⏱️ 下次自动备份: ", "⏱️ Next automatic backup: ") + String.format("%02d", autoBackupHour.value) + ":" + String.format("%02d", autoBackupMinute.value),
+                        Text("⏱️ Следующее автоматическое копирование: " + String.format("%02d", autoBackupHour.value) + ":" + String.format("%02d", autoBackupMinute.value),
                             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                     } else {
-Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加密)", "💡 Backup format: .qtbk (GZIP+SHA256+AES-256)"))
+Text("💡 Формат копии: .qtbk (GZIP+SHA256+AES-256)")
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     // ★ 测试备份按钮
                     OutlinedButton(onClick = {
                         com.aigate.router.data.db.AutoBackupWorker.scheduleTest(context)
-                        scope.launch { snackbarHostState.showSnackbar(localizedText("🧪 测试备份已调度（10秒后执行）", "🧪 Test backup scheduled (10 seconds)")) }
+                        scope.launch { snackbarHostState.showSnackbar("🧪 Тестовое копирование запланировано (через 10 секунд)") }
                     }, modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.secondary)) {
                         Icon(Icons.Default.BugReport, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(localizedText("🧪 测试备份（10秒后执行）", "🧪 Test backup (10 seconds)"))
+                        Text("🧪 Тестовое копирование (через 10 секунд)")
                     }
                     Spacer(modifier = Modifier.height(4.dp))
 
@@ -457,14 +457,14 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
                         }
                         AlertDialog(
                             onDismissRequest = { showBackupList = false },
-                            title = { Text(localizedText("选择备份文件恢复", "Select backup file to restore"), fontWeight = FontWeight.Bold) },
+                            title = { Text("Выберите файл копии для восстановления", fontWeight = FontWeight.Bold) },
                             text = {
                                 if (isLoading) {
                                     Box(Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
                                         CircularProgressIndicator()
                                     }
                                 } else if (backupFiles.isEmpty()) {
-                                    Text(localizedText("未找到备份文件\n请先点击「立即备份」创建备份", "No backup files found\nTap Back up now to create a backup first"), style = MaterialTheme.typography.bodyMedium)
+                                    Text("Файлы копий не найдены\nСначала нажмите «Создать копию сейчас», чтобы создать копию", style = MaterialTheme.typography.bodyMedium)
                                 } else {
                                     LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
                                         items(backupFiles) { meta ->
@@ -478,13 +478,13 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
                                                                 manager.importFromFile(java.io.File(meta.filePath))
                                                             }
                                                             result.onSuccess {
-                                                                snackbarHostState.showSnackbar(localizedText("✅ 数据恢复成功！", "✅ Data restored successfully!"))
+                                                                snackbarHostState.showSnackbar("✅ Данные успешно восстановлены!")
                                                                 showBackupList = false
                                                             }.onFailure { e ->
-                                                                snackbarHostState.showSnackbar(localizedText("❌ 恢复失败: ", "❌ Restore failed: ") + e.message)
+                                                                snackbarHostState.showSnackbar("❌ Ошибка восстановления: " + e.message)
                                                             }
                                                         } catch (e: Exception) {
-                                                            snackbarHostState.showSnackbar(localizedText("❌ 读取备份失败: ", "❌ Failed to read backup: ") + e.message)
+                                                            snackbarHostState.showSnackbar("❌ Не удалось прочитать копию: " + e.message)
                                                         }
                                                     }
                                                 },
@@ -497,14 +497,14 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
                                                         Text(meta.fileName, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                         Text(meta.sizeReadable + " - " + meta.createdAtReadable, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                     }
-                                                    Icon(Icons.Default.RestorePage, contentDescription = localizedText("恢复", "Restore"), tint = MaterialTheme.colorScheme.primary)
+                                                    Icon(Icons.Default.RestorePage, contentDescription = "Восстановить", tint = MaterialTheme.colorScheme.primary)
                                                 }
                                             }
                                         }
                                     }
                                 }
                             },
-                            confirmButton = { TextButton(onClick = { showBackupList = false }) { Text(localizedText("关闭", "Close")) } }
+                            confirmButton = { TextButton(onClick = { showBackupList = false }) { Text("Закрыть") } }
                         )
                     }
                 }
@@ -516,26 +516,26 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Route, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(localizedText("🔀 路由规则", "🔀 Routing rules"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("🔀 Правила маршрутизации", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(localizedText("自定义请求转发规则，根据路径、模型名、API密钥等条件路由到指定模型或拒绝请求", "Custom routing rules to forward/block requests based on path, model name, API key, etc."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Пользовательские правила маршрутизации: перенаправление/блокировка запросов по пути, имени модели, API-ключу и т. д.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { showRoutingRules = true }, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Default.Rule, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(localizedText("管理规则", "Manage rules"))
+                            Text("Управление правилами")
                         }
                         OutlinedButton(onClick = {
                             scope.launch {
                                 val rules = withContext(Dispatchers.IO) { viewModel.getAllRoutingRules() }
-                                snackbarHostState.showSnackbar(localizedText("已加载 ", "Loaded ") + rules.size + localizedText(" 条规则", " rules"))
+                                snackbarHostState.showSnackbar("Загружено " + rules.size + " правил")
                             }
                         }, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(localizedText("刷新", "Refresh"))
+                            Text("Обновить")
                         }
                     }
                 }
@@ -559,8 +559,8 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
                         Column(modifier = Modifier.weight(1f)) {
                             Text(tr("auto_follow_system"), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                             Text(
-                                if (autoDetect) localizedText("当前: ", "Current: ") + currentLang.displayName
-                                else localizedText("手动: ", "Manual: ") + currentLang.displayName,
+                                if (autoDetect) "Текущий: " + currentLang.displayName
+                                else "Вручную: " + currentLang.displayName,
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -616,7 +616,7 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
                             }
                         }
                     },
-                    confirmButton = { TextButton(onClick = { showLangSelector = false }) { Text(localizedText("关闭", "Close")) } }
+                    confirmButton = { TextButton(onClick = { showLangSelector = false }) { Text("Закрыть") } }
                 )
             }
 
@@ -628,8 +628,8 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
                         Icon(Icons.Default.VpnKey, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(localizedText("🔑 API 密钥管理", "🔑 API Key management"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text(localizedText("管理访问密钥，本地请求免密钥，每把钥匙可单独控制模型访问权限", "Manage access keys. Local requests are exempt. Each key can control model access individually"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("🔑 Управление API-ключами", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text("Управление ключами доступа. Локальные запросы не требуют ключа. Каждый ключ отдельно управляет доступом к моделям", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -648,8 +648,8 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
                         Icon(Icons.Default.Lan, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(localizedText("🌐 LAN-режим", "🌐 LAN mode"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text(localizedText("По умолчанию шлюз слушает только 127.0.0.1. Включите доступ из локальной сети по паролю.", "By default the gateway listens on 127.0.0.1 only. Enable LAN access protected by a password."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("🌐 LAN-режим", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text("По умолчанию шлюз слушает только 127.0.0.1. Включите доступ из локальной сети по паролю.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Switch(checked = lanEnabled, onCheckedChange = { lanEnabled = it; lanSavedHint = false })
                     }
@@ -658,7 +658,7 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
                         OutlinedTextField(
                             value = lanToken,
                             onValueChange = { lanToken = it; lanSavedHint = false },
-                            label = { Text(localizedText("Пароль (Bearer-токен для LAN)", "Password (Bearer token for LAN)")) },
+                            label = { Text("Пароль (Bearer-токен для LAN)") },
                             singleLine = true,
                             visualTransformation = if (lanTokenVisible) VisualTransformation.None else PasswordVisualTransformation(),
                             trailingIcon = {
@@ -668,7 +668,7 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
                             },
                             modifier = Modifier.fillMaxWidth()
                         )
-                        Text(localizedText("Все запросы не с 127.0.0.1 обязаны прислать этот пароль как «Authorization: Bearer <пароль>».", "Every non-loopback request must send this password as \"Authorization: Bearer <password>\"."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Каждый запрос не с 127.0.0.1 обязан прислать этот пароль как «Authorization: Bearer <пароль>».", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Spacer(Modifier.height(8.dp))
                     Button(
@@ -678,10 +678,10 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
                             lanSavedHint = true
                         },
                         enabled = !lanEnabled || lanToken.isNotBlank()
-                    ) { Text(localizedText("Сохранить и применить", "Save & apply")) }
+                    ) { Text("Сохранить и применить") }
                     if (lanSavedHint) {
                         Spacer(Modifier.height(4.dp))
-                        Text(localizedText("Сохранено. Перезапустите шлюз, чтобы применить адрес прослушивания.", "Saved. Restart the gateway to apply the listen address."), style = MaterialTheme.typography.bodySmall, color = Online)
+                        Text("Сохранено. Перезапустите шлюз, чтобы применить адрес прослушивания.", style = MaterialTheme.typography.bodySmall, color = Online)
                     }
                 }
             }
@@ -694,25 +694,25 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.BugReport, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(localizedText("🔍 网关抓包", "🔍 Gateway packet capture"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("🔍 Перехват пакетов шлюза", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(localizedText("开启后记录所有网关请求/响应到内存，可查看最近20条（含实时输入/输出流量）", "When enabled, records all gateway requests/responses in memory; view the latest 20 records including live input/output traffic"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Если включено, все запросы/ответы шлюза записываются в память; можно просмотреть последние 20 записей, включая трафик ввода/вывода в реальном времени", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Button(onClick = { viewModel.toggleDebugMode() }, colors = ButtonDefaults.buttonColors(
                             containerColor = if (debugMode) Error else Online)) {
-                            Text(if (debugMode) localizedText("⏹ 停止抓包", "⏹ Stop capture") else localizedText("▶️ 开始抓包", "▶️ Start capture"))
+                            Text(if (debugMode) "⏹ Остановить перехват" else "▶️ Начать перехват")
                         }
                         OutlinedButton(onClick = { showDebugLogs = true }) {
                             Icon(Icons.Default.List, contentDescription = null)
                             Spacer(Modifier.width(4.dp))
-                            Text(localizedText("查看日志", "View logs"))
+                            Text("Просмотр логов")
                         }
                     }
                     if (debugMode) {
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(localizedText("🟢 抓包运行中...", "🟢 Capture running..."), style = MaterialTheme.typography.labelSmall, color = Online)
+                        Text("🟢 Перехват выполняется...", style = MaterialTheme.typography.labelSmall, color = Online)
                     }
                 }
             }
@@ -727,31 +727,31 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.DeleteForever, contentDescription = null, tint = Error)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(localizedText("重置所有数据", "Reset all data"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Error)
+                        Text("Сбросить все данные", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Error)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(localizedText("⚠️ 此操作将清空所有服务商、模型、聊天记录和 Token 用量，不可恢复！", "⚠️ This will delete all providers, models, chats, and token usage. It cannot be undone!"),
+                    Text("⚠️ Это удалит всех провайдеров, модели, историю чатов и статистику токенов. Отменить нельзя!",
                         style = MaterialTheme.typography.bodySmall, color = Error.copy(alpha = 0.8f))
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedButton(onClick = { showResetConfirm = true }, modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Error)) {
                         Icon(Icons.Default.Warning, contentDescription = null)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(localizedText("重置所有数据", "Reset all data"))
+                        Text("Сбросить все данные")
                     }
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
 
             // 添加服务
-            Text(localizedText("🔌 添加服务", "🔌 Add service"), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text(localizedText("支持 OpenAI Compatible API，自动检测端口，智能获取模型列表", "Supports OpenAI-compatible APIs, auto-detects ports, and intelligently fetches model lists"),
+            Text("🔌 Добавить сервис", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text("Поддерживает OpenAI-совместимые API, автоматически определяет порт и получает список моделей",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(8.dp))
 
-            ServiceTemplateCard(localizedText("Ollama (本地)", "Ollama (local)"), "http://localhost:11434") { viewModel.showAddProvider() }
+            ServiceTemplateCard("Ollama (локально)", "http://localhost:11434") { viewModel.showAddProvider() }
             ServiceTemplateCard("OpenAI", "https://api.openai.com") { viewModel.showAddProvider() }
-            ServiceTemplateCard(localizedText("自定义 OpenAI Compatible", "Custom OpenAI-compatible"), localizedText("输入任意兼容 OpenAI API 格式的地址", "Enter any OpenAI API-compatible address")) { showAddServiceDialog = true }
+            ServiceTemplateCard("Свой OpenAI-совместимый", "Введите любой адрес, совместимый с форматом OpenAI API") { showAddServiceDialog = true }
 
             Spacer(modifier = Modifier.height(80.dp))
         }
@@ -769,8 +769,8 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(localizedText("🔍 网关抓包日志", "🔍 Gateway packet-capture logs"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                        TextButton(onClick = { showDebugLogs = false }) { Text(localizedText("✕ 关闭", "✕ Close")) }
+                        Text("🔍 Логи перехвата пакетов шлюза", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                        TextButton(onClick = { showDebugLogs = false }) { Text("✕ Закрыть") }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -794,9 +794,9 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                         OutlinedTextField(value = filterText, onValueChange = { filterText = it },
-                            placeholder = { Text(localizedText("🔍 搜索", "🔍 Search")) }, singleLine = true, modifier = Modifier.weight(2f),
+                            placeholder = { Text("🔍 Поиск") }, singleLine = true, modifier = Modifier.weight(2f),
                             textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp))
-                        TextButton(onClick = { statusFilter = null }) { Text(if (statusFilter == null) localizedText("全部", "All") else localizedText("全部", "All")) }
+                        TextButton(onClick = { statusFilter = null }) { Text(if (statusFilter == null) "Все" else "Все") }
                         TextButton(onClick = { statusFilter = "200" }) { Text("200") }
                         TextButton(onClick = { statusFilter = "ERR" }) { Text("ERR") }
                     }
@@ -829,44 +829,44 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
                             if (showDetail) {
                                 AlertDialog(
                                     onDismissRequest = { showDetail = false },
-                                    title = { Text(localizedText("📦 抓包详情 #", "📦 Packet capture details #") + record.id) },
+                                    title = { Text("📦 Детали перехвата #" + record.id) },
                                     text = {
                                         LazyColumn(modifier = Modifier.heightIn(max = 400.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                             record.inbound?.let { inbound -> item {
-                                                Text(localizedText("📥 入站", "📥 Inbound"), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                                Text("📥 Входящий", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                                 Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), shape = MaterialTheme.shapes.small) {
                                                     Text(buildString {
-                                                        appendLine(localizedText("方法: ", "Method: ") + "${inbound.method} ${inbound.path}")
-                                                        appendLine(localizedText("头部: ", "Headers: ") + inbound.headers)
-                                                        appendLine(localizedText("--- 请求体 (", "--- Request body (") + "${inbound.bodySize}B) ---")
+                                                        appendLine("Метод: " + "${inbound.method} ${inbound.path}")
+                                                        appendLine("Заголовки: " + inbound.headers)
+                                                        appendLine("--- Тело запроса (" + "${inbound.bodySize}B) ---")
                                                         appendLine(inbound.body)
                                                     }, fontFamily = FontFamily.Monospace, fontSize = 10.sp, modifier = Modifier.padding(8.dp))
                                                 }
                                             }}
                                             record.outbound?.let { outbound -> item {
-                                                Text(localizedText("📤 出站", "📤 Outbound"), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                                                Text("📤 Исходящий", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
                                                 Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), shape = MaterialTheme.shapes.small) {
                                                     Text(buildString {
                                                         appendLine("URL: ${outbound.targetUrl}")
-                                                        appendLine(localizedText("模型: ", "Model: ") + outbound.modelId)
-                                                        appendLine(localizedText("--- 请求体 (", "--- Request body (") + "${outbound.bodySize}B) ---")
+                                                        appendLine("Модель: " + outbound.modelId)
+                                                        appendLine("--- Тело запроса (" + "${outbound.bodySize}B) ---")
                                                         appendLine(outbound.body)
                                                     }, fontFamily = FontFamily.Monospace, fontSize = 10.sp, modifier = Modifier.padding(8.dp))
                                                 }
                                             }}
                                             record.response?.let { resp -> item {
-                                                Text(localizedText("📥 响应", "📥 Response"), fontWeight = FontWeight.Bold, color = if (resp.httpStatus >= 500) MaterialTheme.colorScheme.error else if (resp.httpStatus >= 400) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary)
+                                                Text("📥 Ответ", fontWeight = FontWeight.Bold, color = if (resp.httpStatus >= 500) MaterialTheme.colorScheme.error else if (resp.httpStatus >= 400) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary)
                                                 Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), shape = MaterialTheme.shapes.small) {
                                                     Text(buildString {
-                                                        appendLine(localizedText("状态: ", "Status: ") + "${resp.httpStatus} | ${resp.elapsedMs}ms")
+                                                        appendLine("Статус: " + "${resp.httpStatus} | ${resp.elapsedMs}ms")
                                                         appendLine("Tokens: ↑${resp.promptTokens} ↓${resp.completionTokens}")
-                                                        appendLine(localizedText("--- 响应体 (", "--- Response body (") + "${resp.bodySize}B) ---")
+                                                        appendLine("--- Тело ответа (" + "${resp.bodySize}B) ---")
                                                         appendLine(resp.body)
                                                     }, fontFamily = FontFamily.Monospace, fontSize = 10.sp, modifier = Modifier.padding(8.dp))
                                                 }
                                             }}
                                             record.failover?.let { failover -> item {
-                                                Text(localizedText("🔄 故障转移", "🔄 Failover"), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                                                Text("🔄 Переключение при сбое", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
                                                 Surface(color = MaterialTheme.colorScheme.error.copy(alpha = 0.08f), shape = MaterialTheme.shapes.small) {
                                                     Text(buildString {
                                                         failover.attempts.forEach { attempt ->
@@ -881,39 +881,39 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
                                         val ctx = LocalContext.current
                                         Button(onClick = {
                                             val detailText = buildString {
-                                                appendLine(localizedText("📦 抓包详情 #", "📦 Packet capture details #") + record.id)
-                                                appendLine(localizedText("时间: ", "Time: ") + timeFmt.format(record.timestamp))
+                                                appendLine("📦 Детали перехвата #" + record.id)
+                                                appendLine("Время: " + timeFmt.format(record.timestamp))
                                                 record.inbound?.let { inbound ->
-                                                    appendLine(localizedText("\\n📥 入站", "\\n📥 Inbound"))
-                                                    appendLine(localizedText("方法: ", "Method: ") + "${inbound.method} ${inbound.path}")
-                                                    appendLine(localizedText("头部: ", "Headers: ") + inbound.headers)
-                                                    appendLine(localizedText("--- 请求体 (", "--- Request body (") + "${inbound.bodySize}B) ---")
+                                                    appendLine("\\n📥 Входящий")
+                                                    appendLine("Метод: " + "${inbound.method} ${inbound.path}")
+                                                    appendLine("Заголовки: " + inbound.headers)
+                                                    appendLine("--- Тело запроса (" + "${inbound.bodySize}B) ---")
                                                     appendLine(inbound.body)
                                                 }
                                                 record.outbound?.let { outbound ->
-                                                    appendLine(localizedText("\\n📤 出站", "\\n📤 Outbound"))
+                                                    appendLine("\\n📤 Исходящий")
                                                     appendLine("URL: ${outbound.targetUrl}")
-                                                    appendLine(localizedText("模型: ", "Model: ") + outbound.modelId)
-                                                    appendLine(localizedText("--- 请求体 (", "--- Request body (") + "${outbound.bodySize}B) ---")
+                                                    appendLine("Модель: " + outbound.modelId)
+                                                    appendLine("--- Тело запроса (" + "${outbound.bodySize}B) ---")
                                                     appendLine(outbound.body)
                                                 }
                                                 record.response?.let { resp ->
-                                                    appendLine(localizedText("\\n📥 响应", "\\n📥 Response"))
-                                                    appendLine(localizedText("状态: ", "Status: ") + "${resp.httpStatus} | ${resp.elapsedMs}ms")
+                                                    appendLine("\\n📥 Ответ")
+                                                    appendLine("Статус: " + "${resp.httpStatus} | ${resp.elapsedMs}ms")
                                                     appendLine("Tokens: ↑${resp.promptTokens} ↓${resp.completionTokens}")
-                                                    appendLine(localizedText("--- 响应体 (", "--- Response body (") + "${resp.bodySize}B) ---")
+                                                    appendLine("--- Тело ответа (" + "${resp.bodySize}B) ---")
                                                     appendLine(resp.body)
                                                 }
                                                 record.failover?.let { failover ->
-                                                    appendLine(localizedText("\\n🔄 故障转移", "\\n🔄 Failover"))
+                                                    appendLine("\\n🔄 Переключение при сбое")
                                                     failover.attempts.forEach { attempt ->
                                                         appendLine("[${attempt.index}] ${attempt.modelId}: ${attempt.error} (${attempt.elapsedMs}ms)")
                                                     }
                                                 }
                                             }
                                             val clipboard = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText(localizedText("抓包详情", "Packet capture details"), detailText))
-                                        }) { Text(localizedText("📋 复制", "📋 Copy")) }
+                                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Детали перехвата", detailText))
+                                        }) { Text("📋 Копировать") }
                                     }
                                 )
                             }
@@ -941,7 +941,7 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
             Column(modifier = Modifier.fillMaxSize()) {
                 Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { showModelsOverlay = false }) { Icon(Icons.Default.Close, contentDescription = null) }
-                    Text(localizedText("Модели", "Models"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("Модели", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
                 ModelsScreen(viewModel)
             }
@@ -952,7 +952,7 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
             Column(modifier = Modifier.fillMaxSize()) {
                 Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { showStatsOverlay = false }) { Icon(Icons.Default.Close, contentDescription = null) }
-                    Text(localizedText("Статистика", "Statistics"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("Статистика", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
                 StatsScreen(viewModel)
             }
@@ -963,7 +963,7 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
             Column(modifier = Modifier.fillMaxSize()) {
                 Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { showAboutOverlay = false }) { Icon(Icons.Default.Close, contentDescription = null) }
-                    Text(localizedText("О программе", "About"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("О программе", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
                 AboutScreen(viewModel)
             }
@@ -980,7 +980,7 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
     var showAddProxyDialog by remember { mutableStateOf(false) }
     if (showAddProxyDialog) {
         AddEditProxyDialog(
-            title = localizedText("添加代理", "Add proxy"), viewModel = viewModel,
+            title = "Добавить прокси", viewModel = viewModel,
             onDismiss = { showAddProxyDialog = false },
             onConfirm = { profile -> viewModel.addProxy(profile); showAddProxyDialog = false }
         )
@@ -991,17 +991,17 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
         var confirmInput by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showResetConfirm = false },
-            title = { Text(localizedText("⚠️ 危险操作确认", "⚠️ Dangerous operation confirmation"), fontWeight = FontWeight.Bold, color = Error) },
+            title = { Text("⚠️ Подтверждение опасной операции", fontWeight = FontWeight.Bold, color = Error) },
             text = {
                 Column {
-                    Text(localizedText("此操作将永久删除所有数据，包括：\\n• 所有服务商配置\\n• 所有 AI 模型列表\\n• 所有聊天记录和对话\\n• 所有 Token 用量统计\\n\\n此操作不可撤销！", "This will permanently delete all data, including:\\n• All provider configurations\\n• All AI model lists\\n• All chats and conversations\\n• All token usage statistics\\n\\nThis action cannot be undone!"), style = MaterialTheme.typography.bodyMedium)
+                    Text("Эта операция безвозвратно удалит все данные, включая:\\n• Все настройки провайдеров\\n• Все списки AI-моделей\\n• Всю историю чатов и диалогов\\n• Всю статистику использования токенов\\n\\nОтменить это действие нельзя!", style = MaterialTheme.typography.bodyMedium)
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text(localizedText("请输入「确认重置」以继续：", "Please type \"Confirm reset\" to continue:"), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                    Text("Введите «Подтвердить сброс», чтобы продолжить:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = confirmInput,
                         onValueChange = { confirmInput = it },
-                        label = { Text(localizedText("确认重置", "Confirm reset")) },
+                        label = { Text("Подтвердить сброс") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1010,20 +1010,20 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
             confirmButton = {
                 Button(
                     onClick = { viewModel.resetAllData(); showResetConfirm = false },
-                    enabled = confirmInput == localizedText("确认重置", "Confirm reset"),
+                    enabled = confirmInput == "Подтвердить сброс",
                     colors = ButtonDefaults.buttonColors(containerColor = Error)
                 ) {
-                    Text(localizedText("永久删除", "Delete permanently"), color = MaterialTheme.colorScheme.onError)
+                    Text("Удалить навсегда", color = MaterialTheme.colorScheme.onError)
                 }
             },
-            dismissButton = { TextButton(onClick = { showResetConfirm = false }) { Text(localizedText("取消", "Cancel")) } }
+            dismissButton = { TextButton(onClick = { showResetConfirm = false }) { Text("Отмена") } }
         )
     }
 
     // 智能添加服务弹窗
     if (showAddServiceDialog) {
         SmartAddServiceDialog(viewModel = viewModel, onDismiss = { showAddServiceDialog = false },
-            onSuccess = { showAddServiceDialog = false; scope.launch { snackbarHostState.showSnackbar(localizedText("✅ 服务商添加成功！", "✅ Provider added successfully!")) } })
+            onSuccess = { showAddServiceDialog = false; scope.launch { snackbarHostState.showSnackbar("✅ Провайдер успешно добавлен!") } })
     }
 }
 
@@ -1065,24 +1065,24 @@ private fun SmartAddServiceDialog(viewModel: GatewayViewModel, onDismiss: () -> 
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(localizedText("添加服务 (OpenAI Compatible)", "Add service (OpenAI-compatible)"), fontWeight = FontWeight.Bold) },
+        title = { Text("Добавить сервис (OpenAI-совместимый)", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = form.name, onValueChange = { viewModel.updateFormField("name", it) },
-                    label = { Text(localizedText("服务商名称", "Provider name")) }, placeholder = { Text(localizedText("例如: 我的 Ollama", "Example: My Ollama")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    label = { Text("Название провайдера") }, placeholder = { Text("Например: Мой Ollama") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = form.baseUrl, onValueChange = {
                     viewModel.updateFormField("baseUrl", it)
                     val port = viewModel.extractPortFromUrl(it)
                     if (port.isNotBlank()) viewModel.updateFormField("port", port)
-                }, label = { Text(localizedText("API 地址 (Base URL)", "API address (Base URL)")) }, placeholder = { Text("http://192.168.1.100:11434") },
-                    supportingText = { if (detectedPort.isNotBlank()) Text(localizedText("检测到端口: ", "Detected port: ") + detectedPort, color = Online) },
+                }, label = { Text("Адрес API (Base URL)") }, placeholder = { Text("http://192.168.1.100:11434") },
+                    supportingText = { if (detectedPort.isNotBlank()) Text("Определён порт: " + detectedPort, color = Online) },
                     singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = form.port, onValueChange = { viewModel.updateFormField("port", it) },
-                    label = { Text(localizedText("端口 (可选)", "Port (optional)")) }, placeholder = { Text(localizedText("如 11434, 8080", "e.g. 11434, 8080")) }, singleLine = true,
+                    label = { Text("Порт (необязательно)") }, placeholder = { Text("напр. 11434, 8080") }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(value = form.apiKey, onValueChange = { viewModel.updateFormField("apiKey", it) },
-                        label = { Text(localizedText("API Key (可选)", "API key (optional)")) }, placeholder = { Text("sk-...") }, singleLine = true,
+                        label = { Text("API-ключ (необязательно)") }, placeholder = { Text("sk-...") }, singleLine = true,
                         visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
                         trailingIcon = { IconButton(onClick = { showApiKey = !showApiKey }) {
                             Icon(if (showApiKey) Icons.Default.Visibility else Icons.Default.VisibilityOff, contentDescription = null) } },
@@ -1097,7 +1097,7 @@ private fun SmartAddServiceDialog(viewModel: GatewayViewModel, onDismiss: () -> 
                     OutlinedTextField(
                         value = chatPathText,
                         onValueChange = { v -> chatPathText = v; viewModel.updateFormField("chatPath", v); chatPathExpanded = true },
-                        label = { Text(localizedText("对话接口路径（留空自动拼接）", "Chat API path (blank = auto-append)")) },
+                        label = { Text("Путь к API чата (пусто = добавить автоматически)") },
                         placeholder = { Text("/v1/chat/completions") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth().menuAnchor(),
@@ -1114,7 +1114,7 @@ private fun SmartAddServiceDialog(viewModel: GatewayViewModel, onDismiss: () -> 
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(localizedText("💡 输入 /c 自动补全 /v1/chat/completions，/m 补全 /v1/messages 等", "💡 Type /c to auto-complete /v1/chat/completions, /m for /v1/messages, etc."),
+                Text("💡 Введите /c для автодополнения /v1/chat/completions, /m — для /v1/messages и т. д.",
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 // ★★ 最终URL预览 ★★
                 val previewBase = form.baseUrl.trimEnd('/')
@@ -1122,7 +1122,7 @@ private fun SmartAddServiceDialog(viewModel: GatewayViewModel, onDismiss: () -> 
                 val finalPreview = if (previewBase.startsWith("http")) "$previewBase$previewPath" else ""
                 if (finalPreview.isNotBlank()) {
                     Text(
-                        text = "${localizedText("实际请求地址", "Actual URL")}: $finalPreview",
+                        text = "${"Фактический адрес запроса"}: $finalPreview",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -1136,7 +1136,7 @@ private fun SmartAddServiceDialog(viewModel: GatewayViewModel, onDismiss: () -> 
                     OutlinedTextField(
                         value = apiPathText,
                         onValueChange = { v -> apiPathText = v; viewModel.updateFormField("apiPath", v); apiPathExpanded = true },
-                        label = { Text(localizedText("模型列表接口路径", "Models API path")) },
+                        label = { Text("Путь к API списка моделей") },
                         placeholder = { Text("/v1/models") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth().menuAnchor(),
@@ -1156,8 +1156,8 @@ private fun SmartAddServiceDialog(viewModel: GatewayViewModel, onDismiss: () -> 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { isTesting = true; testResult = null; viewModel.fetchAvailableModels(form.baseUrl, form.apiKey.ifBlank { null }) },
                         enabled = form.baseUrl.isNotBlank() && !isTesting, modifier = Modifier.weight(1f)) {
-                        if (isTesting) { CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp); Spacer(modifier = Modifier.width(4.dp)); Text(localizedText("检测中...", "Detecting...")) }
-                        else { Icon(Icons.Default.NetworkCheck, contentDescription = null); Spacer(modifier = Modifier.width(4.dp)); Text(localizedText("检测模型列表", "Detect model list")) }
+                        if (isTesting) { CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp); Spacer(modifier = Modifier.width(4.dp)); Text("Определение...") }
+                        else { Icon(Icons.Default.NetworkCheck, contentDescription = null); Spacer(modifier = Modifier.width(4.dp)); Text("Определить список моделей") }
                     }
                 }
                 val syncResult by viewModel.syncResult.collectAsState()
@@ -1169,8 +1169,8 @@ private fun SmartAddServiceDialog(viewModel: GatewayViewModel, onDismiss: () -> 
                 }
             }
         },
-        confirmButton = { Button(onClick = { viewModel.saveProvider(); onSuccess() }, enabled = form.name.isNotBlank() && form.baseUrl.isNotBlank()) { Text(localizedText("保存", "Save")) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(localizedText("取消", "Cancel")) } }
+        confirmButton = { Button(onClick = { viewModel.saveProvider(); onSuccess() }, enabled = form.name.isNotBlank() && form.baseUrl.isNotBlank()) { Text("Сохранить") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
     )
 }
 
@@ -1209,8 +1209,8 @@ private fun ProxyManagementDialog(viewModel: GatewayViewModel, onDismiss: () -> 
         onDismissRequest = onDismiss,
         title = {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(localizedText("⚙️ 代理管理", "⚙️ Proxy management"), fontWeight = FontWeight.Bold)
-                Text(if (proxyEnabled) localizedText("🟢 已激活", "🟢 Active") else localizedText("🔴 未激活", "🔴 Inactive"), style = MaterialTheme.typography.bodySmall, color = if (proxyEnabled) Online else Error)
+                Text("⚙️ Управление прокси", fontWeight = FontWeight.Bold)
+                Text(if (proxyEnabled) "🟢 Активно" else "🔴 Не активно", style = MaterialTheme.typography.bodySmall, color = if (proxyEnabled) Online else Error)
             }
         },
         text = {
@@ -1223,11 +1223,11 @@ private fun ProxyManagementDialog(viewModel: GatewayViewModel, onDismiss: () -> 
                     TextButton(onClick = { showSubscriptionDialog = true }) {
                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text(localizedText("📡 一键订阅", "📡 One-tap subscription"), style = MaterialTheme.typography.labelMedium)
+                        Text("📡 Подписка в один тап", style = MaterialTheme.typography.labelMedium)
                     }
                 }
                 if (proxyProfiles.isEmpty()) {
-                    Text(localizedText("还没有代理配置，点击下方按钮添加", "No proxy configuration yet. Tap the button below to add one"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Прокси ещё не настроены. Нажмите кнопку ниже, чтобы добавить", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     proxyProfiles.forEach { profile ->
                         ProxyProfileCard(profile = profile, isActive = profile.id == activeProxyId && proxyEnabled,
@@ -1239,17 +1239,17 @@ private fun ProxyManagementDialog(viewModel: GatewayViewModel, onDismiss: () -> 
             }
         },
         confirmButton = {
-            Button(onClick = { showAddDialog = true }) { Icon(Icons.Default.Add, contentDescription = null); Spacer(Modifier.width(4.dp)); Text(localizedText("添加代理", "Add proxy")) }
+            Button(onClick = { showAddDialog = true }) { Icon(Icons.Default.Add, contentDescription = null); Spacer(Modifier.width(4.dp)); Text("Добавить прокси") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(localizedText("关闭", "Close")) } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Закрыть") } }
     )
 
     if (showAddDialog) {
-        AddEditProxyDialog(title = localizedText("添加代理", "Add proxy"), viewModel = viewModel, onDismiss = { showAddDialog = false },
+        AddEditProxyDialog(title = "Добавить прокси", viewModel = viewModel, onDismiss = { showAddDialog = false },
             onConfirm = { profile -> viewModel.addProxy(profile); showAddDialog = false })
     }
     editingProfile?.let { profile ->
-        AddEditProxyDialog(title = localizedText("编辑代理", "Edit proxy"), initialProfile = profile, viewModel = viewModel,
+        AddEditProxyDialog(title = "Изменить прокси", initialProfile = profile, viewModel = viewModel,
             onDismiss = { editingProfile = null }, onConfirm = { updated -> viewModel.updateProxy(updated); editingProfile = null })
     }
     // 订阅弹窗
@@ -1257,37 +1257,37 @@ private fun ProxyManagementDialog(viewModel: GatewayViewModel, onDismiss: () -> 
         var subUrl by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showSubscriptionDialog = false },
-            title = { Text(localizedText("📡 一键订阅", "📡 One-tap subscription"), fontWeight = FontWeight.Bold) },
+            title = { Text("📡 Подписка в один тап", fontWeight = FontWeight.Bold) },
             text = {
                 Column {
-                    Text(localizedText("输入订阅地址，自动拉取并批量导入节点", "Enter a subscription URL to fetch and batch-import nodes automatically"), style = MaterialTheme.typography.bodyMedium)
+                    Text("Введите адрес подписки для автоматической загрузки и массового импорта узлов", style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(value = subUrl, onValueChange = { subUrl = it },
-                        label = { Text(localizedText("订阅URL", "Subscription URL")) }, placeholder = { Text("https://example.com/sub?token=...") },
+                        label = { Text("URL подписки") }, placeholder = { Text("https://example.com/sub?token=...") },
                         singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
             },
             confirmButton = {
-                Button(onClick = { viewModel.importSubscription(subUrl); showSubscriptionDialog = false }) { Text(localizedText("导入", "Import")) }
+                Button(onClick = { viewModel.importSubscription(subUrl); showSubscriptionDialog = false }) { Text("Импортировать") }
             },
-            dismissButton = { TextButton(onClick = { showSubscriptionDialog = false }) { Text(localizedText("取消", "Cancel")) } }
+            dismissButton = { TextButton(onClick = { showSubscriptionDialog = false }) { Text("Отмена") } }
         )
     }
     // 剪贴板检测弹窗
     if (showPasteDialog) {
         AlertDialog(
             onDismissRequest = { showPasteDialog = false },
-            title = { Text(localizedText("📋 检测到代理链接", "📋 Proxy link detected"), fontWeight = FontWeight.Bold) },
+            title = { Text("📋 Обнаружена ссылка на прокси", fontWeight = FontWeight.Bold) },
             text = {
                 Column {
-                    Text(localizedText("剪贴板中检测到代理/订阅链接：", "Proxy/subscription link detected in clipboard:"), style = MaterialTheme.typography.bodySmall)
+                    Text("В буфере обмена обнаружена ссылка на прокси/подписку:", style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(4.dp))
                     Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.small) {
                         Text(pasteLinkText.take(80) + if (pasteLinkText.length > 80) "..." else "",
                             style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(8.dp))
                     }
                     Spacer(Modifier.height(8.dp))
-                    Text(localizedText("是否自动解析并导入？", "Parse and import automatically?"), style = MaterialTheme.typography.bodyMedium)
+                    Text("Разобрать и импортировать автоматически?", style = MaterialTheme.typography.bodyMedium)
                 }
             },
             confirmButton = {
@@ -1298,9 +1298,9 @@ private fun ProxyManagementDialog(viewModel: GatewayViewModel, onDismiss: () -> 
                         viewModel.addProxyFromLink(pasteLinkText)
                     }
                     showPasteDialog = false
-                }) { Text(localizedText("立即导入", "Import now")) }
+                }) { Text("Импортировать сейчас") }
             },
-            dismissButton = { TextButton(onClick = { showPasteDialog = false }) { Text(localizedText("忽略", "Ignore")) } }
+            dismissButton = { TextButton(onClick = { showPasteDialog = false }) { Text("Игнорировать") } }
         )
     }
 }
@@ -1330,12 +1330,12 @@ private fun ProxyProfileCard(
             }
             Spacer(modifier = Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                IconButton(onClick = onTestSpeed, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Speed, contentDescription = localizedText("测速", "Speed test"), modifier = Modifier.size(18.dp)) }
-                IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Edit, contentDescription = localizedText("编辑", "Edit"), modifier = Modifier.size(18.dp)) }
-                IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Delete, contentDescription = localizedText("删除", "Delete"), tint = Error, modifier = Modifier.size(18.dp)) }
+                IconButton(onClick = onTestSpeed, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Speed, contentDescription = "Тест скорости", modifier = Modifier.size(18.dp)) }
+                IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Edit, contentDescription = "Изменить", modifier = Modifier.size(18.dp)) }
+                IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Delete, contentDescription = "Удалить", tint = Error, modifier = Modifier.size(18.dp)) }
                 if (isActive) {
                     Surface(color = Online.copy(alpha = 0.15f), shape = MaterialTheme.shapes.extraSmall) {
-                        Text(localizedText("已激活", "Active"), style = MaterialTheme.typography.labelSmall, color = Online, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
+                        Text("Активно", style = MaterialTheme.typography.labelSmall, color = Online, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
                     }
                 }
             }
@@ -1367,11 +1367,11 @@ private fun AddEditProxyDialog(
         title = { Text(title, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(localizedText("代理名称", "Proxy name")) }, placeholder = { Text(localizedText("例如：机场节点1", "Example: proxy node 1")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Название прокси") }, placeholder = { Text("Например: узел прокси 1") }, singleLine = true, modifier = Modifier.fillMaxWidth())
 
                 // 代理类型选择器
                 ExposedDropdownMenuBox(expanded = typeExpanded, onExpandedChange = { typeExpanded = !typeExpanded }) {
-                    OutlinedTextField(value = type, onValueChange = {}, readOnly = true, label = { Text(localizedText("代理类型", "Proxy type")) },
+                    OutlinedTextField(value = type, onValueChange = {}, readOnly = true, label = { Text("Тип прокси") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) }, modifier = Modifier.fillMaxWidth().menuAnchor())
                     ExposedDropdownMenu(expanded = typeExpanded, onDismissRequest = { typeExpanded = false }) {
                         typeOptions.forEach { option ->
@@ -1381,22 +1381,22 @@ private fun AddEditProxyDialog(
                     }
                 }
 
-                OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text(localizedText("代理服务器地址", "Proxy server address")) }, placeholder = { Text(localizedText("例如：192.168.1.100", "Example: 192.168.1.100")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = port, onValueChange = { port = it.filter { c -> c.isDigit() } }, label = { Text(localizedText("端口", "Port")) },
+                OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text("Адрес прокси-сервера") }, placeholder = { Text("Например: 192.168.1.100") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = port, onValueChange = { port = it.filter { c -> c.isDigit() } }, label = { Text("Порт") },
                     placeholder = { Text(if (type.startsWith("SOCKS")) "1080" else "7890") }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
 
                 HorizontalDivider()
 
-                OutlinedTextField(value = username, onValueChange = { username = it }, label = { Text(localizedText("用户名 (可选)", "Username (optional)")) }, placeholder = { Text(localizedText("SOCKS5/HTTP 认证用户名", "SOCKS5/HTTP authentication username")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text(localizedText("密码 (可选)", "Password (optional)")) }, placeholder = { Text(localizedText("SOCKS5/HTTP 认证密码", "SOCKS5/HTTP authentication password")) }, singleLine = true,
+                OutlinedTextField(value = username, onValueChange = { username = it }, label = { Text("Имя пользователя (необязательно)") }, placeholder = { Text("Имя пользователя для аутентификации SOCKS5/HTTP") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Пароль (необязательно)") }, placeholder = { Text("Пароль для аутентификации SOCKS5/HTTP") }, singleLine = true,
                     visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = { IconButton(onClick = { showPassword = !showPassword }) { Icon(if (showPassword) Icons.Default.Visibility else Icons.Default.VisibilityOff, contentDescription = null) } },
                     modifier = Modifier.fillMaxWidth())
 
                 if (type.startsWith("SOCKS") && (username.isNotBlank() || password.isNotBlank())) {
                     Surface(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f), shape = MaterialTheme.shapes.small) {
-                        Text(localizedText("✅ SOCKS5 将使用 RFC 1929 用户名/密码认证", "✅ SOCKS5 will use RFC 1929 username/password authentication"), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(8.dp))
+                        Text("✅ SOCKS5 будет использовать аутентификацию по имени/паролю (RFC 1929)", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(8.dp))
                     }
                 }
             }
@@ -1405,11 +1405,11 @@ private fun AddEditProxyDialog(
             Button(onClick = {
                 onConfirm(GatewayViewModel.ProxyProfile(
                     id = initialProfile?.id ?: java.util.UUID.randomUUID().toString().take(8),
-                    name = name.ifBlank { "未命名代理" }, type = type, host = host, port = port.toIntOrNull() ?: 1080,
+                    name = name.ifBlank { "Безымянный прокси" }, type = type, host = host, port = port.toIntOrNull() ?: 1080,
                     username = username, password = password, enabled = initialProfile?.enabled ?: false))
-            }, enabled = host.isNotBlank() && (port.toIntOrNull() ?: 0) in 1..65535) { Text(localizedText("保存", "Save")) }
+            }, enabled = host.isNotBlank() && (port.toIntOrNull() ?: 0) in 1..65535) { Text("Сохранить") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(localizedText("取消", "Cancel")) } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
     )
 }
 
@@ -1438,45 +1438,45 @@ fun AboutScreen(viewModel: GatewayViewModel = viewModel(factory = GatewayViewMod
 
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text(localizedText("ℹ️ 关于我们", "ℹ️ About us"), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text("AiGate v$appVersion — " + localizedText("Локальный AI-шлюз", "Local AI gateway"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("ℹ️ О нас", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text("AiGate v$appVersion — " + "Локальный AI-шлюз", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(8.dp))
 
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(localizedText("📱 应用信息", "📱 App information"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("📱 Информация о приложении", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(localizedText("版本: v", "Version: v") + appVersion, style = MaterialTheme.typography.bodyMedium)
-                    Text(localizedText("Идея и вдохновение: QiTong AI Gateway (Apache-2.0)", "Inspired by QiTong AI Gateway (Apache-2.0)"), style = MaterialTheme.typography.bodyMedium)
-                    Text(localizedText("Протокол: OpenAI-совместимый API", "Protocol: OpenAI-compatible API"), style = MaterialTheme.typography.bodyMedium)
+                    Text("Версия: v" + appVersion, style = MaterialTheme.typography.bodyMedium)
+                    Text("Идея и вдохновение: QiTong AI Gateway (Apache-2.0)", style = MaterialTheme.typography.bodyMedium)
+                    Text("Протокол: OpenAI-совместимый API", style = MaterialTheme.typography.bodyMedium)
                 }
             }
 
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(localizedText("⚙️ 当前配置", "⚙️ Current configuration"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("⚙️ Текущая конфигурация", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(localizedText("网关端口:", "Gateway port:"), style = MaterialTheme.typography.bodyMedium)
+                        Text("Порт шлюза:", style = MaterialTheme.typography.bodyMedium)
                         Text(gatewayPort.toString(), style = MaterialTheme.typography.bodyMedium)
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(localizedText("代理加速:", "Proxy acceleration:"), style = MaterialTheme.typography.bodyMedium)
-                        Text(if (proxyEnabled) localizedText("✅ 已开启", "✅ Enabled") else localizedText("❌ 未开启", "❌ Disabled"), color = if (proxyEnabled) Online else Error)
+                        Text("Ускорение через прокси:", style = MaterialTheme.typography.bodyMedium)
+                        Text(if (proxyEnabled) "✅ Включено" else "❌ Выключено", color = if (proxyEnabled) Online else Error)
                     }
                     // 显示激活的代理详情
                     val activeProxy = if (proxyEnabled) proxyProfiles.find { it.id == activeProxyId } else null
                     if (activeProxy != null) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(localizedText("代理节点:", "Proxy node:"), style = MaterialTheme.typography.bodyMedium)
+                            Text("Узел прокси:", style = MaterialTheme.typography.bodyMedium)
                             Text("${activeProxy.type} · ${activeProxy.host}:${activeProxy.port}", style = MaterialTheme.typography.bodyMedium, color = Online)
                         }
                         if (activeProxy.username.isNotBlank()) {
                             Spacer(modifier = Modifier.height(4.dp))
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(localizedText("代理用户:", "Proxy user:"), style = MaterialTheme.typography.bodyMedium)
+                                Text("Пользователь прокси:", style = MaterialTheme.typography.bodyMedium)
                                 Text(activeProxy.username, style = MaterialTheme.typography.bodyMedium)
                             }
                         }
@@ -1484,12 +1484,12 @@ fun AboutScreen(viewModel: GatewayViewModel = viewModel(factory = GatewayViewMod
                     // 流量统计
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(localizedText("↑ 上传:", "↑ Upload:"), style = MaterialTheme.typography.bodyMedium)
+                        Text("↑ Отправлено:", style = MaterialTheme.typography.bodyMedium)
                         Text(formatTraffic(GatewayForegroundService.trafficUploadBytes.get()), style = MaterialTheme.typography.bodyMedium, color = Online)
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(localizedText("↓ 下载:", "↓ Download:"), style = MaterialTheme.typography.bodyMedium)
+                        Text("↓ Загружено:", style = MaterialTheme.typography.bodyMedium)
                         Text(formatTraffic(GatewayForegroundService.trafficDownloadBytes.get()), style = MaterialTheme.typography.bodyMedium, color = Online)
                     }
                 }
@@ -1502,10 +1502,10 @@ fun AboutScreen(viewModel: GatewayViewModel = viewModel(factory = GatewayViewMod
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Warning, contentDescription = null, tint = Error)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(localizedText("💥 检测到崩溃日志", "💥 Crash log detected"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Error)
+                            Text("💥 Обнаружен лог сбоя", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Error)
                         }
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(localizedText("APP上次运行发生崩溃，已自动保存日志。", "The app crashed last time, log has been saved."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Во время прошлого запуска приложение аварийно завершилось, лог сохранён.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(12.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = {
@@ -1513,17 +1513,17 @@ fun AboutScreen(viewModel: GatewayViewModel = viewModel(factory = GatewayViewMod
                                     val log = CrashHandler.getCrashLog()
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                     clipboard.setPrimaryClip(ClipData.newPlainText("Crash Log", log))
-                                    snackbarHostState.showSnackbar(localizedText("✅ 崩溃日志已复制", "✅ Crash log copied"))
+                                    snackbarHostState.showSnackbar("✅ Лог сбоя скопирован")
                                 }
                             }, modifier = Modifier.weight(1f)) {
                                 Icon(Icons.Default.ContentCopy, contentDescription = null, tint = Error)
                                 Spacer(Modifier.width(4.dp))
-                                Text(localizedText("复制日志", "Copy log"), color = Error)
+                                Text("Копировать лог", color = Error)
                             }
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         TextButton(onClick = { CrashHandler.clearCrashLog() }) {
-                            Text(localizedText("🗑️ 清除日志", "🗑️ Clear log"), style = MaterialTheme.typography.bodySmall, color = Error.copy(alpha = 0.7f))
+                            Text("🗑️ Очистить лог", style = MaterialTheme.typography.bodySmall, color = Error.copy(alpha = 0.7f))
                         }
                     }
                 }
@@ -1575,7 +1575,7 @@ private fun RoutingRulesDialog(viewModel: GatewayViewModel, onDismiss: () -> Uni
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(localizedText("🔀 路由规则管理", "🔀 Routing rules"), fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text("🔀 Правила маршрутизации", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 if (isLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                 }
@@ -1590,7 +1590,7 @@ private fun RoutingRulesDialog(viewModel: GatewayViewModel, onDismiss: () -> Uni
                 if (!isLoading && rules.isEmpty()) {
                     Box(modifier = Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
                         Text(
-                            localizedText("暂无路由规则\n点击下方按钮添加", "No routing rules\nTap button below to add"),
+                            "Нет правил маршрутизации\nНажмите кнопку ниже, чтобы добавить",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1634,11 +1634,11 @@ private fun RoutingRulesDialog(viewModel: GatewayViewModel, onDismiss: () -> Uni
                                             overflow = TextOverflow.Ellipsis
                                         )
                                         val matchDesc = buildList {
-                                            if (rule.pathPattern.isNotBlank()) add("路径:${rule.pathPattern}")
-                                            if (rule.modelPattern.isNotBlank()) add("模型:${rule.modelPattern}")
-                                            if (rule.apiKeyPattern.isNotBlank()) add("密钥:${rule.apiKeyPattern.take(8)}...")
-                                            if (rule.providerId != null) add("服务商:${rule.providerId}")
-                                        }.joinToString(" | ").ifEmpty { localizedText("无条件匹配", "Match all") }
+                                            if (rule.pathPattern.isNotBlank()) add("путь:${rule.pathPattern}")
+                                            if (rule.modelPattern.isNotBlank()) add("модель:${rule.modelPattern}")
+                                            if (rule.apiKeyPattern.isNotBlank()) add("ключ:${rule.apiKeyPattern.take(8)}...")
+                                            if (rule.providerId != null) add("провайдер:${rule.providerId}")
+                                        }.joinToString(" | ").ifEmpty { "Без условий" }
                                         Text(
                                             matchDesc,
                                             style = MaterialTheme.typography.labelSmall,
@@ -1647,8 +1647,8 @@ private fun RoutingRulesDialog(viewModel: GatewayViewModel, onDismiss: () -> Uni
                                             overflow = TextOverflow.Ellipsis
                                         )
                                         val actionDesc = when (rule.action) {
-                                            "block" -> localizedText("🚫 拒绝请求", "🚫 Block")
-                                            "route" -> localizedText("➡️ 路由到 ${rule.targetModelKey}", "➡️ Route to ${rule.targetModelKey}")
+                                            "block" -> "🚫 Блокировать"
+                                            "route" -> "➡️ Маршрут на ${rule.targetModelKey}"
                                             else -> rule.action
                                         }
                                         Text(
@@ -1659,11 +1659,11 @@ private fun RoutingRulesDialog(viewModel: GatewayViewModel, onDismiss: () -> Uni
                                     }
                                     // 编辑按钮
                                     IconButton(onClick = { editingRule = rule; showAddDialog = true }, modifier = Modifier.size(32.dp)) {
-                                        Icon(Icons.Default.Edit, contentDescription = localizedText("编辑", "Edit"), modifier = Modifier.size(16.dp))
+                                        Icon(Icons.Default.Edit, contentDescription = "Изменить", modifier = Modifier.size(16.dp))
                                     }
                                     // 删除按钮
                                     IconButton(onClick = { showDeleteConfirm = rule.id }, modifier = Modifier.size(32.dp)) {
-                                        Icon(Icons.Default.Delete, contentDescription = localizedText("删除", "Delete"), modifier = Modifier.size(16.dp), tint = Error)
+                                        Icon(Icons.Default.Delete, contentDescription = "Удалить", modifier = Modifier.size(16.dp), tint = Error)
                                     }
                                 }
                             }
@@ -1679,7 +1679,7 @@ private fun RoutingRulesDialog(viewModel: GatewayViewModel, onDismiss: () -> Uni
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text(localizedText("添加规则", "Add rule"))
+                    Text("Добавить правило")
                 }
                 // 清空按钮
                 if (rules.isNotEmpty()) {
@@ -1693,13 +1693,13 @@ private fun RoutingRulesDialog(viewModel: GatewayViewModel, onDismiss: () -> Uni
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Error)
                     ) {
-                        Text(localizedText("清空所有规则", "Clear all rules"))
+                        Text("Очистить все правила")
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text(localizedText("关闭", "Close")) }
+            TextButton(onClick = onDismiss) { Text("Закрыть") }
         }
     )
 
@@ -1722,8 +1722,8 @@ private fun RoutingRulesDialog(viewModel: GatewayViewModel, onDismiss: () -> Uni
     showDeleteConfirm?.let { ruleId ->
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = null },
-            title = { Text(localizedText("确认删除", "Confirm delete"), fontWeight = FontWeight.Bold) },
-            text = { Text(localizedText("确定要删除这条路由规则吗？", "Are you sure you want to delete this routing rule?")) },
+            title = { Text("Подтвердите удаление", fontWeight = FontWeight.Bold) },
+            text = { Text("Удалить это правило маршрутизации?") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -1737,9 +1737,9 @@ private fun RoutingRulesDialog(viewModel: GatewayViewModel, onDismiss: () -> Uni
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Error)
-                ) { Text(localizedText("删除", "Delete")) }
+                ) { Text("Удалить") }
             },
-            dismissButton = { TextButton(onClick = { showDeleteConfirm = null }) { Text(localizedText("取消", "Cancel")) } }
+            dismissButton = { TextButton(onClick = { showDeleteConfirm = null }) { Text("Отмена") } }
         )
     }
 }
@@ -1776,8 +1776,8 @@ private fun AddEditRoutingRuleDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                if (isEdit) localizedText("编辑路由规则", "Edit routing rule")
-                else localizedText("添加路由规则", "Add routing rule"),
+                if (isEdit) "Изменить правило маршрутизации"
+                else "Добавить правило маршрутизации",
                 fontWeight = FontWeight.Bold
             )
         },
@@ -1790,8 +1790,8 @@ private fun AddEditRoutingRuleDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text(localizedText("规则名称*", "Rule name*")) },
-                    placeholder = { Text(localizedText("如: GPT请求走视觉模型", "e.g. GPT requests to vision model")) },
+                    label = { Text("Название правила*") },
+                    placeholder = { Text("напр.: запросы GPT на модель зрения") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1800,14 +1800,14 @@ private fun AddEditRoutingRuleDialog(
                 OutlinedTextField(
                     value = priority,
                     onValueChange = { priority = it.filter { c -> c.isDigit() || c == '-' } },
-                    label = { Text(localizedText("优先级 (数字越小越优先)", "Priority (lower = higher)")) },
+                    label = { Text("Приоритет (меньше = выше)") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 HorizontalDivider()
-                Text(localizedText("匹配条件（AND 关系，空=不匹配）", "Match conditions (AND logic, blank=ignore)"),
+                Text("Условия совпадения (логика И, пусто = не учитывать)",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold)
 
@@ -1815,7 +1815,7 @@ private fun AddEditRoutingRuleDialog(
                 OutlinedTextField(
                     value = pathPattern,
                     onValueChange = { pathPattern = it },
-                    label = { Text(localizedText("路径匹配", "Path pattern")) },
+                    label = { Text("Шаблон пути") },
                     placeholder = { Text("/v1/chat/completions") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -1825,8 +1825,8 @@ private fun AddEditRoutingRuleDialog(
                 OutlinedTextField(
                     value = modelPattern,
                     onValueChange = { modelPattern = it },
-                    label = { Text(localizedText("模型名匹配 (*通配符)", "Model pattern (* wildcard)")) },
-                    placeholder = { Text("gpt-* 或 *vision*") },
+                    label = { Text("Шаблон модели (* — маска)") },
+                    placeholder = { Text("gpt-* или *vision*") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1835,7 +1835,7 @@ private fun AddEditRoutingRuleDialog(
                 OutlinedTextField(
                     value = apiKeyPattern,
                     onValueChange = { apiKeyPattern = it },
-                    label = { Text(localizedText("API密钥前缀", "API key prefix")) },
+                    label = { Text("Префикс API-ключа") },
                     placeholder = { Text("sk-proj-") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -1845,15 +1845,15 @@ private fun AddEditRoutingRuleDialog(
                 OutlinedTextField(
                     value = providerIdText,
                     onValueChange = { providerIdText = it.filter { c -> c.isDigit() } },
-                    label = { Text(localizedText("服务商ID (空=不限)", "Provider ID (blank=any)")) },
-                    placeholder = { Text(localizedText("留空表示不限服务商", "Blank for any provider")) },
+                    label = { Text("ID провайдера (пусто = любой)") },
+                    placeholder = { Text("Оставьте пустым для любого провайдера") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 HorizontalDivider()
-                Text(localizedText("匹配后动作", "Action after match"),
+                Text("Действие при совпадении",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold)
 
@@ -1862,12 +1862,12 @@ private fun AddEditRoutingRuleDialog(
                     FilterChip(
                         selected = action == "route",
                         onClick = { action = "route" },
-                        label = { Text(localizedText("路由", "Route")) }
+                        label = { Text("Маршрут") }
                     )
                     FilterChip(
                         selected = action == "block",
                         onClick = { action = "block" },
-                        label = { Text(localizedText("拒绝", "Block")) }
+                        label = { Text("Блокировать") }
                     )
                 }
 
@@ -1875,14 +1875,14 @@ private fun AddEditRoutingRuleDialog(
                     OutlinedTextField(
                         value = targetModelKey,
                         onValueChange = { targetModelKey = it },
-                        label = { Text(localizedText("目标模型 routeKey", "Target model routeKey")) },
+                        label = { Text("routeKey целевой модели") },
                         placeholder = { Text("providerId:modelId") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                     // 快捷选择已有模型
                     if (models.isNotEmpty()) {
-                        Text(localizedText("点击模型快速填充:", "Tap model to fill:"), style = MaterialTheme.typography.labelSmall)
+                        Text("Нажмите модель для заполнения:", style = MaterialTheme.typography.labelSmall)
                         LazyColumn(modifier = Modifier.heightIn(max = 120.dp)) {
                             items(models) { model ->
                                     Text(
@@ -1902,8 +1902,8 @@ private fun AddEditRoutingRuleDialog(
                     OutlinedTextField(
                         value = blockMessage,
                         onValueChange = { blockMessage = it },
-                        label = { Text(localizedText("拒绝提示信息", "Block message")) },
-                        placeholder = { Text(localizedText("此请求已被路由规则拒绝", "Request blocked by routing rule")) },
+                        label = { Text("Сообщение при блокировке") },
+                        placeholder = { Text("Запрос отклонён правилом маршрутизации") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1940,10 +1940,10 @@ private fun AddEditRoutingRuleDialog(
                 },
                 enabled = name.isNotBlank() && (action == "block" || targetModelKey.isNotBlank())
             ) {
-                Text(if (isEdit) localizedText("保存", "Save") else localizedText("添加", "Add"))
+                Text(if (isEdit) "Сохранить" else "Добавить")
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(localizedText("取消", "Cancel")) } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
     )
 }
 

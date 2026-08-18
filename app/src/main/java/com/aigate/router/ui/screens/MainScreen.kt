@@ -291,7 +291,7 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
-                            copyToClipboard(context, localizedText("本地地址", "Local address"), localAddr)
+                            copyToClipboard(context, "Локальный адрес", localAddr)
                         }
                         .padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -308,7 +308,7 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
-                            copyToClipboard(context, localizedText("局域网地址", "LAN address"), lanAddr)
+                            copyToClipboard(context, "Адрес локальной сети", lanAddr)
                         }
                         .padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -422,7 +422,7 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = localizedText("⏱ 测速间隔", "⏱ Speed interval"),
+                        text = "⏱ Интервал теста",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.width(80.dp)
@@ -447,9 +447,9 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                     )
                     Text(
                         text = when {
-                            intervalMinutes < 60 -> localizedText("${intervalMinutes}分钟", "${intervalMinutes}min")
-                            intervalMinutes % 60 == 0 -> localizedText("${intervalMinutes / 60}小时", "${intervalMinutes / 60}h")
-                            else -> localizedText("${intervalMinutes / 60}小时${intervalMinutes % 60}分", "${intervalMinutes / 60}h${intervalMinutes % 60}m")
+                            intervalMinutes < 60 -> "${intervalMinutes}мин"
+                            intervalMinutes % 60 == 0 -> "${intervalMinutes / 60}ч"
+                            else -> "${intervalMinutes / 60}ч${intervalMinutes % 60}м"
                         },
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
@@ -463,7 +463,7 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                     val mins = pCountdown / 60
                     val secs = pCountdown % 60
                     Text(
-                        text = "⏱ ${localizedText("下一轮测速", "Next speed test in")}: ${"%02d:%02d".format(mins, secs)}",
+                        text = "⏱ ${"Следующий тест через"}: ${"%02d:%02d".format(mins, secs)}",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -487,11 +487,11 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                     else -> Error
                 }
                 val indicatorText = when {
-                    pStatus.isEmpty() && !pRunning -> localizedText("请先启动测速获取可用模型排行", "Start speed test first to get the available model ranking")
-                    pRunning -> localizedText("测速中，完成一个即可使用", "Speed testing; you can use a model as soon as one completes")
-                    hasReadyModel -> localizedText("全部测速完成，qtai-sj 已就绪", "All speed tests complete. qtai-sj is ready")
-                    allFailed -> localizedText("全部模型异常，暂时无法使用", "All models are abnormal and temporarily unavailable")
-                    else -> localizedText("部分模型异常，qtai-sj 可能受影响", "Some models are abnormal; qtai-sj may be affected")
+                    pStatus.isEmpty() && !pRunning -> "Сначала запустите тест скорости, чтобы получить рейтинг доступных моделей"
+                    pRunning -> "Идёт тест скорости; модель можно использовать, как только завершится хотя бы одна"
+                    hasReadyModel -> "Все тесты скорости завершены. qtai-sj готов"
+                    allFailed -> "Все модели работают некорректно и временно недоступны"
+                    else -> "Некоторые модели работают некорректно; qtai-sj может быть затронут"
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Canvas(modifier = Modifier.size(14.dp)) {
@@ -520,7 +520,7 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            localizedText("🤖 当前AI助手模型", "🤖 Current AI assistant model"),
+                            "🤖 Текущая модель ИИ-помощника",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -536,7 +536,7 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                 val currentItem = pStatus.find { it.isCurrent && !it.status.startsWith("✅") && !it.status.startsWith("❌") }
                 if (currentItem != null || pRunning) {
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(localizedText("⏳ 正在测速", "⏳ Speed testing"), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold,
+                    Text("⏳ Идёт тест скорости", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.height(2.dp))
                     Card(
@@ -549,7 +549,7 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = currentItem?.let { "P${it.providerId} · ${it.modelName}" } ?: localizedText("准备中...", "Preparing..."),
+                                text = currentItem?.let { "P${it.providerId} · ${it.modelName}" } ?: "Подготовка...",
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
@@ -558,7 +558,7 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
                                     Spacer(Modifier.width(4.dp))
-                                    Text(localizedText("测速中", "Testing speed"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                    Text("Тест скорости", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                                 }
                             }
                         }
@@ -568,7 +568,7 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                 // ★★ 框1：已测速完的模型（✅成功 / ❌失败），按速度排序 ★★
                 if (doneItems.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(localizedText("✅ 已测速完成", "✅ Speed test complete"), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold,
+                    Text("✅ Тест скорости завершён", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold,
                         color = Online)
                     Spacer(modifier = Modifier.height(4.dp))
 // ★ 显示强制模式指示
@@ -579,7 +579,7 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = localizedText("🎯 强制模式: ", "🎯 Forced mode: ") +
+                                text = "🎯 Принудительный режим: " +
                                     (doneItems.find { it.selectionKey == forcedModelKey }?.let { item ->
                                         val rank = doneItems.indexOfFirst { it.selectionKey == item.selectionKey } + 1
                                         "#$rank · P${item.providerId} · ${item.modelName}"
@@ -589,7 +589,7 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                                 color = MaterialTheme.colorScheme.primary
                             )
                             TextButton(onClick = { viewModel.clearForcedModel() }) {
-                                Text(localizedText("↩️ 取消强制", "↩️ Cancel forced mode"), style = MaterialTheme.typography.labelSmall)
+                                Text("↩️ Отменить принудительный режим", style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }
@@ -603,7 +603,7 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                         ) { index, item ->
                             val isSelected = item.selectionKey == forcedModelKey
                             val providerName = providerMap[item.providerId]?.name
-                                ?: localizedText("未知服务商", "Unknown provider")
+                                ?: "Неизвестный провайдер"
                             Card(
                                 modifier = Modifier.fillMaxWidth()
                                     .clickable { viewModel.forceModel(item.modelId, item.providerId, index + 1) }
@@ -667,10 +667,10 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                                                 Text("⏱ ${latencyMatch.groupValues[1]}ms", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
                                             Spacer(modifier = Modifier.weight(1f))
-                                            Text("✅ 可用", style = MaterialTheme.typography.labelSmall, color = Online)
+                                            Text("✅ Доступна", style = MaterialTheme.typography.labelSmall, color = Online)
                                         } else if (isError) {
                                             Spacer(modifier = Modifier.weight(1f))
-                                            Text("❌ 不可用", style = MaterialTheme.typography.labelSmall, color = Error)
+                                            Text("❌ Недоступна", style = MaterialTheme.typography.labelSmall, color = Error)
                                         } else {
                                             Spacer(modifier = Modifier.weight(1f))
                                             Text(localizeRuntimeText(statusText), style = MaterialTheme.typography.labelSmall,
@@ -683,14 +683,14 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                     }
                 } else if (!pRunning && pStatus.isNotEmpty()) {
                     Text(
-                        text = localizedText("⏳ 测速排队中，请点击「▶️ 启动」开始测速", "⏳ Speed test queued. Tap ▶️ Start to begin"),
+                        text = "⏳ Тест скорости в очереди. Нажмите ▶️ Старт, чтобы начать",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
                 } else if (pStatus.isEmpty()) {
                     Text(
-                        text = localizedText("暂无测速数据，点击「▶️ 启动」开始测速", "No speed-test data yet. Tap ▶️ Start to begin"),
+                        text = "Пока нет данных теста скорости. Нажмите ▶️ Старт, чтобы начать",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 4.dp)
@@ -718,8 +718,8 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(localizedText("📡 实时会话", "📡 Live sessions"), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                        TextButton(onClick = { viewModel.clearLiveSessions() }) { Text(localizedText("🗑️ 清空", "🗑️ Clear"), style = MaterialTheme.typography.labelSmall) }
+                        Text("📡 Активные сессии", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        TextButton(onClick = { viewModel.clearLiveSessions() }) { Text("🗑️ Очистить", style = MaterialTheme.typography.labelSmall) }
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     val transition = rememberInfiniteTransition(label = "marquee")
@@ -751,7 +751,7 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                                 // ★★ 合并发送+回复内容为一整行跑马灯 ★★
                                 val marqueeText = buildString {
                                     if (session.requestPreview.isNotBlank()) {
-                                        append(localizedText("📤 我：", "📤 Me: ") + session.requestPreview)
+                                        append("📤 Я: " + session.requestPreview)
                                     }
                                     if (session.requestPreview.isNotBlank() && session.responsePreview.isNotBlank()) {
                                         append(" → ")
@@ -783,18 +783,18 @@ fun HomeScreen(viewModel: GatewayViewModel) {
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
-                    text = localizedText("📖 使用说明", "📖 Usage guide"),
+                    text = "📖 Инструкция",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = localizedText("1. 添加服务商（AI API提供商）\n", "1. Add a provider (AI API provider)\n") +
-                            localizedText("2. 为服务商同步模型列表\n", "2. Sync the provider model list\n") +
-                            localizedText("3. 启动网关服务\n", "3. Start the gateway service\n") +
-                            localizedText("4. 在第三方应用中设置 Base URL:\n", "4. Set the Base URL in the third-party app:\n") +
-                            localizedText("   http://手机IP:8889/v1\n", "   http://phone-ip:8889/v1\n") +
-                            localizedText("5. API Key 任意填写即可转发", "5. Any API key can be entered for forwarding"),
+                    text = "1. Добавьте провайдера (провайдер AI API)\n" +
+                            "2. Синхронизируйте список моделей провайдера\n" +
+                            "3. Запустите службу шлюза\n" +
+                            "4. Укажите Base URL в стороннем приложении:\n" +
+                            "   http://IP-телефона:8889/v1\n" +
+                            "5. Для пересылки можно указать любой API-ключ",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -817,7 +817,7 @@ fun HomeScreen(viewModel: GatewayViewModel) {
                 Text("⚠️", style = MaterialTheme.typography.titleLarge)
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = localizedText("请确保手机与目标设备在同一局域网内，\n且防火墙未阻止 8889 端口", "Make sure the phone and target device are on the same LAN,\nand that the firewall is not blocking port 8889"),
+                    text = "Убедитесь, что телефон и целевое устройство в одной локальной сети,\nи что брандмауэр не блокирует порт 8889",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -884,13 +884,13 @@ fun ProvidersScreen(viewModel: GatewayViewModel) {
                     Text("🔌", fontSize = MaterialTheme.typography.displayLarge.fontSize)
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = localizedText("暂无服务商", "No providers yet"),
+                        text = "Пока нет провайдеров",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = localizedText("点击右下角按钮添加 AI 服务商", "Tap the bottom-right button to add an AI provider"),
+                        text = "Нажмите кнопку в правом нижнем углу, чтобы добавить AI-провайдера",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -926,12 +926,12 @@ fun ProvidersScreen(viewModel: GatewayViewModel) {
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     if (index > 0) {
                                         TextButton(onClick = { viewModel.moveProvider(provider, -1); showMoveMenu = false }, modifier = Modifier.fillMaxWidth()) {
-                                            Text("▲  上移")
+                                            Text("▲  Вверх")
                                         }
                                     }
                                     if (index < providers.sortedBy { it.orderIndex }.size - 1) {
                                         TextButton(onClick = { viewModel.moveProvider(provider, 1); showMoveMenu = false }, modifier = Modifier.fillMaxWidth()) {
-                                            Text("▼  下移")
+                                            Text("▼  Вниз")
                                         }
                                     }
                                 }
@@ -1006,7 +1006,7 @@ private fun ProviderCard(
                         shape = MaterialTheme.shapes.small
                     ) {
                         Text(
-                            text = if (provider.isEnabled) localizedText("已启用", "Enabled") else localizedText("已禁用", "Disabled"),
+                            text = if (provider.isEnabled) "Включено" else "Выключено",
                             style = MaterialTheme.typography.labelMedium,
                             color = if (provider.isEnabled) Online else Offline,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
@@ -1024,7 +1024,7 @@ private fun ProviderCard(
                     IconButton(onClick = onSync, modifier = Modifier.size(36.dp)) {
                         Icon(
                             Icons.Default.Sync,
-                            contentDescription = localizedText("同步模型", "Sync models"),
+                            contentDescription = "Синхронизировать модели",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
@@ -1032,7 +1032,7 @@ private fun ProviderCard(
                     IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
                         Icon(
                             Icons.Default.Edit,
-                            contentDescription = localizedText("编辑", "Edit"),
+                            contentDescription = "Редактировать",
                             tint = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(20.dp)
                         )
@@ -1040,7 +1040,7 @@ private fun ProviderCard(
                     IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
                         Icon(
                             Icons.Default.Delete,
-                            contentDescription = localizedText("删除", "Delete"),
+                            contentDescription = "Удалить",
                             tint = Error,
                             modifier = Modifier.size(20.dp)
                         )
@@ -1051,7 +1051,7 @@ private fun ProviderCard(
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = localizedText("类型: ", "Type: ") + provider.type,
+                text = "Тип: " + provider.type,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1212,7 +1212,7 @@ private fun AddProviderDialog(
                     OutlinedTextField(
                         value = chatPathText,
                         onValueChange = { v -> chatPathText = v; viewModel.updateFormField("chatPath", v); chatPathExpanded = true },
-                        label = { Text(localizedText("对话接口路径（留空自动拼接）", "Chat API path (blank = auto-append)")) },
+                        label = { Text("Путь Chat API (пусто = добавить автоматически)") },
                         placeholder = { Text("/v1/chat/completions") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth().menuAnchor(),
@@ -1242,7 +1242,7 @@ private fun AddProviderDialog(
                             Icon(
                                 imageVector = if (showApiKey) Icons.Default.Visibility
                                     else Icons.Default.VisibilityOff,
-                                contentDescription = if (showApiKey) localizedText("隐藏", "Hide") else localizedText("显示", "Show")
+                                contentDescription = if (showApiKey) "Скрыть" else "Показать"
                             )
                         }
                     },
@@ -1252,7 +1252,7 @@ private fun AddProviderDialog(
                 // 提示信息
                 if (selectedIndex != 4) {
                     Text(
-                        text = localizedText("💡 已自动填充对应类型的默认配置，你可手动修改", "💡 Default configuration for this type has been filled automatically. You can edit it manually"),
+                        text = "💡 Конфигурация по умолчанию для этого типа заполнена автоматически. Вы можете изменить её вручную",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -1396,7 +1396,7 @@ supportingText = {
                     OutlinedTextField(
                         value = chatPath,
                         onValueChange = { v -> chatPath = v; chatPathExpanded = true },
-                        label = { Text(localizedText("对话接口路径（留空自动拼接）", "Chat API path (blank = auto-append)")) },
+                        label = { Text("Путь Chat API (пусто = добавить автоматически)") },
                         placeholder = { Text("/v1/chat/completions") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth().menuAnchor(),
@@ -1492,7 +1492,7 @@ private fun getLocalIpAddress(): String {
             }
         }
     } catch (_: Exception) { }
-    return localizedText("无法获取IP", "Unable to get IP")
+    return "Не удалось получить IP"
 }
 
 // ============================================================
@@ -1524,7 +1524,7 @@ fun ModelsScreen(viewModel: GatewayViewModel) {
         if (filterToolCall) fromDb = fromDb.filter { com.aigate.router.gateway.ModelCapabilityManager.getCapabilities(it.modelId).first }
         if (filterVision) fromDb = fromDb.filter { com.aigate.router.gateway.ModelCapabilityManager.getCapabilities(it.modelId).second }
         listOfNotNull(
-            AiModel(id = -1, modelId = VirtualModel.ID, displayName = localizedText("🔄 自动化切换", "🔄 Auto switch"), providerId = 0, isEnabled = true)
+            AiModel(id = -1, modelId = VirtualModel.ID, displayName = "🔄 Автопереключение", providerId = 0, isEnabled = true)
         ) + fromDb
     }
 
@@ -1540,8 +1540,8 @@ fun ModelsScreen(viewModel: GatewayViewModel) {
             }
             .map { (providerId, modelList) ->
                 val providerName = providersById[providerId]?.name
-                    ?: if (providerId == 0L) localizedText("自动切换", "Auto switch")
-                    else localizedText("未知服务商", "Unknown provider")
+                    ?: if (providerId == 0L) "Автопереключение"
+                    else "Неизвестный провайдер"
                 "P$providerId · $providerName" to modelList
             }
     }
@@ -1555,20 +1555,20 @@ fun ModelsScreen(viewModel: GatewayViewModel) {
                 Text("🤖", fontSize = MaterialTheme.typography.displayLarge.fontSize)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = localizedText("暂无模型", "No models yet"),
+                    text = "Пока нет моделей",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = localizedText("请先添加服务商并同步模型列表", "Add a provider and sync the model list first"),
+                    text = "Сначала добавьте провайдера и синхронизируйте список моделей",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 if (providers.isNotEmpty()) {
                     Text(
-                        text = localizedText("在「服务商」页面点击 🔄 按钮同步模型", "Tap 🔄 on the Providers page to sync models"),
+                        text = "Нажмите 🔄 на странице «Провайдеры», чтобы синхронизировать модели",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1663,11 +1663,11 @@ fun ModelsScreen(viewModel: GatewayViewModel) {
                             if (isBatchTesting) {
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(localizedText("测速中...", "Speed testing..."))
+                                Text("Тест скорости...")
                             } else {
                                 Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(localizedText("🔍 批量测速(自动开启)", "🔍 Batch speed test (auto-enable)"))
+                                Text("🔍 Пакетный тест скорости (автовключение)")
                             }
                         }
                         // ★★ 手动添加模型按钮 ★★
@@ -1677,7 +1677,7 @@ fun ModelsScreen(viewModel: GatewayViewModel) {
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(localizedText("✏️ 手动添加", "✏️ Add manually"))
+                            Text("✏️ Добавить вручную")
                         }
                     }
                     // 🔇 错误自动关闭开关
@@ -1685,7 +1685,7 @@ fun ModelsScreen(viewModel: GatewayViewModel) {
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("🔇 错误自动关闭", style = MaterialTheme.typography.bodyMedium)
+                        Text("🔇 Авто-скрытие ошибок", style = MaterialTheme.typography.bodyMedium)
                         Spacer(modifier = Modifier.weight(1f))
                         val autoClose by viewModel.batchTestingAutoClose.collectAsState()
                         Switch(
@@ -1737,7 +1737,7 @@ fun ModelsScreen(viewModel: GatewayViewModel) {
 
         AlertDialog(
             onDismissRequest = { showManualAddModel = false },
-            title = { Text(localizedText("✏️ 手动添加模型", "✏️ Add model manually"), fontWeight = FontWeight.Bold) },
+            title = { Text("✏️ Добавить модель вручную", fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     // 选择服务商
@@ -1747,7 +1747,7 @@ fun ModelsScreen(viewModel: GatewayViewModel) {
                             value = selectedProvider?.name ?: "",
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text(localizedText("选择服务商", "Select provider")) },
+                            label = { Text("Выберите провайдера") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = providerExpanded) },
                             modifier = Modifier.fillMaxWidth().menuAnchor(),
                             singleLine = true
@@ -1766,7 +1766,7 @@ fun ModelsScreen(viewModel: GatewayViewModel) {
                     OutlinedTextField(
                         value = newModelId,
                         onValueChange = { newModelId = it },
-                        label = { Text(localizedText("模型ID", "Model ID")) },
+                        label = { Text("ID модели") },
                         placeholder = { Text("gpt-4o, deepseek-chat, ...") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -1776,8 +1776,8 @@ fun ModelsScreen(viewModel: GatewayViewModel) {
                     OutlinedTextField(
                         value = newModelName,
                         onValueChange = { newModelName = it },
-                        label = { Text(localizedText("显示名称 (可选)", "Display name (optional)")) },
-                        placeholder = { Text(newModelId.ifBlank { localizedText("留空则使用模型ID", "Leave empty to use model ID") }) },
+                        label = { Text("Отображаемое имя (необязательно)") },
+                        placeholder = { Text(newModelId.ifBlank { "Оставьте пустым, чтобы использовать ID модели" }) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1804,10 +1804,10 @@ fun ModelsScreen(viewModel: GatewayViewModel) {
                     },
                     enabled = newModelId.isNotBlank()
                 ) {
-                    Text(localizedText("添加", "Add"))
+                    Text("Добавить")
                 }
             },
-            dismissButton = { TextButton(onClick = { showManualAddModel = false }) { Text(localizedText("关闭", "Close")) } }
+            dismissButton = { TextButton(onClick = { showManualAddModel = false }) { Text("Закрыть") } }
         )
     }
 }
@@ -1840,7 +1840,7 @@ private fun ModelCard(model: AiModel, viewModel: GatewayViewModel) {
                                 shape = MaterialTheme.shapes.small
                             ) {
                                 Text(
-                                    text = localizedText("已禁用", "Disabled"),
+                                    text = "Выключено",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = Error,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
@@ -1867,19 +1867,19 @@ private fun ModelCard(model: AiModel, viewModel: GatewayViewModel) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { viewModel.testModelSpeed(model) }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = localizedText("测试", "Test"), modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Default.PlayArrow, contentDescription = "Тест", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                     }
-                    Text(localizedText("测试", "Test"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(Alignment.CenterVertically))
+                    Text("Тест", style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(Alignment.CenterVertically))
                     Spacer(modifier = Modifier.width(8.dp))
                     IconButton(onClick = { viewModel.showEditModelAlias(model) }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Edit, contentDescription = localizedText("编辑别名", "Edit alias"), modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(Icons.Default.Edit, contentDescription = "Изменить псевдоним", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text(localizedText("别名", "Alias"), style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(Alignment.CenterVertically))
+                    Text("Псевдоним", style = MaterialTheme.typography.labelSmall, modifier = Modifier.align(Alignment.CenterVertically))
                     Spacer(modifier = Modifier.width(8.dp))
                     IconButton(onClick = { viewModel.deleteModel(model) }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Delete, contentDescription = localizedText("删除", "Delete"), modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+                        Icon(Icons.Default.Delete, contentDescription = "Удалить", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
                     }
-                    Text(localizedText("删除", "Delete"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.align(Alignment.CenterVertically))
+                    Text("Удалить", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.align(Alignment.CenterVertically))
                     Spacer(modifier = Modifier.weight(1f))
                     IconButton(onClick = { viewModel.toggleModelProxy(model) }, modifier = Modifier.size(32.dp)) {
                         Text(if (model.useProxy) "🔄" else "🔗", style = MaterialTheme.typography.labelLarge)
@@ -1904,11 +1904,11 @@ private fun EditModelAliasDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(localizedText("编辑模型别名", "Edit model alias")) },
+        title = { Text("Изменить псевдоним модели") },
         text = {
             Column {
                 Text(
-                    text = localizedText("模型: ", "Model: ") + model.displayName,
+                    text = "Модель: " + model.displayName,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1916,8 +1916,8 @@ private fun EditModelAliasDialog(
                 OutlinedTextField(
                     value = aliasText,
                     onValueChange = { aliasText = it },
-                    label = { Text(localizedText("自定义别名", "Custom alias")) },
-                    placeholder = { Text(localizedText("输入别名（留空则使用默认名称）", "Enter an alias (leave empty to use default name)")) },
+                    label = { Text("Свой псевдоним") },
+                    placeholder = { Text("Введите псевдоним (пусто — имя по умолчанию)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )

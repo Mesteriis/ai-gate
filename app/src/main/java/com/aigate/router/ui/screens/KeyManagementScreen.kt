@@ -34,7 +34,7 @@ fun KeyManagementScreen(onDismiss: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(localizedText("🔑 API 密钥管理", "🔑 API Key management")) },
+                title = { Text("🔑 Управление ключами API") },
                 navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Default.ArrowBack, contentDescription = null) } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary, titleContentColor = MaterialTheme.colorScheme.onPrimary, navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
             )
@@ -48,8 +48,8 @@ fun KeyManagementScreen(onDismiss: () -> Unit) {
                         Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(localizedText("API 密钥验证", "API key authentication"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text(localizedText("本地请求（localhost/192.168.*）自动免密钥", "Local requests (localhost/192.168.*) are automatically exempt"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Авторизация по API-ключу", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text("Запросы с 127.0.0.1 — без ключа; из локальной сети — только по паролю (LAN-режим)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Switch(checked = requireApiKey, onCheckedChange = { e ->
                             requireApiKey = e
@@ -65,7 +65,7 @@ fun KeyManagementScreen(onDismiss: () -> Unit) {
             Button(onClick = { showAddDialog = true }, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
-                Text(localizedText("添加密钥", "Add key"))
+                Text("Добавить ключ")
             }
             
             Spacer(Modifier.height(12.dp))
@@ -73,7 +73,7 @@ fun KeyManagementScreen(onDismiss: () -> Unit) {
             // 密钥列表
             if (keys.isEmpty()) {
                 Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                    Text(localizedText("暂无密钥，点击上方添加", "No keys yet. Tap above to add one"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Ключей пока нет. Нажмите выше, чтобы добавить", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -126,18 +126,18 @@ private fun KeyCard(entry: ApiKeyEntry, onEdit: (ApiKeyEntry) -> Unit, onDelete:
             Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 val timeStr = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(entry.createdAt))
-                Text(localizedText("创建于: ", "Created: ") + timeStr, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Создан: " + timeStr, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (entry.allowedModels.isNotEmpty()) {
-                    Text(localizedText("限定 ${entry.allowedModels.size} 个模型", "Limited to ${entry.allowedModels.size} models"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    Text("Ограничение: ${entry.allowedModels.size} моделей", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 }
                 if (!entry.autoAccess) {
-                    Text(localizedText("qtai-sj 禁止", "qtai-sj denied"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                    Text("auto запрещён", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                 }
             }
             Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                TextButton(onClick = { onEdit(entry) }) { Text(localizedText("编辑", "Edit"), style = MaterialTheme.typography.labelSmall) }
-                TextButton(onClick = onDelete) { Text(localizedText("删除", "Delete"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error) }
+                TextButton(onClick = { onEdit(entry) }) { Text("Изменить", style = MaterialTheme.typography.labelSmall) }
+                TextButton(onClick = onDelete) { Text("Удалить", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error) }
             }
         }
     }
@@ -153,23 +153,23 @@ private fun AddKeyDialog(onDismiss: () -> Unit, onSave: (String, String, List<St
     
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(localizedText("添加密钥", "Add key"), fontWeight = FontWeight.Bold) },
+        title = { Text("Добавить ключ", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = key, onValueChange = { key = it }, label = { Text(localizedText("密钥", "Key")) }, singleLine = true,
+                OutlinedTextField(value = key, onValueChange = { key = it }, label = { Text("Ключ") }, singleLine = true,
                     visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = { IconButton(onClick = { showKey = !showKey }) { Icon(if (showKey) Icons.Default.Visibility else Icons.Default.VisibilityOff, null) } },
                     modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text(localizedText("备注（可选）", "Label (optional)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text("Метка (необязательно)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(localizedText("允许 qtai-sj 访问", "Allow qtai-sj access"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    Text("Разрешить доступ к auto", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                     Switch(checked = autoAccess, onCheckedChange = { autoAccess = it })
                 }
-                Text(localizedText("💡 密钥为空列表时默认允许所有模型", "💡 Empty model list = allow all models"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("💡 Пустой список моделей = все модели", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
-        confirmButton = { Button(onClick = { onSave(key, label, emptyList(), autoAccess) }, enabled = key.isNotBlank()) { Text(localizedText("添加", "Add")) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(localizedText("取消", "Cancel")) } }
+        confirmButton = { Button(onClick = { onSave(key, label, emptyList(), autoAccess) }, enabled = key.isNotBlank()) { Text("Добавить") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
     )
 }
 
@@ -183,23 +183,23 @@ private fun EditKeyDialog(entry: ApiKeyEntry, onDismiss: () -> Unit, onSave: (St
     
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(localizedText("编辑密钥", "Edit key"), fontWeight = FontWeight.Bold) },
+        title = { Text("Изменить ключ", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(entry.key, style = MaterialTheme.typography.bodySmall, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text(localizedText("备注", "Label")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text("Метка") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(localizedText("启用", "Enabled"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    Text("Включён", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                     Switch(checked = enabled, onCheckedChange = { enabled = it })
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(localizedText("允许 qtai-sj", "Allow qtai-sj"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    Text("Разрешить auto", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                     Switch(checked = autoAccess, onCheckedChange = { autoAccess = it })
                 }
-                OutlinedTextField(value = modelsText, onValueChange = { modelsText = it }, label = { Text(localizedText("限定模型ID（逗号分隔，空=全部）", "Allowed model IDs (comma-separated, empty=all)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = modelsText, onValueChange = { modelsText = it }, label = { Text("Разрешённые ID моделей (через запятую, пусто=все)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             }
         },
-        confirmButton = { Button(onClick = { onSave(label, enabled, modelsText.split(",").map { it.trim() }.filter { it.isNotBlank() }, autoAccess) }) { Text(localizedText("保存", "Save")) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(localizedText("取消", "Cancel")) } }
+        confirmButton = { Button(onClick = { onSave(label, enabled, modelsText.split(",").map { it.trim() }.filter { it.isNotBlank() }, autoAccess) }) { Text("Сохранить") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
     )
 }

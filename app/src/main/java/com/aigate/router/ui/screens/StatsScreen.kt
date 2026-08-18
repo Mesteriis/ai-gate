@@ -94,9 +94,9 @@ fun StatsScreen(viewModel: GatewayViewModel) {
     // 图表类型切换：0=TTFT, 1=TPS, 2=总耗时
     var chartMetricIndex by remember { mutableIntStateOf(0) }
     val chartMetrics = listOf(
-        localizedText("TTFT (ms)", "TTFT (ms)"),
-        localizedText("TPS", "TPS"),
-        localizedText("总耗时 (ms)", "Total (ms)")
+        "TTFT (мс)",
+        "TPS",
+        "Всего (мс)"
     )
 
     // ★★ 按API密钥分组的用量统计 ★★
@@ -109,7 +109,7 @@ fun StatsScreen(viewModel: GatewayViewModel) {
         allTokenUsage
             .groupBy { it.providerId }
             .mapValues { (providerId, usages) ->
-                val providerName = providerMap[providerId]?.name ?: localizedText("未知(ID:", "Unknown (ID:") + providerId + ")"
+                val providerName = providerMap[providerId]?.name ?: "Неизвестно (ID:" + providerId + ")"
                 val totalPrompt = usages.sumOf { it.promptTokens }
                 val totalCompletion = usages.sumOf { it.completionTokens }
                 val total = usages.sumOf { it.totalTokens }
@@ -149,7 +149,7 @@ fun StatsScreen(viewModel: GatewayViewModel) {
             // ==================== 总览卡片 ====================
             item {
                 Text(
-                    text = localizedText("📊 Token 用量总览", "📊 Token usage overview"),
+                    text = "📊 Обзор расхода токенов",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -168,7 +168,7 @@ fun StatsScreen(viewModel: GatewayViewModel) {
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = localizedText("总计消耗", "Total usage"),
+                            text = "Общий расход",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
@@ -208,31 +208,31 @@ fun StatsScreen(viewModel: GatewayViewModel) {
             item {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text(localizedText("🌐 网关流量统计", "🌐 Gateway traffic statistics"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("🌐 Статистика трафика шлюза", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(8.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(localizedText("⬆ 上传", "⬆ Upload"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("⬆ Отправлено", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(formatBytes(gwUpload), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                         }
                         Spacer(Modifier.height(4.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(localizedText("⬇ 下载", "⬇ Download"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("⬇ Получено", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(formatBytes(gwDownload), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                         }
                         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(localizedText("📈 总上传", "📈 Total upload"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("📈 Всего отправлено", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(formatBytes(gwTotalUpload), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                         }
                         Spacer(Modifier.height(4.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(localizedText("📈 总下载", "📈 Total download"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("📈 Всего получено", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(formatBytes(gwTotalDownload), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                         }
                         if (activeModel.isNotBlank()) {
                             Spacer(Modifier.height(4.dp))
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(localizedText("🧠 当前模型", "🧠 Current model"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("🧠 Текущая модель", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(activeModel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             }
                         }
@@ -245,18 +245,18 @@ fun StatsScreen(viewModel: GatewayViewModel) {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = localizedText("明细统计", "Detailed statistics"),
+                            text = "Подробная статистика",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(12.dp))
-                        StatRow(localizedText("输入 Tokens (Prompt)", "Input tokens (prompt)"), formatTokenCount(totalPromptTokens), Online)
+                        StatRow("Входные токены (prompt)", formatTokenCount(totalPromptTokens), Online)
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        StatRow(localizedText("输出 Tokens (Completion)", "Output tokens (completion)"), formatTokenCount(totalCompletionTokens), MaterialTheme.colorScheme.primary)
+                        StatRow("Выходные токены (completion)", formatTokenCount(totalCompletionTokens), MaterialTheme.colorScheme.primary)
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        StatRow(localizedText("API 调用次数", "API call count"), "${allTokenUsage.size}", MaterialTheme.colorScheme.onSurface)
+                        StatRow("Количество вызовов API", "${allTokenUsage.size}", MaterialTheme.colorScheme.onSurface)
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        StatRow(localizedText("平均每次消耗", "Average per call"), formatAverage(totalTokensAll, allTokenUsage.size), Warning)
+                        StatRow("В среднем за вызов", formatAverage(totalTokensAll, allTokenUsage.size), Warning)
                     }
                 }
             }
@@ -265,7 +265,7 @@ fun StatsScreen(viewModel: GatewayViewModel) {
             if (statsByProvider.isNotEmpty()) {
                 item {
                     Text(
-                        text = localizedText("🏢 按服务商统计", "🏢 By provider"),
+                        text = "🏢 По провайдерам",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(top = 8.dp)
@@ -283,7 +283,7 @@ fun StatsScreen(viewModel: GatewayViewModel) {
             if (apiKeyUsageRows.isNotEmpty()) {
                 item {
                     Text(
-                        text = localizedText("🔑 按API密钥统计", "🔑 By API key"),
+                        text = "🔑 По API-ключам",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(top = 8.dp)
@@ -301,7 +301,7 @@ fun StatsScreen(viewModel: GatewayViewModel) {
             if (statsByModel.isNotEmpty()) {
                 item {
                     Text(
-                        text = localizedText("🤖 按模型统计 (Top 10)", "🤖 By model (Top 10)"),
+                        text = "🤖 По моделям (Топ-10)",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(top = 8.dp)
@@ -323,7 +323,7 @@ fun StatsScreen(viewModel: GatewayViewModel) {
             if (allTokenUsage.isNotEmpty()) {
                 item {
                     Text(
-                        text = localizedText("📋 最近用量记录", "📋 Recent usage records"),
+                        text = "📋 Последние записи расхода",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(top = 8.dp)
@@ -334,7 +334,7 @@ fun StatsScreen(viewModel: GatewayViewModel) {
                     UsageRecordCard(
                         usage = usage,
                         providerName = providers.firstOrNull { it.id == usage.providerId }?.name
-                            ?: localizedText("未知", "Unknown")
+                            ?: "Неизвестно"
                     )
                 }
             } else {
@@ -350,13 +350,13 @@ fun StatsScreen(viewModel: GatewayViewModel) {
                             Text("📊", fontSize = 48.sp)
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = localizedText("暂无用量数据", "No usage data yet"),
+                                text = "Пока нет данных о расходе",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = localizedText("发送聊天消息后会自动记录 Token 消耗", "Token usage will be recorded automatically after sending chat messages"),
+                                text = "Расход токенов записывается автоматически после отправки сообщений",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
@@ -383,7 +383,7 @@ fun StatsScreen(viewModel: GatewayViewModel) {
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(localizedText("刷新", "Refresh"))
+                        Text("Обновить")
                     }
                     Button(
                         onClick = { showClearConfirm = true },
@@ -398,7 +398,7 @@ fun StatsScreen(viewModel: GatewayViewModel) {
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(localizedText("清除数据", "Clear data"))
+                        Text("Очистить данные")
                     }
                     // ★★ 新增：清除总流量统计按钮 ★★
                     OutlinedButton(
@@ -417,7 +417,7 @@ fun StatsScreen(viewModel: GatewayViewModel) {
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(localizedText("清空流量", "Clear traffic"))
+                        Text("Очистить трафик")
                     }
                 }
                 Spacer(modifier = Modifier.height(80.dp))
@@ -430,10 +430,10 @@ fun StatsScreen(viewModel: GatewayViewModel) {
         AlertDialog(
             onDismissRequest = { showClearConfirm = false },
             title = {
-                Text(localizedText("确认清除", "Confirm clear"), fontWeight = FontWeight.Bold)
+                Text("Подтвердить очистку", fontWeight = FontWeight.Bold)
             },
             text = {
-                Text(localizedText("将删除所有 Token 用量记录，此操作不可恢复。确定继续吗？", "This will delete all token usage records and cannot be undone. Continue?"))
+                Text("Будут удалены все записи расхода токенов. Действие необратимо. Продолжить?")
             },
             confirmButton = {
                 Button(
@@ -443,12 +443,12 @@ fun StatsScreen(viewModel: GatewayViewModel) {
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Error)
                 ) {
-                    Text(localizedText("确认清除", "Confirm clear"))
+                    Text("Подтвердить очистку")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showClearConfirm = false }) {
-                    Text(localizedText("取消", "Cancel"))
+                    Text("Отмена")
                 }
             }
         )
@@ -457,7 +457,7 @@ fun StatsScreen(viewModel: GatewayViewModel) {
     if (showModelSelector) {
         AlertDialog(
             onDismissRequest = { showModelSelector = false },
-            title = { Text(localizedText("选择模型查看趋势", "Select model for trend"), fontWeight = FontWeight.Bold) },
+            title = { Text("Выберите модель для графика", fontWeight = FontWeight.Bold) },
             text = {
                 LazyColumn {
                     // "所有模型"选项
@@ -472,7 +472,7 @@ fun StatsScreen(viewModel: GatewayViewModel) {
                             else MaterialTheme.colorScheme.surface
                         ) {
                             Text(
-                                text = localizedText("📊 所有模型", "📊 All models"),
+                                text = "📊 Все модели",
                                 modifier = Modifier.padding(12.dp),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold
@@ -500,7 +500,7 @@ fun StatsScreen(viewModel: GatewayViewModel) {
             },
             confirmButton = {
                 TextButton(onClick = { showModelSelector = false }) {
-                    Text(localizedText("取消", "Cancel"))
+                    Text("Отмена")
                 }
             }
         )
@@ -532,7 +532,7 @@ private fun SpeedTrendChartCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = localizedText("📈 模型延迟趋势", "📈 Model latency trend"),
+                    text = "📈 Тренд задержки моделей",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
@@ -543,7 +543,7 @@ private fun SpeedTrendChartCard(
                         enabledModels.firstOrNull { it.routeKey == selectedHistoryModelKey }
                             ?.let { "P${it.providerId}·${it.modelId}" } ?: selectedHistoryModelKey
                     } else {
-                        localizedText("所有模型", "All models")
+                        "Все модели"
                     }
                     Text(selectedName, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
@@ -664,17 +664,17 @@ private fun SpeedTrendChartCard(
                     val avg = metricValues.average()
                     val last = metricValues.lastOrNull() ?: 0.0
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(localizedText("最新", "Latest"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Последнее", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         val lastStr = if (chartMetricIndex == 1) "%.1f".format(last) else "%.0f".format(last)
                         Text(lastStr, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = lineColor)
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(localizedText("平均", "Avg"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Среднее", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         val avgStr = if (chartMetricIndex == 1) "%.1f".format(avg) else "%.0f".format(avg)
                         Text(avgStr, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(localizedText("数据点", "Points"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Точки", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text("${history.size}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -685,7 +685,7 @@ private fun SpeedTrendChartCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = localizedText("暂无测速数据\n运行测速后自动生成趋势图", "No speed data yet\nRun speed test to generate trend chart"),
+                        text = "Пока нет данных о скорости\nЗапустите тест скорости для построения графика",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -727,7 +727,7 @@ private fun ProviderStatCard(summary: ProviderTokenSummary) {
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = summary.callCount.toString() + localizedText(" 次调用", " calls"),
+                        text = summary.callCount.toString() + " вызовов",
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                     )
@@ -800,7 +800,7 @@ private fun ProviderStatCard(summary: ProviderTokenSummary) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = localizedText("总消耗", "Total usage"),
+                    text = "Общий расход",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium
                 )
@@ -847,7 +847,7 @@ private fun ModelStatCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = callCount.toString() + localizedText(" 次调用", " calls"),
+                    text = callCount.toString() + " вызовов",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -919,7 +919,7 @@ private fun UsageRecordCard(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = localizedText("合计 ", "Total ") + usage.totalTokens,
+                        text = "Всего " + usage.totalTokens,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold
                     )
@@ -956,7 +956,7 @@ private fun ApiKeyStatCard(row: ApiKeyUsageRow) {
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = row.apiKeyLabel.ifBlank { localizedText("本地/无密钥", "Local/No key") },
+                    text = row.apiKeyLabel.ifBlank { "Локально/без ключа" },
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
@@ -966,25 +966,25 @@ private fun ApiKeyStatCard(row: ApiKeyUsageRow) {
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = "${row.calls}" + localizedText(" 次调用", " calls"),
+                        text = "${row.calls}" + " вызовов",
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            StatRow(localizedText("输入 Tokens", "Input tokens"), formatTokenCount(row.prompt), Online)
+            StatRow("Входные токены", formatTokenCount(row.prompt), Online)
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-            StatRow(localizedText("输出 Tokens", "Output tokens"), formatTokenCount(row.completion), MaterialTheme.colorScheme.primary)
+            StatRow("Выходные токены", formatTokenCount(row.completion), MaterialTheme.colorScheme.primary)
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-            StatRow(localizedText("总 Tokens", "Total tokens"), formatTokenCount(row.total), Warning)
+            StatRow("Всего токенов", formatTokenCount(row.total), Warning)
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = localizedText("⬆ 上传", "⬆ Upload"),
+                    text = "⬆ Отправлено",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1000,7 +1000,7 @@ private fun ApiKeyStatCard(row: ApiKeyUsageRow) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = localizedText("⬇ 下载", "⬇ Download"),
+                    text = "⬇ Получено",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
