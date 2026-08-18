@@ -6,15 +6,15 @@ plugins {
 }
 
 android {
-    namespace = "com.qtwl.gateway"
+    namespace = "com.aigate.router"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.qtwl.gateway"
+        applicationId = "com.aigate.router"
         minSdk = 24
         targetSdk = 37
-        versionCode = 188
-        versionName = "3.18.16"
+        versionCode = 1
+        versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
@@ -26,13 +26,14 @@ android {
         abortOnError = false
     }
 
-    val releaseKeystore = file("qitong.jks")
-    val releaseStorePassword = providers.gradleProperty("QITONG_STORE_PASSWORD")
-        .orElse(providers.environmentVariable("QITONG_STORE_PASSWORD"))
-    val releaseKeyAlias = providers.gradleProperty("QITONG_KEY_ALIAS")
-        .orElse(providers.environmentVariable("QITONG_KEY_ALIAS"))
-    val releaseKeyPassword = providers.gradleProperty("QITONG_KEY_PASSWORD")
-        .orElse(providers.environmentVariable("QITONG_KEY_PASSWORD"))
+    // Release signing is env-only; nothing keystore-shaped is committed to the repo.
+    val releaseKeystore = file(providers.environmentVariable("AIGATE_KEYSTORE_PATH").getOrElse("aigate.jks"))
+    val releaseStorePassword = providers.gradleProperty("AIGATE_STORE_PASSWORD")
+        .orElse(providers.environmentVariable("AIGATE_STORE_PASSWORD"))
+    val releaseKeyAlias = providers.gradleProperty("AIGATE_KEY_ALIAS")
+        .orElse(providers.environmentVariable("AIGATE_KEY_ALIAS"))
+    val releaseKeyPassword = providers.gradleProperty("AIGATE_KEY_PASSWORD")
+        .orElse(providers.environmentVariable("AIGATE_KEY_PASSWORD"))
 
     signingConfigs {
         if (releaseKeystore.exists() && releaseStorePassword.isPresent && releaseKeyAlias.isPresent && releaseKeyPassword.isPresent) {

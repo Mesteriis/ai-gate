@@ -13,6 +13,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "QiTongAIGateway"
+rootProject.name = "AiGate"
 include(":app")
  
