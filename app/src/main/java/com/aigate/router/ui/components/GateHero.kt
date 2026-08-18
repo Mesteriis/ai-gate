@@ -118,25 +118,37 @@ fun GateHero(modifier: Modifier = Modifier, heightDp: Int = 200) {
                 center = Offset(cx, (gTop + gBottom) / 2f)
             )
 
-            // left & right door leaves (pointed arch)
-            val doorStroke = Stroke(width = h * 0.02f)
+            // outer ogive frame (pointed-arch portal around the doors)
+            val frameApexY = apexY - h * 0.03f
+            val frame = Path().apply {
+                moveTo(cx - gw * 1.14f, gBottom)
+                lineTo(cx - gw * 1.14f, gTop)
+                quadraticBezierTo(cx - gw * 1.14f, frameApexY, cx, frameApexY)
+                quadraticBezierTo(cx + gw * 1.14f, frameApexY, cx + gw * 1.14f, gTop)
+                lineTo(cx + gw * 1.14f, gBottom)
+            }
+            drawPath(frame, color = Color.White.copy(alpha = 0.9f), style = Stroke(width = h * 0.03f))
+            drawPath(frame, color = Primary.copy(alpha = 0.55f), style = Stroke(width = h * 0.012f))
+
+            // left & right door leaves — pointed (gothic) arch meeting at a sharp apex
+            val doorStroke = Stroke(width = h * 0.018f)
             val leafColor = Color.White
             val leftLeaf = Path().apply {
                 moveTo(cx - gw, gBottom)
                 lineTo(cx - gw, gTop)
-                quadraticBezierTo(cx - gw, apexY + (gTop - apexY) * 0.2f, cx - gw * 0.06f, apexY)
+                quadraticBezierTo(cx - gw, apexY, cx - gw * 0.06f, apexY)
                 lineTo(cx - gw * 0.06f, gBottom)
                 close()
             }
             val rightLeaf = Path().apply {
                 moveTo(cx + gw, gBottom)
                 lineTo(cx + gw, gTop)
-                quadraticBezierTo(cx + gw, apexY + (gTop - apexY) * 0.2f, cx + gw * 0.06f, apexY)
+                quadraticBezierTo(cx + gw, apexY, cx + gw * 0.06f, apexY)
                 lineTo(cx + gw * 0.06f, gBottom)
                 close()
             }
-            drawPath(leftLeaf, color = leafColor.copy(alpha = 0.92f))
-            drawPath(rightLeaf, color = leafColor.copy(alpha = 0.92f))
+            drawPath(leftLeaf, color = leafColor.copy(alpha = 0.94f))
+            drawPath(rightLeaf, color = leafColor.copy(alpha = 0.94f))
             drawPath(leftLeaf, color = Primary.copy(alpha = 0.5f), style = doorStroke)
             drawPath(rightLeaf, color = Primary.copy(alpha = 0.5f), style = doorStroke)
 
