@@ -117,7 +117,9 @@ fun MainScreen(
         // Большой экран (например, разложенный Fold) → боковой NavigationRail + широкий контент.
         val expanded = maxWidth >= 720.dp
         if (expanded) {
-            Row(modifier = Modifier.fillMaxSize()) {
+            // Отступы под системные панели (статус-бар сверху, навигация снизу),
+            // чтобы контент и rail не уходили под них на разложенном экране.
+            Row(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars)) {
                 NavigationRail(
                     containerColor = MaterialTheme.colorScheme.background,
                     header = {
