@@ -1,0 +1,23 @@
+ИИ Врата (AiGate)
+Copyright 2026 AiGate contributors
+
+This product is a fork of and derives from:
+
+    QiTong AI Gateway (綦桐AI网关)
+    https://github.com/qtgf520/qitong-ai-gateway
+    Base version: v3.18.16 (commit 7d7e6ed)
+    Licensed under the Apache License, Version 2.0.
+
+Idea and inspiration are taken from QiTong AI Gateway. This fork removes the
+non-gateway "combine" features (chat, memory, persona, skills, group chat, web
+search), hardens network and secret handling, normalizes the OpenAI-compatible
+API, and adds an AI-resource-management layer (quotas, pricing, resource-aware
+routing, usage history, widget, notifications, OAuth framework).
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+See the LICENSE file for the full text.
