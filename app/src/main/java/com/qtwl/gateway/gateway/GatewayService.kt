@@ -214,12 +214,12 @@ class GatewayService(private val database: AppDatabase) {
                                 put("custom_alias", JsonPrimitive(model.customAlias))
                             }
                         }
-                        // ★★ 加入 qtai-sj 虚拟模型（第三方APP也能选）★★
+                        // ★★ 加入 auto 虚拟模型（第三方APP也能选）★★
                         val finalList = modelList + buildJsonObject {
-                            put("id", JsonPrimitive("qtai-sj"))
+                            put("id", JsonPrimitive(VirtualModel.ID))
                             put("object", JsonPrimitive("model"))
                             put("owned_by", JsonPrimitive("qitong"))
-                            put("model_id", JsonPrimitive("qtai-sj"))
+                            put("model_id", JsonPrimitive(VirtualModel.ID))
                             put("display_name", JsonPrimitive("🔄 自动化切换"))
                             put("custom_alias", JsonPrimitive(""))
                         }
@@ -263,8 +263,8 @@ class GatewayService(private val database: AppDatabase) {
                         GatewayForegroundService.totalUploadBytes.addAndGet(rawBytes.size.toLong())
                         val body = proxyJson.parseToJsonElement(String(rawBytes, Charsets.UTF_8)).jsonObject
                         var modelId = body["model"]?.jsonPrimitive?.content ?: throw Exception("model is required")
-                        // ★★ qtai-sj 支持：自动解析为当前活跃的真实模型 ★★
-                        val realModelId = if (modelId == "qtai-sj") {
+                        // ★★ auto 支持：自动解析为当前活跃的真实模型 ★★
+                        val realModelId = if (VirtualModel.isVirtual(modelId)) {
                             val active = GatewayForegroundService.activeNodeName
                             if (active.isNotBlank()) active else modelId
                         } else modelId
@@ -341,8 +341,8 @@ class GatewayService(private val database: AppDatabase) {
                         GatewayForegroundService.totalUploadBytes.addAndGet(rawBytes.size.toLong())
                         val body = proxyJson.parseToJsonElement(String(rawBytes, Charsets.UTF_8)).jsonObject
                         var modelId = body["model"]?.jsonPrimitive?.content ?: throw Exception("model is required")
-                        // ★★ qtai-sj 支持：自动解析为当前活跃的真实模型 ★★
-                        if (modelId == "qtai-sj") {
+                        // ★★ auto 支持：自动解析为当前活跃的真实模型 ★★
+                        if (VirtualModel.isVirtual(modelId)) {
                             val active = GatewayForegroundService.activeNodeName
                             if (active.isNotBlank()) modelId = active
                         }
@@ -441,8 +441,8 @@ class GatewayService(private val database: AppDatabase) {
                         GatewayForegroundService.totalUploadBytes.addAndGet(rawBytes.size.toLong())
                         val body = proxyJson.parseToJsonElement(String(rawBytes, Charsets.UTF_8)).jsonObject
                         var modelId = body["model"]?.jsonPrimitive?.content ?: throw Exception("model is required")
-                        // ★★ qtai-sj 支持：自动解析为当前活跃的真实模型 ★★
-                        if (modelId == "qtai-sj") {
+                        // ★★ auto 支持：自动解析为当前活跃的真实模型 ★★
+                        if (VirtualModel.isVirtual(modelId)) {
                             val active = GatewayForegroundService.activeNodeName
                             if (active.isNotBlank()) modelId = active
                         }
@@ -479,7 +479,7 @@ class GatewayService(private val database: AppDatabase) {
                     if (!validateApiKey(call)) { val (s,b)=openAIError(HttpStatusCode.Unauthorized,"Invalid or missing API key","invalid_api_key"); call.respondText(contentType=ContentType.Application.Json,status=s,text=b); return@post }
                     try { val rawBytes=call.receive<ByteArray>(); GatewayForegroundService.trafficUploadBytes.addAndGet(rawBytes.size.toLong()); GatewayForegroundService.totalUploadBytes.addAndGet(rawBytes.size.toLong())
                         val body=proxyJson.parseToJsonElement(String(rawBytes,Charsets.UTF_8)).jsonObject; var modelId=body["model"]?.jsonPrimitive?.content?:throw Exception("model required")
-                        if (modelId=="qtai-sj"){val active=GatewayForegroundService.activeNodeName;if(active.isNotBlank())modelId=active}
+                        if (VirtualModel.isVirtual(modelId)){val active=GatewayForegroundService.activeNodeName;if(active.isNotBlank())modelId=active}
                         val models=database.aiModelDao().getEnabledModelsList(); val targetModel=models.find{it.modelId==modelId}?:models.firstOrNull()
                         if(targetModel==null){call.respondText(openAIError(HttpStatusCode.NotFound,"Model $modelId not found").second,ContentType.Application.Json,status=HttpStatusCode.NotFound);return@post}
                         val provider=database.providerDao().getProviderById(targetModel.providerId)
@@ -500,7 +500,7 @@ class GatewayService(private val database: AppDatabase) {
                     if (!validateApiKey(call)) { val (s,b)=openAIError(HttpStatusCode.Unauthorized,"Invalid or missing API key","invalid_api_key"); call.respondText(contentType=ContentType.Application.Json,status=s,text=b); return@post }
                     try { val rawBytes=call.receive<ByteArray>(); GatewayForegroundService.trafficUploadBytes.addAndGet(rawBytes.size.toLong()); GatewayForegroundService.totalUploadBytes.addAndGet(rawBytes.size.toLong())
                         val body=proxyJson.parseToJsonElement(String(rawBytes,Charsets.UTF_8)).jsonObject; var modelId=body["model"]?.jsonPrimitive?.content?:""
-                        if (modelId=="qtai-sj"){val active=GatewayForegroundService.activeNodeName;if(active.isNotBlank())modelId=active}
+                        if (VirtualModel.isVirtual(modelId)){val active=GatewayForegroundService.activeNodeName;if(active.isNotBlank())modelId=active}
                         val models=database.aiModelDao().getEnabledModelsList()
                         val targetModel=if(modelId.isNotBlank())models.find{it.modelId==modelId}else{null}
                         val effectiveModel=targetModel?:models.firstOrNull()
@@ -523,7 +523,7 @@ class GatewayService(private val database: AppDatabase) {
                     if (!validateApiKey(call)) { val (s,b)=openAIError(HttpStatusCode.Unauthorized,"Invalid or missing API key","invalid_api_key"); call.respondText(contentType=ContentType.Application.Json,status=s,text=b); return@post }
                     try { val rawBytes=call.receive<ByteArray>(); GatewayForegroundService.trafficUploadBytes.addAndGet(rawBytes.size.toLong()); GatewayForegroundService.totalUploadBytes.addAndGet(rawBytes.size.toLong())
                         val body=proxyJson.parseToJsonElement(String(rawBytes,Charsets.UTF_8)).jsonObject; var modelId=body["model"]?.jsonPrimitive?.content?:throw Exception("model required")
-                        if (modelId=="qtai-sj"){val active=GatewayForegroundService.activeNodeName;if(active.isNotBlank())modelId=active}
+                        if (VirtualModel.isVirtual(modelId)){val active=GatewayForegroundService.activeNodeName;if(active.isNotBlank())modelId=active}
                         val models=database.aiModelDao().getEnabledModelsList(); val targetModel=models.find{it.modelId==modelId}?:models.firstOrNull()
                         if(targetModel==null){call.respondText(openAIError(HttpStatusCode.NotFound,"Model $modelId not found").second,ContentType.Application.Json,status=HttpStatusCode.NotFound);return@post}
                         val provider=database.providerDao().getProviderById(targetModel.providerId)
@@ -549,7 +549,7 @@ class GatewayService(private val database: AppDatabase) {
                         var bodyStr=String(rawBytes,Charsets.UTF_8)
                         val body=proxyJson.parseToJsonElement(bodyStr).jsonObject
                         var modelId=body["model"]?.jsonPrimitive?.content?:"dall-e-3"
-                        if (modelId=="qtai-sj"){
+                        if (VirtualModel.isVirtual(modelId)){
                             val active=GatewayForegroundService.activeNodeName
                             if(active.isNotBlank()) modelId=active
                         }
@@ -581,7 +581,7 @@ class GatewayService(private val database: AppDatabase) {
                     if (!validateApiKey(call)) { val (s,b)=openAIError(HttpStatusCode.Unauthorized,"Invalid or missing API key","invalid_api_key"); call.respondText(contentType=ContentType.Application.Json,status=s,text=b); return@post }
                     try { val rawBytes=call.receive<ByteArray>(); GatewayForegroundService.trafficUploadBytes.addAndGet(rawBytes.size.toLong()); GatewayForegroundService.totalUploadBytes.addAndGet(rawBytes.size.toLong())
                         val body=proxyJson.parseToJsonElement(String(rawBytes,Charsets.UTF_8)).jsonObject; var modelId=body["model"]?.jsonPrimitive?.content?:"sora"
-                        if (modelId=="qtai-sj"){val active=GatewayForegroundService.activeNodeName;if(active.isNotBlank())modelId=active}
+                        if (VirtualModel.isVirtual(modelId)){val active=GatewayForegroundService.activeNodeName;if(active.isNotBlank())modelId=active}
                         val models=database.aiModelDao().getEnabledModelsList(); val targetModel=models.find{it.modelId==modelId}?:models.firstOrNull()
                         if(targetModel==null){call.respondText(openAIError(HttpStatusCode.NotFound,"Model $modelId not found").second,ContentType.Application.Json,status=HttpStatusCode.NotFound);return@post}
                         val provider=database.providerDao().getProviderById(targetModel.providerId)
@@ -603,7 +603,7 @@ class GatewayService(private val database: AppDatabase) {
                     if (!validateApiKey(call)) { val (s,b)=openAIError(HttpStatusCode.Unauthorized,"Invalid or missing API key","invalid_api_key"); call.respondText(contentType=ContentType.Application.Json,status=s,text=b); return@post }
                     try { val rawBytes=call.receive<ByteArray>(); GatewayForegroundService.trafficUploadBytes.addAndGet(rawBytes.size.toLong()); GatewayForegroundService.totalUploadBytes.addAndGet(rawBytes.size.toLong())
                         val body=proxyJson.parseToJsonElement(String(rawBytes,Charsets.UTF_8)).jsonObject; var modelId=body["model"]?.jsonPrimitive?.content?:"sora"
-                        if (modelId=="qtai-sj"){val active=GatewayForegroundService.activeNodeName;if(active.isNotBlank())modelId=active}
+                        if (VirtualModel.isVirtual(modelId)){val active=GatewayForegroundService.activeNodeName;if(active.isNotBlank())modelId=active}
                         val models=database.aiModelDao().getEnabledModelsList(); val targetModel=models.find{it.modelId==modelId}?:models.firstOrNull()
                         if(targetModel==null){call.respondText(openAIError(HttpStatusCode.NotFound,"Model $modelId not found").second,ContentType.Application.Json,status=HttpStatusCode.NotFound);return@post}
                         val provider=database.providerDao().getProviderById(targetModel.providerId)
@@ -644,7 +644,7 @@ class GatewayService(private val database: AppDatabase) {
                     if (!validateApiKey(call)) { val (s,b)=openAIError(HttpStatusCode.Unauthorized,"Invalid or missing API key","invalid_api_key"); call.respondText(contentType=ContentType.Application.Json,status=s,text=b); return@post }
                     try { val rawBytes=call.receive<ByteArray>(); GatewayForegroundService.trafficUploadBytes.addAndGet(rawBytes.size.toLong()); GatewayForegroundService.totalUploadBytes.addAndGet(rawBytes.size.toLong())
                         val geminiModel=call.parameters["model"]?:""
-                        var modelId=geminiModel; if (modelId=="qtai-sj"){val active=GatewayForegroundService.activeNodeName;if(active.isNotBlank())modelId=active}
+                        var modelId=geminiModel; if (VirtualModel.isVirtual(modelId)){val active=GatewayForegroundService.activeNodeName;if(active.isNotBlank())modelId=active}
                         val models=database.aiModelDao().getEnabledModelsList(); val targetModel=models.find{it.modelId==modelId}?:models.firstOrNull()
                         if(targetModel==null){call.respondText(openAIError(HttpStatusCode.NotFound,"Model $modelId not found").second,ContentType.Application.Json,status=HttpStatusCode.NotFound);return@post}
                         val provider=database.providerDao().getProviderById(targetModel.providerId)
@@ -666,7 +666,7 @@ class GatewayService(private val database: AppDatabase) {
                     if (!validateApiKey(call)) { val (s,b)=openAIError(HttpStatusCode.Unauthorized,"Invalid or missing API key","invalid_api_key"); call.respondText(contentType=ContentType.Application.Json,status=s,text=b); return@post }
                     try { val rawBytes=call.receive<ByteArray>(); GatewayForegroundService.trafficUploadBytes.addAndGet(rawBytes.size.toLong()); GatewayForegroundService.totalUploadBytes.addAndGet(rawBytes.size.toLong())
                         val engineModel=call.parameters["model"]?:""
-                        var modelId=engineModel; if (modelId=="qtai-sj"){val active=GatewayForegroundService.activeNodeName;if(active.isNotBlank())modelId=active}
+                        var modelId=engineModel; if (VirtualModel.isVirtual(modelId)){val active=GatewayForegroundService.activeNodeName;if(active.isNotBlank())modelId=active}
                         val models=database.aiModelDao().getEnabledModelsList(); val targetModel=models.find{it.modelId==modelId}?:models.firstOrNull()
                         if(targetModel==null){call.respondText(openAIError(HttpStatusCode.NotFound,"Model $modelId not found").second,ContentType.Application.Json,status=HttpStatusCode.NotFound);return@post}
                         val provider=database.providerDao().getProviderById(targetModel.providerId)
@@ -846,7 +846,7 @@ private fun sanitizeRequestBody(bodyStr: String): String {
     } catch (_: Exception) { return bodyStr }
 }
 
-/** 替换请求体中的model字段（用于qtai-sj解析后的真实模型ID替换） */
+/** 替换请求体中的model字段（用于auto解析后的真实模型ID替换） */
 private fun replaceModelInBody(bodyStr: String, newModelId: String): String {
     return try {
         Regex(""""model"\s*:\s*"[^"]*"""").replace(bodyStr) { "\"model\":\"$newModelId\"" }
@@ -1251,13 +1251,13 @@ private suspend fun proxyRequest(call: ApplicationCall, database: AppDatabase) {
         var modelId = requestJson?.get("model")?.jsonPrimitive?.content
         val stream = requestJson?.get("stream")?.jsonPrimitive?.content?.toBooleanStrictOrNull() ?: false
 
-        // ★★ qtai-sj没有前缀或脑子说chat → 走正常转发：用排行榜最快的模型直接透传 ★★
-        if (modelId == "qtai-sj") {
+        // ★★ auto没有前缀或脑子说chat → 走正常转发：用排行榜最快的模型直接透传 ★★
+        if (VirtualModel.isVirtual(modelId)) {
             // 找最适合的模型
             val allEnabledModels = database.aiModelDao().getEnabledModelsList().filter { it.isEnabled }
             val forced = GatewayForegroundService.getForcedModel()
-            // ★ 如果强制模型是qtai-sj（虚拟模型），用上一次切换的模型或排行榜
-            val effectiveForced = if (forced == "qtai-sj") GatewayForegroundService.activeNodeName.ifBlank { null } else forced.ifBlank { null }
+            // ★ 如果强制模型是auto（虚拟模型），用上一次切换的模型或排行榜
+            val effectiveForced = if (VirtualModel.isVirtual(forced)) GatewayForegroundService.activeNodeName.ifBlank { null } else forced.ifBlank { null }
             // ★ 检测是否有多模态图片内容
             val hasImage = requestJson?.get("messages")?.jsonArray?.any { msg ->
                 try {
@@ -1317,7 +1317,7 @@ private suspend fun proxyRequest(call: ApplicationCall, database: AppDatabase) {
                     }
                     GatewayScheduler.recordModelResult(finalTarget.modelId, finalTarget.providerId, true)
                     GatewayScheduler.recordModelUsage(finalTarget.modelId, finalTarget.providerId)
-                    GatewayForegroundService.addDebugLog("🔄 qtai-sj透传 → ${finalTarget.modelId}")
+                    GatewayForegroundService.addDebugLog("🔄 ${VirtualModel.ID}透传 → ${finalTarget.modelId}")
                     return
                 }
             }
@@ -1325,12 +1325,12 @@ private suspend fun proxyRequest(call: ApplicationCall, database: AppDatabase) {
             // ★★★ 所有模型都不可用，返回错误而非静默 ★★★
             val noModelResp = buildJsonObject {
                 put("error", buildJsonObject {
-                    put("message", JsonPrimitive("qtai-sj无前缀转发失败：没有可用的已启用模型"))
+                    put("message", JsonPrimitive("${VirtualModel.ID}无前缀转发失败：没有可用的已启用模型"))
                     put("type", JsonPrimitive("no_available_model"))
                 })
             }
             call.respondText(contentType = ContentType.Application.Json.withCharset(Charsets.UTF_8), text = noModelResp.toString())
-            logAccess(call, "qtai-sj", 503, System.currentTimeMillis() - startMs)
+            logAccess(call, VirtualModel.ID, 503, System.currentTimeMillis() - startMs)
             return
         }
     }
@@ -1351,7 +1351,7 @@ private suspend fun proxyRequest(call: ApplicationCall, database: AppDatabase) {
                 } catch (_: Exception) { false }
             } ?: false
             // ★ 如果请求含图片但目标模型不支持视觉 → 就地切换为视觉模型 ★
-            val effectiveModelId = if (hasImage && modelId != "qtai-sj") {
+            val effectiveModelId = if (hasImage && !VirtualModel.isVirtual(modelId)) {
                 val allModels = database.aiModelDao().getEnabledModelsList().filter { it.isEnabled }
                 val visionModel = allModels.firstOrNull { ModelCapabilityManager.getCapabilities(it.modelId).second }
                     ?: allModels.firstNotNullOfOrNull { m ->
@@ -1381,11 +1381,11 @@ private suspend fun proxyRequest(call: ApplicationCall, database: AppDatabase) {
             // 已移除 refreshHealthCache — 每次请求都触发健康检查会导致模型一直在跑
             val allEnabled = database.aiModelDao().getEnabledModelsList().filter { it.isEnabled }
 val attemptModels: List<AiModel> = if (allEnabled.isNotEmpty()) {
-                    // ★★ 自动化切换 (qtai-sj) ★★
-                    if (modelId == "qtai-sj") {
-                        val qtaiSjEnabled = GatewayForegroundService.getQtaiSjEnabled()
-                        if (!qtaiSjEnabled) {
-                            // qtai-sj 已禁用，返回空列表
+                    // ★★ 自动化切换 (auto) ★★
+                    if (VirtualModel.isVirtual(modelId)) {
+                        val autoModelEnabled = GatewayForegroundService.getAutoModelEnabled()
+                        if (!autoModelEnabled) {
+                            // auto 已禁用，返回空列表
                             emptyList()
                         } else {
                             // ★★ 检查是否有手动强制切换的模型 ★★
@@ -1478,8 +1478,8 @@ val attemptModels: List<AiModel> = if (allEnabled.isNotEmpty()) {
                     val sanitizedBody = sanitizeRequestBody(finalRequestBodyStr)
                     // ★★ 无前缀模式：不注入人格/记忆/技能，纯透传 ★★
                     val bodyWithPersona = sanitizedBody
-                    // ★★ qtai-sj 替换模型ID ★★
-                    val modifiedBody = if (modelId == "qtai-sj" || (autoFailover && primaryModel.modelId != modelId)) {
+                    // ★★ auto 替换模型ID ★★
+                    val modifiedBody = if (VirtualModel.isVirtual(modelId) || (autoFailover && primaryModel.modelId != modelId)) {
                         bodyWithPersona.replaceFirst(Regex("\"model\"\\s*:\\s*\"[^\"]+\""), "\"model\":\"${primaryModel.modelId}\"")
                     } else bodyWithPersona
                     val modifiedBytes = modifiedBody.toByteArray()
@@ -1528,7 +1528,7 @@ val attemptModels: List<AiModel> = if (allEnabled.isNotEmpty()) {
                     val sanitizedBody2 = sanitizeRequestBody(requestBodyStr)
                     // ★★ 无前缀模式（故障转移时同样不注入人格/记忆）- 纯透传 ★★
                     val bodyWithPersona2 = sanitizedBody2
-                    val modifiedBody2 = if (modelId == "qtai-sj" || (autoFailover && matchedModel.modelId != modelId)) {
+                    val modifiedBody2 = if (VirtualModel.isVirtual(modelId) || (autoFailover && matchedModel.modelId != modelId)) {
                         bodyWithPersona2.replaceFirst(Regex("\"model\"\\s*:\\s*\"[^\"]+\""), "\"model\":\"${matchedModel.modelId}\"")
                     } else bodyWithPersona2
                     val modifiedBytes2 = modifiedBody2.toByteArray()
@@ -1556,8 +1556,8 @@ val attemptModels: List<AiModel> = if (allEnabled.isNotEmpty()) {
             } // ★★ 结束故障转移循环 ★★
             } // ★★ 结束 attemptModels 非空判断 ★★
             val errMsg = when {
-                modelId == "qtai-sj" && !GatewayForegroundService.getQtaiSjEnabled() -> "🔄 自动化切换已禁用，请在模型页面开启"
-                modelId == "qtai-sj" && GatewayScheduler.pipelineSortedModelKeys.isEmpty() && allEnabled.isEmpty() -> "暂无可用模型，请先添加服务商并同步模型"
+                VirtualModel.isVirtual(modelId) && !GatewayForegroundService.getAutoModelEnabled() -> "🔄 自动化切换已禁用，请在模型页面开启"
+                VirtualModel.isVirtual(modelId) && GatewayScheduler.pipelineSortedModelKeys.isEmpty() && allEnabled.isEmpty() -> "暂无可用模型，请先添加服务商并同步模型"
                 autoFailover -> "All ${failCount} models failed. Last: $lastError"
                 else -> "Model '$modelId' error: $lastError"
             }

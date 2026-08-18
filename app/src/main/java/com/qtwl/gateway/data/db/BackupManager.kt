@@ -56,7 +56,7 @@ class BackupManager(private val database: AppDatabase) {
             // ★ 收集所有设置（SharedPreferences 中所有以 config_ 开头的键值对）
             val prefs = GatewayApplication.getInstance().getSharedPreferences("gateway_config", android.content.Context.MODE_PRIVATE)
             val allEntries = prefs.all.filterKeys { it.startsWith("config_") ||
-                it in listOf("proxy_enabled", "auto_failover", "debug_mode", "qtai_sj_enabled", "wake_enabled", "hide_from_recents",
+                it in listOf("proxy_enabled", "auto_failover", "debug_mode", "auto_model_enabled", "wake_enabled", "hide_from_recents",
                     "gateway_port", "gateway_was_running",
                     "forced_model", "last_real_model", "failover_model",
                     "current_model_idx", "auto_backup_enabled", "auto_backup_hour", "auto_backup_minute",
@@ -151,7 +151,7 @@ class BackupManager(private val database: AppDatabase) {
                 try {
                     val keys = Json { ignoreUnknownKeys = true }.decodeFromString<List<com.qtwl.gateway.service.ApiKeyEntry>>(backupData.apiKeyEntriesJson)
                     KeyManager.clearAllKeys()
-                    keys.forEach { KeyManager.addKey(it.key, it.label, it.allowedModels, it.qtaiSjAccess) }
+                    keys.forEach { KeyManager.addKey(it.key, it.label, it.allowedModels, it.autoAccess) }
                 } catch (_: Exception) { }
             }
 
@@ -163,7 +163,7 @@ class BackupManager(private val database: AppDatabase) {
                     prefs.edit().apply {
                         for ((key, value) in settingsMap) {
                             when (key) {
-                                "proxy_enabled", "auto_failover", "debug_mode", "qtai_sj_enabled", "wake_enabled",
+                                "proxy_enabled", "auto_failover", "debug_mode", "auto_model_enabled", "wake_enabled",
                                 "hide_from_recents", "gateway_was_running", "require_api_key",
                                 "capabilities_auto_detect",
                                 "auto_backup_enabled" -> putBoolean(key, value.toBooleanStrictOrNull() ?: false)

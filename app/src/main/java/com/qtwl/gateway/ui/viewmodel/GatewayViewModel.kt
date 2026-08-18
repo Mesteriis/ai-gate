@@ -21,6 +21,7 @@ import com.qtwl.gateway.service.GatewayForegroundService
 import com.qtwl.gateway.service.LiveSession
 import com.qtwl.gateway.gateway.GatewayService
 import com.qtwl.gateway.gateway.ModelCapabilityManager
+import com.qtwl.gateway.gateway.VirtualModel
 import com.qtwl.gateway.data.model.SpeedHistory
 import com.qtwl.gateway.data.db.SpeedHistoryDao
 import com.qtwl.gateway.utils.localizeGeneratedName
@@ -93,8 +94,8 @@ val pipelineRunning: StateFlow<Boolean> = _pipelineRunning.asStateFlow()
 private val _pipelineCountdown = MutableStateFlow(0)
 val pipelineCountdown: StateFlow<Int> = _pipelineCountdown.asStateFlow()
 
-/** ★★ qtai-sj 虚拟模型独立状态 ★★ */
-data class QtaiSjStatus(
+/** ★★ auto 虚拟模型独立状态 ★★ */
+data class AutoModelStatus(
     val available: Boolean = false,
     val bestModelId: String? = null,
     val bestModelName: String? = null,
@@ -103,8 +104,8 @@ data class QtaiSjStatus(
     val isTesting: Boolean = false,
 )
 
-private val _qtaiSjStatus = MutableStateFlow(QtaiSjStatus())
-val qtaiSjStatus: StateFlow<QtaiSjStatus> = _qtaiSjStatus.asStateFlow()
+private val _autoModelStatus = MutableStateFlow(AutoModelStatus())
+val autoModelStatus: StateFlow<AutoModelStatus> = _autoModelStatus.asStateFlow()
 
 private var pipelineJob: kotlinx.coroutines.Job? = null
 
@@ -1356,8 +1357,8 @@ fun toggleModelProxy(model: AiModel) {
 
     /** 获取模型的显示名称（优先使用自定义别名） */
 fun getDisplayModelName(model: AiModel): String {
-    // ★★ qtai-sj 虚拟模型特殊显示
-    if (model.modelId == "qtai-sj") {
+    // ★★ auto 虚拟模型特殊显示
+    if (VirtualModel.isVirtual(model.modelId)) {
         return localizeGeneratedName("🔄 自动化切换")
     }
     return if (model.customAlias.isNotBlank()) {
@@ -1627,13 +1628,13 @@ fun clearSyncResult() {
         pipelineJob?.cancel()
         pipelineJob = viewModelScope.launch {
             _pipelineRunning.value = true
-            _qtaiSjStatus.value = _qtaiSjStatus.value.copy(isTesting = true)
+            _autoModelStatus.value = _autoModelStatus.value.copy(isTesting = true)
             _pipelineProgress.value = 0f
             try {
                 var firstRound = true
                 while (_pipelineRunning.value) {
                     val enabledList = database.aiModelDao().getEnabledModelsList().filter { it.isEnabled }
-                    if (enabledList.isEmpty()) { _pipelineRunning.value = false; refreshQtaiSjStatus(); return@launch }
+                    if (enabledList.isEmpty()) { _pipelineRunning.value = false; refreshAutoModelStatus(); return@launch }
 
                     // 保留旧测速结果，新模型加入等待中
                     val oldStatus = _pipelineStatus.value
@@ -1746,7 +1747,7 @@ fun clearSyncResult() {
                     } catch (_: Exception) {
                         // 倒计时被取消，不重启测速
                         _pipelineCountdown.value = 0
-                        refreshQtaiSjStatus()
+                        refreshAutoModelStatus()
                         return@launch
                     }
                     _pipelineCountdown.value = 0
@@ -1756,7 +1757,7 @@ fun clearSyncResult() {
                 // 外层异常：测速异常中断，仍尝试重启
                 _pipelineRunning.value = false
                 _pipelineCountdown.value = 0
-                refreshQtaiSjStatus()
+                refreshAutoModelStatus()
                 // 异常后延迟10秒自动重启
                 kotlinx.coroutines.delay(10000)
                 if (!_pipelineRunning.value) {
@@ -1768,7 +1769,7 @@ fun clearSyncResult() {
             } else {
                 _pipelineRunning.value = false
                 _pipelineCountdown.value = 0
-                refreshQtaiSjStatus()
+                refreshAutoModelStatus()
             }
         }
     }
@@ -1777,17 +1778,17 @@ fun clearSyncResult() {
         _pipelineRunning.value = false
         _pipelineCountdown.value = 0
         pipelineJob?.cancel()
-        refreshQtaiSjStatus()
+        refreshAutoModelStatus()
     }
 
-    /** ★★ 刷新 qtai-sj 虚拟模型状态（基于测速排行）★★ */
-    private fun refreshQtaiSjStatus() {
+    /** ★★ 刷新 auto 虚拟模型状态（基于测速排行）★★ */
+    private fun refreshAutoModelStatus() {
         val sorted = com.qtwl.gateway.gateway.GatewayScheduler.pipelineSortedModelKeys
         if (sorted.isNotEmpty()) {
             val bestId = sorted.first()
             val bestModel = enabledModels.value.findByRouteKey(bestId)
             val bestMetrics = com.qtwl.gateway.gateway.GatewayScheduler.healthCache[bestId]
-            _qtaiSjStatus.value = QtaiSjStatus(
+            _autoModelStatus.value = AutoModelStatus(
                 available = true,
                 bestModelId = bestModel?.modelId ?: ModelRouteKey.modelIdOf(bestId),
                 bestModelName = bestModel?.displayName ?: ModelRouteKey.display(bestId),
@@ -1796,7 +1797,7 @@ fun clearSyncResult() {
                 isTesting = false,
             )
         } else {
-            _qtaiSjStatus.value = QtaiSjStatus(
+            _autoModelStatus.value = AutoModelStatus(
                 available = false,
                 lastUpdated = System.currentTimeMillis(),
                 isTesting = _pipelineRunning.value,
@@ -1821,14 +1822,14 @@ fun clearSyncResult() {
         _snackbarMessage.value = if (newMode) "🔄 自动故障转移已开启，请求失败自动切换模型" else "🔄 自动故障转移已关闭"
     }
 
-    // ★ 自动化切换（qtai-sj）独立开关
-    private val _qtaiSjEnabled = MutableStateFlow(GatewayForegroundService.getQtaiSjEnabled())
-    val qtaiSjEnabled: StateFlow<Boolean> = _qtaiSjEnabled.asStateFlow()
+    // ★ 自动化切换（auto）独立开关
+    private val _autoModelEnabled = MutableStateFlow(GatewayForegroundService.getAutoModelEnabled())
+    val autoModelEnabled: StateFlow<Boolean> = _autoModelEnabled.asStateFlow()
 
-    fun toggleQtaiSj() {
-        val newMode = !_qtaiSjEnabled.value
-        _qtaiSjEnabled.value = newMode
-        GatewayForegroundService.saveQtaiSjEnabled(newMode)
+    fun toggleAutoModel() {
+        val newMode = !_autoModelEnabled.value
+        _autoModelEnabled.value = newMode
+        GatewayForegroundService.saveAutoModelEnabled(newMode)
         if (newMode) {
             // 开启自动化切换时，清除强制切换，回到自动排行
             GatewayForegroundService.saveForcedModel("")

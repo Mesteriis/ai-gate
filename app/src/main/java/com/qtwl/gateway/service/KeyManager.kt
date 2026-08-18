@@ -8,7 +8,7 @@ import kotlinx.serialization.json.Json
 /**
  * API Key 管理器 — 管理访问密钥及其权限
  * 本地请求（localhost/127.0.0.1）默认免密钥
- * 每把密钥可单独控制：可用模型、qtai-sj 访问权限
+ * 每把密钥可单独控制：可用模型、auto 访问权限
  */
 @Serializable
 data class ApiKeyEntry(
@@ -16,7 +16,7 @@ data class ApiKeyEntry(
     val label: String = "",             // 标签/备注
     val enabled: Boolean = true,        // 是否启用
     val allowedModels: List<String> = emptyList(),  // 允许访问的模型ID列表（空=全部）
-    val qtaiSjAccess: Boolean = true,   // 是否允许访问 qtai-sj
+    val autoAccess: Boolean = true,   // 是否允许访问 auto
     val createdAt: Long = System.currentTimeMillis()
 )
 
@@ -39,10 +39,10 @@ object KeyManager {
     }
     
     /** 添加密钥 */
-    fun addKey(key: String, label: String = "", allowedModels: List<String> = emptyList(), qtaiSjAccess: Boolean = true): Boolean {
+    fun addKey(key: String, label: String = "", allowedModels: List<String> = emptyList(), autoAccess: Boolean = true): Boolean {
         val keys = getAllKeys().toMutableList()
         if (keys.any { it.key == key }) return false // 已存在
-        keys.add(ApiKeyEntry(key = key, label = label, allowedModels = allowedModels, qtaiSjAccess = qtaiSjAccess))
+        keys.add(ApiKeyEntry(key = key, label = label, allowedModels = allowedModels, autoAccess = autoAccess))
         saveAllKeys(keys)
         // 同步到旧式密钥列表
         syncToLegacyAllowedKeys()
@@ -61,7 +61,7 @@ object KeyManager {
     }
     
     /** 更新密钥 */
-    fun updateKey(key: String, label: String? = null, enabled: Boolean? = null, allowedModels: List<String>? = null, qtaiSjAccess: Boolean? = null): Boolean {
+    fun updateKey(key: String, label: String? = null, enabled: Boolean? = null, allowedModels: List<String>? = null, autoAccess: Boolean? = null): Boolean {
         val keys = getAllKeys().toMutableList()
         val idx = keys.indexOfFirst { it.key == key }
         if (idx < 0) return false
@@ -70,7 +70,7 @@ object KeyManager {
             label = label ?: old.label,
             enabled = enabled ?: old.enabled,
             allowedModels = allowedModels ?: old.allowedModels,
-            qtaiSjAccess = qtaiSjAccess ?: old.qtaiSjAccess
+            autoAccess = autoAccess ?: old.autoAccess
         )
         saveAllKeys(keys)
         syncToLegacyAllowedKeys()
@@ -89,9 +89,9 @@ object KeyManager {
         return entry.allowedModels.contains(modelId)
     }
     
-    /** 检查密钥是否有权访问 qtai-sj */
-    fun canAccessQtaiSj(key: String): Boolean {
-        return validateKey(key)?.qtaiSjAccess ?: false
+    /** 检查密钥是否有权访问 auto */
+    fun canAccessAuto(key: String): Boolean {
+        return validateKey(key)?.autoAccess ?: false
     }
     
     /** 清空所有密钥 */

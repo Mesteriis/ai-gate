@@ -12,6 +12,7 @@ import com.qtwl.gateway.MainActivity
 import com.qtwl.gateway.R
 import com.qtwl.gateway.utils.localizedText
 import com.qtwl.gateway.gateway.GatewayService
+import com.qtwl.gateway.gateway.VirtualModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -328,7 +329,7 @@ class GatewayForegroundService : Service() {
         private const val KEY_DEBUG_MODE = "debug_mode"
         private const val KEY_AUTO_FAILOVER = "auto_failover"
         private const val KEY_FAILOVER_MODEL = "failover_model"
-        private const val KEY_QTAI_SJ_ENABLED = "qtai_sj_enabled"
+        private const val KEY_AUTO_MODEL_ENABLED = "auto_model_enabled"
         private const val KEY_FORCED_MODEL = "forced_model"
         private const val KEY_LAST_REAL_MODEL = "last_real_model"
         private const val EXTRA_TOGGLE_WAKE = "toggle_wake"
@@ -421,10 +422,10 @@ val totalDownloadBytes = java.util.concurrent.atomic.AtomicLong(0L)   // ★ APP
         }
         fun getAutoFailover(): Boolean = GatewayApplication.getInstance().getSharedPreferences(PREF_NAME, 0).getBoolean(KEY_AUTO_FAILOVER, false)
 
-        fun saveQtaiSjEnabled(enabled: Boolean) {
-            GatewayApplication.getInstance().getSharedPreferences(PREF_NAME, 0).edit().putBoolean(KEY_QTAI_SJ_ENABLED, enabled).apply()
+        fun saveAutoModelEnabled(enabled: Boolean) {
+            GatewayApplication.getInstance().getSharedPreferences(PREF_NAME, 0).edit().putBoolean(KEY_AUTO_MODEL_ENABLED, enabled).apply()
         }
-        fun getQtaiSjEnabled(): Boolean = GatewayApplication.getInstance().getSharedPreferences(PREF_NAME, 0).getBoolean(KEY_QTAI_SJ_ENABLED, true)
+        fun getAutoModelEnabled(): Boolean = GatewayApplication.getInstance().getSharedPreferences(PREF_NAME, 0).getBoolean(KEY_AUTO_MODEL_ENABLED, true)
 
     /** ★★ 自动测速间隔（分钟），默认30分钟，范围5~240 ★★ */
     fun savePipelineInterval(minutes: Int) {
@@ -433,12 +434,12 @@ val totalDownloadBytes = java.util.concurrent.atomic.AtomicLong(0L)   // ★ APP
     fun getPipelineInterval(): Int = GatewayApplication.getInstance().getSharedPreferences(PREF_NAME, 0).getInt(KEY_PIPELINE_INTERVAL, 30).coerceIn(5, 240)
     
     fun saveForcedModel(modelId: String) {
-        // ★ 保存上一个真实模型（用于qtai-sj选中时知道用户选过什么模型）
+        // ★ 保存上一个真实模型（用于auto选中时知道用户选过什么模型）
         val current = getForcedModel()
-        if (current != "qtai-sj" && current.isNotBlank() && current != modelId) {
+        if (!VirtualModel.isVirtual(current) && current.isNotBlank() && current != modelId) {
             saveLastRealModel(current)
         }
-        if (modelId == "qtai-sj" && current != "qtai-sj" && current.isNotBlank()) {
+        if (VirtualModel.isVirtual(modelId) && !VirtualModel.isVirtual(current) && current.isNotBlank()) {
             saveLastRealModel(current)
         }
         GatewayApplication.getInstance().getSharedPreferences(PREF_NAME, 0).edit().putString(KEY_FORCED_MODEL, modelId).apply()

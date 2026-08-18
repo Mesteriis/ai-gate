@@ -51,6 +51,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.qtwl.gateway.data.model.AiModel
 import com.qtwl.gateway.data.model.ModelRouteKey
 import com.qtwl.gateway.data.model.Provider
+import com.qtwl.gateway.gateway.VirtualModel
 import com.qtwl.gateway.ui.theme.Error
 import com.qtwl.gateway.ui.theme.Offline
 import com.qtwl.gateway.ui.theme.Online
@@ -1500,7 +1501,7 @@ fun ModelsScreen(viewModel: GatewayViewModel) {
         if (filterToolCall) fromDb = fromDb.filter { com.qtwl.gateway.gateway.ModelCapabilityManager.getCapabilities(it.modelId).first }
         if (filterVision) fromDb = fromDb.filter { com.qtwl.gateway.gateway.ModelCapabilityManager.getCapabilities(it.modelId).second }
         listOfNotNull(
-            AiModel(id = -1, modelId = "qtai-sj", displayName = localizedText("🔄 自动化切换", "🔄 Auto switch"), providerId = 0, isEnabled = true)
+            AiModel(id = -1, modelId = VirtualModel.ID, displayName = localizedText("🔄 自动化切换", "🔄 Auto switch"), providerId = 0, isEnabled = true)
         ) + fromDb
     }
 
@@ -1833,11 +1834,11 @@ private fun ModelCard(model: AiModel, viewModel: GatewayViewModel) {
             }
 
             // 第二行：操作按钮
-            if (model.modelId == "qtai-sj") {
+            if (VirtualModel.isVirtual(model.modelId)) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    val qtaiSjEnabled by viewModel.qtaiSjEnabled.collectAsState()
-                    Switch(checked = qtaiSjEnabled, onCheckedChange = { viewModel.toggleQtaiSj() })
+                    val autoModelEnabled by viewModel.autoModelEnabled.collectAsState()
+                    Switch(checked = autoModelEnabled, onCheckedChange = { viewModel.toggleAutoModel() })
                 }
             } else {
                 Spacer(modifier = Modifier.height(4.dp))

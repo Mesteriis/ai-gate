@@ -100,7 +100,7 @@ fun KeyManagementScreen(onDismiss: () -> Unit) {
     // 编辑弹窗
     editingKey?.let { entry ->
         EditKeyDialog(entry = entry, onDismiss = { editingKey = null }, onSave = { label, enabled, models, qtai ->
-            KeyManager.updateKey(entry.key, label = label, enabled = enabled, allowedModels = models, qtaiSjAccess = qtai)
+            KeyManager.updateKey(entry.key, label = label, enabled = enabled, allowedModels = models, autoAccess = qtai)
             refreshKeys()
             editingKey = null
         })
@@ -130,7 +130,7 @@ private fun KeyCard(entry: ApiKeyEntry, onEdit: (ApiKeyEntry) -> Unit, onDelete:
                 if (entry.allowedModels.isNotEmpty()) {
                     Text(localizedText("限定 ${entry.allowedModels.size} 个模型", "Limited to ${entry.allowedModels.size} models"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 }
-                if (!entry.qtaiSjAccess) {
+                if (!entry.autoAccess) {
                     Text(localizedText("qtai-sj 禁止", "qtai-sj denied"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                 }
             }
@@ -148,7 +148,7 @@ private fun KeyCard(entry: ApiKeyEntry, onEdit: (ApiKeyEntry) -> Unit, onDelete:
 private fun AddKeyDialog(onDismiss: () -> Unit, onSave: (String, String, List<String>, Boolean) -> Unit) {
     var key by remember { mutableStateOf("sk-") }
     var label by remember { mutableStateOf("") }
-    var qtaiSj by remember { mutableStateOf(true) }
+    var autoAccess by remember { mutableStateOf(true) }
     var showKey by remember { mutableStateOf(false) }
     
     AlertDialog(
@@ -163,12 +163,12 @@ private fun AddKeyDialog(onDismiss: () -> Unit, onSave: (String, String, List<St
                 OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text(localizedText("备注（可选）", "Label (optional)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(localizedText("允许 qtai-sj 访问", "Allow qtai-sj access"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                    Switch(checked = qtaiSj, onCheckedChange = { qtaiSj = it })
+                    Switch(checked = autoAccess, onCheckedChange = { autoAccess = it })
                 }
                 Text(localizedText("💡 密钥为空列表时默认允许所有模型", "💡 Empty model list = allow all models"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
-        confirmButton = { Button(onClick = { onSave(key, label, emptyList(), qtaiSj) }, enabled = key.isNotBlank()) { Text(localizedText("添加", "Add")) } },
+        confirmButton = { Button(onClick = { onSave(key, label, emptyList(), autoAccess) }, enabled = key.isNotBlank()) { Text(localizedText("添加", "Add")) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(localizedText("取消", "Cancel")) } }
     )
 }
@@ -178,7 +178,7 @@ private fun AddKeyDialog(onDismiss: () -> Unit, onSave: (String, String, List<St
 private fun EditKeyDialog(entry: ApiKeyEntry, onDismiss: () -> Unit, onSave: (String, Boolean, List<String>, Boolean) -> Unit) {
     var label by remember { mutableStateOf(entry.label) }
     var enabled by remember { mutableStateOf(entry.enabled) }
-    var qtaiSj by remember { mutableStateOf(entry.qtaiSjAccess) }
+    var autoAccess by remember { mutableStateOf(entry.autoAccess) }
     var modelsText by remember { mutableStateOf(entry.allowedModels.joinToString(", ")) }
     
     AlertDialog(
@@ -194,12 +194,12 @@ private fun EditKeyDialog(entry: ApiKeyEntry, onDismiss: () -> Unit, onSave: (St
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(localizedText("允许 qtai-sj", "Allow qtai-sj"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                    Switch(checked = qtaiSj, onCheckedChange = { qtaiSj = it })
+                    Switch(checked = autoAccess, onCheckedChange = { autoAccess = it })
                 }
                 OutlinedTextField(value = modelsText, onValueChange = { modelsText = it }, label = { Text(localizedText("限定模型ID（逗号分隔，空=全部）", "Allowed model IDs (comma-separated, empty=all)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             }
         },
-        confirmButton = { Button(onClick = { onSave(label, enabled, modelsText.split(",").map { it.trim() }.filter { it.isNotBlank() }, qtaiSj) }) { Text(localizedText("保存", "Save")) } },
+        confirmButton = { Button(onClick = { onSave(label, enabled, modelsText.split(",").map { it.trim() }.filter { it.isNotBlank() }, autoAccess) }) { Text(localizedText("保存", "Save")) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(localizedText("取消", "Cancel")) } }
     )
 }
