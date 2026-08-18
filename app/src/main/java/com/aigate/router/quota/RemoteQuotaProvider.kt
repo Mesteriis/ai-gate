@@ -13,7 +13,12 @@ import com.aigate.router.data.model.ResourcePool
  * оставляет remaining=null («Данные о квоте недоступны»), не выдумывая цифру.
  */
 interface RemoteQuotaProvider {
-    val providerType: String
+    /**
+     * Применим ли этот адаптер к данному провайдеру. Матчинг по `Provider` (обычно по
+     * host в baseUrl), а не только по `type`, потому что OpenAI-совместимые сервисы
+     * (OpenRouter и т.п.) настраиваются с type="openai"/"custom".
+     */
+    fun appliesTo(provider: Provider): Boolean
 
     /**
      * Запросить квоту. Возвращает снимок с source=PROVIDER_API или null, если данные

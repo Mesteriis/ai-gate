@@ -1,21 +1,26 @@
 package com.aigate.router.quota
 
-import java.util.concurrent.ConcurrentHashMap
+import com.aigate.router.data.model.Provider
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
- * Реестр провайдер-специфичных адаптеров квот. Пустой по умолчанию: в v0.1.0 нет
- * подтверждённых публичных endpoint'ов остатка/лимита, поэтому реальный баланс не
- * подделывается. Адаптеры добавляются здесь по мере появления (без изменения ядра).
+ * Реестр провайдер-специфичных адаптеров квот. Стартует с нулём или несколькими
+ * адаптерами, у которых есть ПОДТВЕРЖДЁННЫЙ публичный endpoint остатка/лимита
+ * (например, OpenRouter). Для остальных провайдеров реальный баланс не подделывается —
+ * репозиторий откатывается к локальному расчёту расхода.
  */
 object QuotaProviderRegistry {
-    private val providers = ConcurrentHashMap<String, RemoteQuotaProvider>()
+    private val providers = CopyOnWriteArrayList<RemoteQuotaProvider>()
 
     fun register(provider: RemoteQuotaProvider) {
-        providers[provider.providerType.lowercase()] = provider
+        providers.add(provider)
     }
 
-    fun providerFor(providerType: String): RemoteQuotaProvider? =
-        providers[providerType.lowercase()]
+    /** Первый адаптер, применимый к данному провайдеру, либо null. */
+    fun resolve(provider: Provider): RemoteQuotaProvider? =
+        providers.firstOrNull { it.appliesTo(provider) }
 
     fun isEmpty(): Boolean = providers.isEmpty()
+
+    fun clear() = providers.clear()
 }

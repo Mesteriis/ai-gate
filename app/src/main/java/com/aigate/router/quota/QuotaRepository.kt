@@ -82,7 +82,7 @@ object QuotaRepository {
             // 1) Попробовать реальный адаптер провайдера (PROVIDER_API).
             val provider = providers[pool.providerId]
             if (provider != null) {
-                val remote = QuotaProviderRegistry.providerFor(provider.type)
+                val remote = QuotaProviderRegistry.resolve(provider)
                 if (remote != null) {
                     val remoteSnap = runCatching { remote.fetch(db, provider, pool) }.getOrNull()
                     if (remoteSnap != null) {

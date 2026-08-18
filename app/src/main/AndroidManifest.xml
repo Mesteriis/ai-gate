@@ -50,6 +50,17 @@
             android:exported="false"
             android:foregroundServiceType="specialUse" />
 
+        <!-- Автозапуск шлюза после перезагрузки (если был запущен) -->
+        <receiver
+            android:name=".service.BootReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
         <!-- Домашний виджет квот (локальный снимок, без сети) -->
         <receiver
             android:name=".widget.QuotaWidgetProvider"
