@@ -985,9 +985,12 @@ private fun CliSessionsCard(
     db: com.aigate.router.data.db.AppDatabase,
     scope: kotlinx.coroutines.CoroutineScope
 ) {
+    val ctx = LocalContext.current
     var sessions by remember { mutableStateOf<List<CliSessionManager.SessionStatus>>(emptyList()) }
     var reload by remember { mutableStateOf(0) }
     var showConnectDialog by remember { mutableStateOf(false) }
+    var connecting by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(reload) {
         sessions = CliSessionManager.listSessions(db)
     }
@@ -1048,11 +1051,37 @@ private fun CliSessionsCard(
 
             Spacer(modifier = Modifier.height(8.dp))
             HorizontalDivider()
-            Spacer(modifier = Modifier.height(6.dp))
-            TextButton(onClick = { showConnectDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Подключить CLI-сессию")
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Ключевая платформа — Codex в один тап.
+            Button(
+                onClick = {
+                    error = null
+                    connecting = true
+                    scope.launch {
+                        val res = CliSessionManager.connectCodex(ctx, db)
+                        connecting = false
+                        res.onSuccess { reload++ }.onFailure { error = it.message ?: "Не удалось подключить Codex" }
+                    }
+                },
+                enabled = !connecting,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (connecting) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Ожидание входа в браузере…")
+                } else {
+                    Text("🚀 Подключить Codex")
+                }
+            }
+            error?.let {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(it, style = MaterialTheme.typography.bodySmall, color = Error)
+            }
+            Spacer(modifier = Modifier.height(2.dp))
+            TextButton(onClick = { showConnectDialog = true }, enabled = !connecting) {
+                Text("Другой провайдер…")
             }
         }
     }
@@ -1174,27 +1203,61 @@ private fun ConnectCliSessionDialog(
     onDismiss: () -> Unit,
     onConnected: () -> Unit
 ) {
+    val ctx = LocalContext.current
     var template by remember { mutableStateOf(CliProviderCatalog.all().first()) }
     var name by remember { mutableStateOf(template.displayName) }
     var baseUrl by remember { mutableStateOf(template.defaultBaseUrl) }
-    var sessionJson by remember { mutableStateOf("") }
+    var authUrl by remember { mutableStateOf(template.authUrl ?: "") }
     var tokenUrl by remember { mutableStateOf(template.tokenUrl ?: "") }
     var clientId by remember { mutableStateOf("") }
     var clientSecret by remember { mutableStateOf("") }
+    var sessionJson by remember { mutableStateOf("") }
+    var showManual by remember { mutableStateOf(false) }
+    var connecting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
+    fun startBrowserLogin() {
+        when {
+            baseUrl.isBlank() -> { error = "Укажите Base URL"; return }
+            authUrl.isBlank() || tokenUrl.isBlank() || clientId.isBlank() ->
+                { error = "Нужны authorization URL, token URL и client_id"; return }
+        }
+        error = null
+        connecting = true
+        scope.launch {
+            val res = com.aigate.router.auth.OAuthBrowserFlow.authorize(
+                ctx,
+                com.aigate.router.auth.OAuthFlowConfig(
+                    providerType = template.id,
+                    authUrl = authUrl.trim(),
+                    tokenUrl = tokenUrl.trim(),
+                    clientId = clientId.trim(),
+                    clientSecret = clientSecret.ifBlank { null },
+                    scopes = template.scopes
+                )
+            )
+            connecting = false
+            res.onSuccess { s ->
+                CliSessionManager.connect(
+                    db = db, providerType = template.id,
+                    name = name.ifBlank { template.displayName },
+                    baseUrl = baseUrl.trim(), session = s,
+                    refreshTokenUrl = tokenUrl.ifBlank { null },
+                    clientId = clientId.ifBlank { null },
+                    clientSecret = clientSecret.ifBlank { null }
+                )
+                onConnected()
+            }.onFailure { error = it.message ?: "Ошибка входа" }
+        }
+    }
+
     AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Подключить CLI-сессию", fontWeight = FontWeight.Bold) },
+        onDismissRequest = { if (!connecting) onDismiss() },
+        title = { Text("Подключить провайдера", fontWeight = FontWeight.Bold) },
         text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState())
-            ) {
-                // Выбор шаблона провайдера.
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     CliProviderCatalog.all().forEach { t ->
@@ -1205,6 +1268,7 @@ private fun ConnectCliSessionDialog(
                                 template = t
                                 if (name.isBlank() || name == prev.displayName) name = t.displayName
                                 if (baseUrl.isBlank() || baseUrl == prev.defaultBaseUrl) baseUrl = t.defaultBaseUrl
+                                if (authUrl.isBlank() || authUrl == (prev.authUrl ?: "")) authUrl = t.authUrl ?: ""
                                 if (tokenUrl.isBlank() || tokenUrl == (prev.tokenUrl ?: "")) tokenUrl = t.tokenUrl ?: ""
                             },
                             label = { Text(t.displayName) }
@@ -1219,106 +1283,76 @@ private fun ConnectCliSessionDialog(
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Название") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                OutlinedTextField(name, { name = it }, label = { Text("Название") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = baseUrl,
-                    onValueChange = { baseUrl = it },
-                    label = { Text("Base URL") },
-                    placeholder = { Text("https://…") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                OutlinedTextField(baseUrl, { baseUrl = it }, label = { Text("Base URL") }, placeholder = { Text("https://…") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = sessionJson,
-                    onValueChange = { sessionJson = it },
-                    label = { Text("Сессия (JSON из файла CLI)") },
-                    minLines = 4,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Text(
-                    text = "Вставьте содержимое auth.json / oauth_creds.json вашего CLI.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                OutlinedTextField(authUrl, { authUrl = it }, label = { Text("Authorization URL") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(tokenUrl, { tokenUrl = it }, label = { Text("Token URL") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(clientId, { clientId = it }, label = { Text("client_id") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(clientSecret, { clientSecret = it }, label = { Text("client_secret (если нужен)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
 
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "Автообновление (необязательно)",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
                 Spacer(modifier = Modifier.height(6.dp))
-                OutlinedTextField(
-                    value = tokenUrl,
-                    onValueChange = { tokenUrl = it },
-                    label = { Text("OAuth token URL") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = clientId,
-                    onValueChange = { clientId = it },
-                    label = { Text("client_id") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = clientSecret,
-                    onValueChange = { clientSecret = it },
-                    label = { Text("client_secret") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                Text(
+                    "Откроется браузер для входа; после авторизации токены сохранятся автоматически (loopback-редирект). Разрешите redirect на http://localhost в OAuth-клиенте.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                val err = error
-                if (err != null) {
+                // Fallback: ручная вставка сессии.
+                Spacer(modifier = Modifier.height(10.dp))
+                TextButton(onClick = { showManual = !showManual }, contentPadding = PaddingValues(0.dp)) {
+                    Text(if (showManual) "Скрыть ручной импорт" else "Вставить сессию вручную")
+                }
+                if (showManual) {
+                    OutlinedTextField(sessionJson, { sessionJson = it }, label = { Text("Сессия (JSON из файла CLI)") }, minLines = 3, modifier = Modifier.fillMaxWidth())
+                    Text("auth.json / oauth_creds.json вашего CLI.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+
+                if (connecting) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Ожидание входа в браузере…", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                error?.let {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = err,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Error
-                    )
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = Error)
                 }
             }
         },
         confirmButton = {
-            Button(onClick = {
-                val s = if (baseUrl.isBlank()) null else CliSessionImporter.parse(sessionJson)
-                when {
-                    baseUrl.isBlank() -> error = "Укажите Base URL"
-                    s == null -> error = "Не удалось разобрать сессию (нужен access_token)"
-                    else -> {
-                        error = null
-                        scope.launch {
-                            CliSessionManager.connect(
-                                db = db,
-                                providerType = template.id,
-                                name = name.ifBlank { template.displayName },
-                                baseUrl = baseUrl.trim(),
-                                session = s,
-                                refreshTokenUrl = tokenUrl.ifBlank { null },
-                                clientId = clientId.ifBlank { null },
-                                clientSecret = clientSecret.ifBlank { null }
-                            )
+            if (showManual) {
+                Button(enabled = !connecting, onClick = {
+                    val s = if (baseUrl.isBlank()) null else CliSessionImporter.parse(sessionJson)
+                    when {
+                        baseUrl.isBlank() -> error = "Укажите Base URL"
+                        s == null -> error = "Не удалось разобрать сессию (нужен access_token)"
+                        else -> {
+                            error = null
+                            scope.launch {
+                                CliSessionManager.connect(
+                                    db, template.id, name.ifBlank { template.displayName }, baseUrl.trim(), s,
+                                    tokenUrl.ifBlank { null }, clientId.ifBlank { null }, clientSecret.ifBlank { null }
+                                )
+                            }
+                            onConnected()
                         }
-                        onConnected()
                     }
+                }) { Text("Импортировать") }
+            } else {
+                Button(enabled = !connecting, onClick = { startBrowserLogin() }) {
+                    Text("🌐 Войти через браузер")
                 }
-            }) { Text("Подключить") }
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
+            TextButton(enabled = !connecting, onClick = onDismiss) { Text("Отмена") }
         }
     )
 }

@@ -119,14 +119,16 @@ object CliSessionImporter {
         values.firstOrNull { !it.isNullOrEmpty() }
 }
 
-/** Известный CLI-провайдер: подсказки для UI + опциональный стандартный refresh. */
+/** Известный CLI-провайдер: подсказки для UI + опциональный стандартный OAuth-flow. */
 data class CliProviderTemplate(
     val id: String,              // тип провайдера (Provider.type)
     val displayName: String,
     val defaultBaseUrl: String,  // пользователь может переопределить; пусто = задать вручную
-    val tokenUrl: String?,       // OAuth token endpoint для refresh (стандартный, если известен)
+    val tokenUrl: String?,       // OAuth token endpoint (refresh + обмен кода)
     val experimental: Boolean,
-    val note: String
+    val note: String,
+    val authUrl: String? = null, // OAuth authorization endpoint (для браузерного входа)
+    val scopes: List<String> = emptyList()
 )
 
 /**
@@ -142,7 +144,9 @@ object CliProviderCatalog {
         defaultBaseUrl = "",
         tokenUrl = "https://oauth2.googleapis.com/token",
         experimental = true,
-        note = "Google OAuth. Укажите Base URL Code Assist/совместимого эндпоинта и client_id из вашего Gemini CLI."
+        note = "Google OAuth. Вход через браузер. Укажите client_id (и client_secret для Desktop-клиента) из вашего Gemini CLI и Base URL совместимого эндпоинта.",
+        authUrl = "https://accounts.google.com/o/oauth2/v2/auth",
+        scopes = listOf("https://www.googleapis.com/auth/cloud-platform", "openid", "email")
     )
     val CODEX = CliProviderTemplate(
         id = "codex",
@@ -174,10 +178,58 @@ object CliProviderCatalog {
 }
 
 /**
+ * Codex как ключевая платформа: полностью преднастроенный OAuth (публичный client_id
+ * из открытого codex CLI). Вход в одну кнопку. ВАЖЕН фиксированный порт 1455 —
+ * redirect_uri `http://localhost:1455/auth/callback` зарегистрирован у провайдера, и
+ * случайный порт не подойдёт.
+ *
+ * Эксперим./ToS: доступ к ChatGPT/Codex сторонним клиентом может нарушать Terms OpenAI —
+ * на риск пользователя. Аутентификацию выполняет сам пользователь своей учётной записью.
+ */
+object CodexAuth {
+    const val DISPLAY_NAME = "Codex"
+    const val PROVIDER_TYPE = "codex"
+    const val PORT = 1455
+    const val CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
+    const val DEFAULT_BASE_URL = "https://chatgpt.com/backend-api/codex"
+
+    val config = OAuthFlowConfig(
+        providerType = PROVIDER_TYPE,
+        authUrl = "https://auth.openai.com/oauth/authorize",
+        tokenUrl = "https://auth.openai.com/oauth/token",
+        clientId = CLIENT_ID,
+        scopes = listOf("openid", "profile", "email", "offline_access"),
+        fixedPort = PORT,
+        redirectPath = "/auth/callback",
+        extraAuthParams = mapOf(
+            "id_token_add_organizations" to "true",
+            "codex_cli_simplified_flow" to "true"
+        )
+    )
+}
+
+/**
  * Оркестратор подключения CLI-сессии: создаёт/обновляет Provider + OAuth-credential
  * (в Keystore), при наличии refresh-конфига регистрирует адаптер автообновления.
  */
 object CliSessionManager {
+
+    /** Один тап: браузерный вход в Codex и сохранение сессии. Возвращает providerId или ошибку. */
+    suspend fun connectCodex(context: android.content.Context, db: AppDatabase): Result<Long> {
+        val res = OAuthBrowserFlow.authorize(context, CodexAuth.config)
+        return res.mapCatching { session ->
+            connect(
+                db = db,
+                providerType = CodexAuth.PROVIDER_TYPE,
+                name = CodexAuth.DISPLAY_NAME,
+                baseUrl = CodexAuth.DEFAULT_BASE_URL,
+                session = session,
+                refreshTokenUrl = CodexAuth.config.tokenUrl,
+                clientId = CodexAuth.CLIENT_ID,
+                clientSecret = null
+            )
+        }
+    }
 
     /** Подключить сессию: вернуть providerId. Сессия сохраняется в Keystore и переживает рестарт. */
     suspend fun connect(
