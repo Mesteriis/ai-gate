@@ -118,24 +118,62 @@ object QuotaRepository {
         db.quotaSnapshotDao().deleteOlderThan(now - 90L * 24 * 3600 * 1000)
     }
 
+    /** Прежние имена типов пула — их нужно переклассифицировать один раз. */
+    private val legacyKindNames = setOf("SUBSCRIPTION", "API_BALANCE", "LOCAL_BUDGET")
+
     /** Создать по одному пулу расхода на включённого провайдера, если его ещё нет. */
     private suspend fun ensureProviderPools(db: AppDatabase) {
         val dao = db.resourcePoolDao()
-        val existingProviderIds = dao.getAll().map { it.providerId }.toSet()
+        val existingPools = dao.getAll()
+        val existingProviderIds = existingPools.map { it.providerId }.toSet()
         val providers = db.providerDao().getEnabledProviders()
+
+        // Разовая миграция: до разделения типов ВСЕ пулы провайдеров создавались
+        // как «баланс», из-за чего локальные бесплатные модели и подписочные
+        // квоты выглядели одинаково. Переклассифицируем только пулы со старыми
+        // именами типа, не затрагивая выбранное пользователем.
+        val providersById = providers.associateBy { it.id }
+        for (pool in existingPools) {
+            if (pool.kind.uppercase() !in legacyKindNames) continue
+            val provider = providersById[pool.providerId] ?: continue
+            val corrected = kindForProvider(provider.type)
+            if (corrected.name != pool.kind) {
+                dao.update(pool.copy(kind = corrected.name))
+            }
+        }
+
         for (p in providers) {
             if (p.id !in existingProviderIds) {
                 dao.insert(
                     ResourcePool(
                         providerId = p.id,
                         name = p.name,
-                        kind = ResourcePoolKind.API_BALANCE.name,
+                        kind = kindForProvider(p.type).name,
                         unit = QuotaUnit.USD.name,
                         configuredLimit = null,
                         resetDayOfMonth = 1
                     )
                 )
             }
+        }
+    }
+
+    /**
+     * Тип ресурса по типу провайдера. Разные вещи называются разными словами:
+     * локальные модели бесплатны, подписка расходует квоту со сбросом,
+     * pay-as-you-go тратит оплаченный баланс.
+     */
+    fun kindForProvider(providerType: String): ResourcePoolKind {
+        val t = providerType.lowercase()
+        return when {
+            // Локальные и встроенные в устройство модели — ресурс без лимита.
+            t.contains("ollama") || t.contains("local") || t.contains("device") ||
+                t.contains("llama.cpp") || t.contains("lmstudio") -> ResourcePoolKind.FREE
+            // Сессии CLI по подписке: расход квоты со сбросом по периоду.
+            t.contains("codex") || t.contains("claude-cli") || t.contains("gemini-cli") ->
+                ResourcePoolKind.QUOTA
+            // Остальные облачные API — оплаченный баланс.
+            else -> ResourcePoolKind.BALANCE
         }
     }
 

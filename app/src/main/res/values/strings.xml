@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">ИИ Врата</string>
+    <string name="app_name">AiGate</string>
     <string name="channel_name">Сервис шлюза</string>
     <string name="channel_description">Держит AI-шлюз запущенным в фоне</string>
     <string name="service_running">AI-шлюз работает</string>

@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.dp
 import com.aigate.router.R
 
 /**
- * Frost-gate hero — the «ИИ Врата» emblem (glowing crystalline gate with clouds and
+ * Frost-gate hero — the «AiGate» emblem (glowing crystalline gate with clouds and
  * circuit traces). Rendered as the transparent brand asset directly on the page
  * background — no card/plate behind it.
  */
@@ -19,7 +19,7 @@ import com.aigate.router.R
 fun GateHero(modifier: Modifier = Modifier, heightDp: Int = 220) {
     Image(
         painter = painterResource(R.drawable.gate_hero),
-        contentDescription = "ИИ Врата",
+        contentDescription = "AiGate",
         contentScale = ContentScale.Fit,
         modifier = modifier
             .fillMaxWidth()

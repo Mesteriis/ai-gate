@@ -53,7 +53,7 @@ class GatewayForegroundService : Service() {
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val immediateNotification = NotificationCompat.Builder(this, GatewayApplication.CHANNEL_ID)
-            .setContentTitle("ИИ Врата запускается…")
+            .setContentTitle("AiGate запускается…")
             .setContentText("Инициализация…")
             .setSmallIcon(android.R.drawable.ic_menu_share)
             .setContentIntent(immediatePi)
@@ -195,7 +195,7 @@ class GatewayForegroundService : Service() {
         }
 
         val title = buildString {
-            append(if (wakeEnabled) "ИИ Врата (защита от сна)" else "ИИ Врата")
+            append(if (wakeEnabled) "AiGate (защита от сна)" else "AiGate")
             if (nodeName.isNotBlank()) {
                 val light = if (hasTraffic && isActive) " 🟢" else if (hasTraffic) " ⚪" else ""
                 append(" ·$light $nodeName")

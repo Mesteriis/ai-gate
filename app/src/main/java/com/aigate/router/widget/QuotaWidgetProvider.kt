@@ -17,7 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
- * Домашний виджет квот «ИИ Врата».
+ * Домашний виджет квот «AiGate».
  *
  * Рендерит ЛОКАЛЬНЫЙ снимок квот (без сетевого опроса): читает последний снимок из БД
  * через [QuotaRepository.latest] и показывает до трёх самых «горящих» пулов. Обновления
@@ -68,7 +68,7 @@ class QuotaWidgetProvider : AppWidgetProvider() {
         quotas: List<QuotaRepository.PoolQuota>
     ): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_quota)
-        views.setTextViewText(R.id.widget_title, "ИИ Врата — квоты")
+        views.setTextViewText(R.id.widget_title, "AiGate — ресурсы")
 
         // Клик по виджету открывает MainActivity.
         val intent = Intent(context, MainActivity::class.java)
@@ -84,7 +84,7 @@ class QuotaWidgetProvider : AppWidgetProvider() {
 
         if (quotas.isEmpty()) {
             views.setViewVisibility(R.id.widget_row1, View.VISIBLE)
-            views.setTextViewText(R.id.widget_row1, "Пока нет данных о квотах")
+            views.setTextViewText(R.id.widget_row1, "Пока нет данных")
             views.setViewVisibility(R.id.widget_row2, View.GONE)
             views.setViewVisibility(R.id.widget_row3, View.GONE)
             return views
@@ -114,7 +114,11 @@ class QuotaWidgetProvider : AppWidgetProvider() {
         ResourcePressure.UNKNOWN -> 4
     }
 
-    /** Строка вида «{имя}: осталось X/Y USD · {давление}», устойчивая к null-снимкам. */
+    /**
+     * Строка вида «{имя}: осталось 3/100% · {давление}», устойчивая к null-снимкам.
+     * Тип ресурса называется своим словом: у бесплатного нет остатка, у баланса
+     * нет процентов, сброс бывает только у квоты.
+     */
     private fun rowText(pq: QuotaRepository.PoolQuota): String {
         val name = pq.pool.name
         val snap = pq.snapshot
@@ -122,17 +126,36 @@ class QuotaWidgetProvider : AppWidgetProvider() {
         val limit = snap?.limit
         val used = snap?.used
         val unit = snap?.unit ?: ""
+        val kind = com.aigate.router.quota.ResourcePoolKind.fromName(pq.pool.kind)
+
+        if (kind == com.aigate.router.quota.ResourcePoolKind.FREE) {
+            return "$name: без лимита"
+        }
 
         val value = when {
-            remaining != null && limit != null ->
-                "$name: осталось ${fmt(remaining)}/${fmt(limit)} $unit"
+            remaining != null && limit != null && kind.hasFraction ->
+                "$name: ${kind.remainingLabel.lowercase()} ${fmt(remaining)}/${fmt(limit)}${unitSuffix(unit)}"
+            remaining != null ->
+                "$name: ${kind.remainingLabel.lowercase()} ${fmt(remaining)}${unitSuffix(unit)}"
             used != null ->
-                "$name: израсходовано ${fmt(used)} $unit"
+                "$name: израсходовано ${fmt(used)}${unitSuffix(unit)}"
             else ->
                 "$name: нет данных"
         }.trim()
 
         return "$value · ${pq.pressure.label}"
+    }
+
+    /** Человеческая единица: «PERCENT» на домашнем экране выглядит как ошибка. */
+    private fun unitSuffix(unit: String): String = when (unit.uppercase()) {
+        "PERCENT" -> "%"
+        "USD" -> " $"
+        "TOKENS" -> " ток."
+        "REQUESTS" -> " запр."
+        "CREDITS" -> " кред."
+        "COMPUTE_MINUTES" -> " мин"
+        "UNKNOWN", "" -> ""
+        else -> " " + unit.lowercase()
     }
 
     /** Компактный формат числа: без дробной части от 100 и больше, иначе два знака. */

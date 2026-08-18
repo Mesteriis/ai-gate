@@ -30,15 +30,32 @@ class ModelSpeedTester(
         baseUrl: String,
         apiKey: String?,
         chatPath: String? = null,
-        prompt: String = DEFAULT_PROMPT
+        prompt: String = DEFAULT_PROMPT,
+        /** Провайдер отвечает по Responses API (Codex), а не chat/completions. */
+        useResponsesApi: Boolean = false,
+        /** Идентификатор аккаунта ChatGPT — обязателен для Codex. */
+        accountId: String? = null
     ): SpeedMetrics = withContext(Dispatchers.IO) {
-        val path = chatPath?.let { if (it.startsWith("/")) it else "/$it" } ?: "/v1/chat/completions"
+        val path = when {
+            useResponsesApi -> com.aigate.router.gateway.CodexUpstream.RESPONSES_PATH
+            chatPath != null -> if (chatPath.startsWith("/")) chatPath else "/$chatPath"
+            else -> "/v1/chat/completions"
+        }
         val url = baseUrl.trimEnd('/') + path
-        val body = buildPayload(modelId, prompt)
+        val chatPayload = buildPayload(modelId, prompt)
+        val body = if (useResponsesApi) {
+            com.aigate.router.gateway.CodexUpstream.translateRequest(chatPayload)
+        } else chatPayload
         val request = Request.Builder()
             .url(url)
             .post(body.toRequestBody(JSON_TYPE))
-            .apply { if (!apiKey.isNullOrBlank()) header("Authorization", "Bearer $apiKey") }
+            .apply {
+                if (useResponsesApi) {
+                    com.aigate.router.gateway.CodexUpstream.applyHeaders(
+                        this, apiKey, accountId, java.util.UUID.randomUUID().toString()
+                    )
+                } else if (!apiKey.isNullOrBlank()) header("Authorization", "Bearer $apiKey")
+            }
             .build()
 
         val t0 = System.currentTimeMillis()

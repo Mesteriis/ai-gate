@@ -46,7 +46,7 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 /**
- * ИИ Врата theme — frost-gate look. Defaults to the light frost palette (matching the
+ * AiGate theme — frost-gate look. Defaults to the light frost palette (matching the
  * product reference); dark frost is available when [darkTheme] is passed true. Material You
  * dynamic color is intentionally OFF so the brand palette is always used.
  */
@@ -68,7 +68,8 @@ fun GatewayTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+        typography = Typography
+    ) {
+        com.aigate.router.ui.design.ProvideGatewayDesign(darkTheme = darkTheme, content = content)
+    }
 }

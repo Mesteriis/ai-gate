@@ -21,13 +21,27 @@ object UsageHistory {
     )
 
     data class Forecast(
+        /** Расход по токенам с начала месяца (факт). */
         val monthToDateUsd: Double,
+        /** Прогноз расхода по токенам к концу месяца (оценка). */
         val projectedMonthEndUsd: Double,
         val daysElapsed: Int,
         val daysInMonth: Int,
         /** Всегда true: это экстраполяция, не факт. */
-        val isEstimate: Boolean = true
-    )
+        val isEstimate: Boolean = true,
+        /**
+         * Сумма подписок за месяц. Это не расход по токенам, а фиксированная
+         * плата за тарифы подключённых аккаунтов, поэтому хранится отдельно и
+         * не прогнозируется — она известна точно.
+         */
+        val subscriptionsUsd: Double = 0.0,
+    ) {
+        /** Всё, что месяц стоит: подписки плюс токены. */
+        val totalMonthToDateUsd: Double get() = monthToDateUsd + subscriptionsUsd
+
+        /** Прогноз полной стоимости месяца: подписки плюс прогноз по токенам. */
+        val projectedTotalUsd: Double get() = projectedMonthEndUsd + subscriptionsUsd
+    }
 
     /** Ежедневное использование за последние [days] дней (по локальным суткам). */
     suspend fun daily(db: AppDatabase, days: Int = 30, providerId: Long? = null): List<DayUsage> {
@@ -80,8 +94,24 @@ object UsageHistory {
             monthToDateUsd = mtd,
             projectedMonthEndUsd = projected,
             daysElapsed = daysElapsed,
-            daysInMonth = daysInMonth
+            daysInMonth = daysInMonth,
+            subscriptionsUsd = subscriptionsUsd(db, providerId)
         )
+    }
+
+    /**
+     * Месячная плата за тарифы подключённых аккаунтов. Считаем только
+     * провайдеров с подпиской: у оплаченного баланса и у бесплатных локальных
+     * моделей фиксированной платы нет.
+     */
+    suspend fun subscriptionsUsd(db: AppDatabase, providerId: Long? = null): Double {
+        val providers = db.providerDao().getAllProvidersOnce()
+            .filter { it.isEnabled && (providerId == null || it.id == providerId) }
+        var sum = 0.0
+        for (p in providers) {
+            sum += com.aigate.router.auth.CodexAccount.monthlyPriceUsd(p.id) ?: 0.0
+        }
+        return sum
     }
 
     private fun midnight(ms: Long): Calendar = Calendar.getInstance().apply {

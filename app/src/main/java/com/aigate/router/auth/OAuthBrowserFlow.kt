@@ -139,7 +139,7 @@ object OAuthBrowserFlow {
                 val done = params.containsKey("code") || params.containsKey("error")
                 val body = if (done)
                     "<html><body style='font-family:sans-serif;text-align:center;padding-top:40px'>" +
-                        "<h2>Готово</h2><p>Можно вернуться в приложение ИИ Врата.</p></body></html>"
+                        "<h2>Готово</h2><p>Можно вернуться в приложение AiGate.</p></body></html>"
                 else "<html><body>ok</body></html>"
                 val resp = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n" +
                     "Content-Length: ${body.toByteArray().size}\r\nConnection: close\r\n\r\n$body"
@@ -176,24 +176,46 @@ object OAuthBrowserFlow {
             val refresh = json.optString("refresh_token", "").ifEmpty { null }
             val expiresIn = json.optLong("expires_in", -1L)
             val expiresAt = if (expiresIn > 0) System.currentTimeMillis() + expiresIn * 1000 else null
-            val account = CliSessionImporter.let {
-                // попробовать вытащить email из id_token, если есть
-                val idToken = json.optString("id_token", "")
-                if (idToken.contains('.')) runCatching {
-                    val payload = idToken.split('.')[1]
-                    JSONObject(String(Base64.decode(payload, Base64.URL_SAFE or Base64.NO_PADDING))).optString("email").ifEmpty { null }
-                }.getOrNull() else null
-            }
+            // Из id_token берём идентификатор аккаунта и e-mail. Идентификатор
+            // аккаунта обязателен: бэкенд Codex требует его в заголовке
+            // ChatGPT-Account-ID, и без него запросы отклоняются. У OpenAI он
+            // лежит в namespaced-claim, поэтому ищем и на верхнем уровне, и во
+            // вложенных объектах.
+            val claims = decodeJwtClaims(json.optString("id_token", ""))
+            val accountId = claims?.let { findClaim(it, "chatgpt_account_id") }
+            val email = claims?.let { findClaim(it, "email") }
             return Result.success(
                 ImportedSession(
                     accessToken = access,
                     refreshToken = refresh,
                     expiresAt = expiresAt,
-                    accountId = account,
-                    providerHint = config.providerType
+                    accountId = accountId,
+                    providerHint = config.providerType,
+                    email = email
                 )
             )
         }
+    }
+
+    /** Payload JWT без проверки подписи: нужен только для клеймов аккаунта. */
+    private fun decodeJwtClaims(idToken: String): JSONObject? {
+        if (!idToken.contains('.')) return null
+        return runCatching {
+            val payload = idToken.split('.')[1]
+            JSONObject(String(Base64.decode(payload, Base64.URL_SAFE or Base64.NO_PADDING)))
+        }.getOrNull()
+    }
+
+    /** Поиск клейма на верхнем уровне и в вложенных объектах (namespaced-claims). */
+    private fun findClaim(obj: JSONObject, key: String, depth: Int = 0): String? {
+        if (depth > 3) return null
+        obj.optString(key, "").takeIf { it.isNotBlank() }?.let { return it }
+        val keys = obj.keys()
+        while (keys.hasNext()) {
+            val nested = obj.optJSONObject(keys.next()) ?: continue
+            findClaim(nested, key, depth + 1)?.let { return it }
+        }
+        return null
     }
 
     // ---- helpers ----

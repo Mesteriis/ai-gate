@@ -618,9 +618,9 @@ companion object {
         if (port in 1..65535) {
             _gatewayPort.value = port
             GatewayForegroundService.saveGatewayPort(port)
-            _snackbarMessage.value = "✅ Порт шлюза установлен на $port"
+            _snackbarMessage.value = "Порт шлюза установлен на $port"
         } else {
-            _snackbarMessage.value = "⚠️ Диапазон порта: 1-65535"
+            _snackbarMessage.value = "Диапазон порта: 1-65535"
         }
     }
 
@@ -635,7 +635,7 @@ companion object {
         list.add(profile)
         _proxyProfiles.value = list
         saveProxyListToPrefs()
-        _snackbarMessage.value = "✅ Прокси «${profile.name}» добавлен"
+        _snackbarMessage.value = "Прокси «${profile.name}» добавлен"
     }
 
     /** 更新代理 */
@@ -650,7 +650,7 @@ companion object {
             if (_activeProxyId.value == profile.id && _proxyEnabled.value) {
                 applyProxyToNetwork(profile)
             }
-            _snackbarMessage.value = "✅ Прокси «${profile.name}» обновлён"
+            _snackbarMessage.value = "Прокси «${profile.name}» обновлён"
         }
     }
 
@@ -666,7 +666,7 @@ companion object {
             UpstreamClient.setProxy(null)
         }
         saveProxyListToPrefs()
-        _snackbarMessage.value = "🗑️ Прокси «${profile.name}» удалён"
+        _snackbarMessage.value = "Прокси «${profile.name}» удалён"
     }
 
     /** 启用/禁用某个代理（选中即激活 — 互斥：开启一个时自动关闭其他） */
@@ -683,7 +683,7 @@ companion object {
             _activeProxyId.value = profile.id
             _proxyEnabled.value = true
             applyProxyToNetwork(profile.copy(enabled = true))
-            _snackbarMessage.value = "🚀 Прокси «${profile.name}» включён (${profile.type})"
+            _snackbarMessage.value = "Прокси «${profile.name}» включён (${profile.type})"
         } else {
             if (_activeProxyId.value == profile.id) {
                 _activeProxyId.value = null
@@ -694,7 +694,7 @@ companion object {
             val newList = list.map { it.copy(enabled = it.id != profile.id && it.enabled) }
             _proxyProfiles.value = newList
             saveProxyListToPrefs()
-            _snackbarMessage.value = "🔌 Прокси «${profile.name}» выключен"
+            _snackbarMessage.value = "Прокси «${profile.name}» выключен"
         }
     }
 
@@ -706,7 +706,7 @@ companion object {
             _activeProxyId.value = null
             _proxyEnabled.value = false
             UpstreamClient.setProxy(null)
-            _snackbarMessage.value = "🔌 Прокси выключен"
+            _snackbarMessage.value = "Прокси выключен"
         } else {
             // 找第一个 enabled 的代理激活
             val firstEnabled = _proxyProfiles.value.firstOrNull { it.enabled }
@@ -714,9 +714,9 @@ companion object {
                 _activeProxyId.value = firstEnabled.id
                 _proxyEnabled.value = true
                 applyProxyToNetwork(firstEnabled)
-                _snackbarMessage.value = "🚀 Прокси «${firstEnabled.name}» включён"
+                _snackbarMessage.value = "Прокси «${firstEnabled.name}» включён"
             } else {
-                _snackbarMessage.value = "⚠️ Нет доступных настроек прокси, сначала добавьте прокси"
+                _snackbarMessage.value = "Нет доступных настроек прокси, сначала добавьте прокси"
             }
         }
     }
@@ -734,7 +734,7 @@ companion object {
             )
             UpstreamClient.setProxy(upstreamConfig)
         } catch (e: Exception) {
-            _snackbarMessage.value = "⚠️ Ошибка настройки прокси: ${e.message}"
+            _snackbarMessage.value = "Ошибка настройки прокси: ${e.message}"
         }
     }
 
@@ -757,7 +757,7 @@ companion object {
                             .connectTimeout(5, TimeUnit.SECONDS).readTimeout(5, TimeUnit.SECONDS)
                             .socketFactory(Socks5SocketFactory(profile.host, profile.port, profile.username, profile.password))
                             .build()
-                        else -> { _snackbarMessage.value = "⚠️ Замер скорости только для HTTP/HTTPS/SOCKS5"; return@withContext }
+                        else -> { _snackbarMessage.value = "Замер скорости только для HTTP/HTTPS/SOCKS5"; return@withContext }
                     }
 
                     // ★★ 先测谷歌，通=海外，不通再测百度
@@ -765,22 +765,22 @@ companion object {
                     try {
                         val start = System.currentTimeMillis()
                         val gOk = tempClient.newCall(okhttp3.Request.Builder().url("https://www.google.com/favicon.ico").build()).execute().isSuccessful
-                        if (gOk) { result = "✅ ${profile.name}: ${System.currentTimeMillis() - start}ms (🌍 зарубеж)" }
+                        if (gOk) { result = "${profile.name}: ${System.currentTimeMillis() - start} мс (зарубежный доступ)" }
                     } catch (_: Exception) { }
 
                     if (result.isEmpty()) {
                         try {
                             val start = System.currentTimeMillis()
                             val bOk = tempClient.newCall(okhttp3.Request.Builder().url("https://www.baidu.com/favicon.ico").build()).execute().isSuccessful
-                            if (bOk) { result = "✅ ${profile.name}: ${System.currentTimeMillis() - start}ms (🇨🇳 внутри страны)" }
+                            if (bOk) { result = "${profile.name}: ${System.currentTimeMillis() - start} мс (доступ внутри страны)" }
                         } catch (_: Exception) { }
                     }
 
-                    if (result.isEmpty()) { result = "❌ ${profile.name}: нет доступа ни внутри страны, ни за рубежом" }
+                    if (result.isEmpty()) { result = "${profile.name}: нет доступа ни внутри страны, ни за рубежом" }
                     _snackbarMessage.value = result
                 }
             } catch (e: Exception) {
-                _snackbarMessage.value = "❌ ${profile.name} — замер скорости не удался: ${e.localizedMessage ?: e.message}"
+                _snackbarMessage.value = "${profile.name} — замер скорости не удался: ${e.localizedMessage ?: e.message}"
             }
         }
     }
@@ -856,18 +856,18 @@ companion object {
                         .build().newCall(request).execute()
 
                     if (!response.isSuccessful) {
-                        _snackbarMessage.value = "❌ Не удалось получить подписку: HTTP ${response.code}"
+                        _snackbarMessage.value = "Не удалось получить подписку: HTTP ${response.code}"
                         return@withContext
                     }
                     val body = response.body?.string() ?: ""
                     if (body.isBlank()) {
-                        _snackbarMessage.value = "❌ Содержимое подписки пусто"
+                        _snackbarMessage.value = "Содержимое подписки пусто"
                         return@withContext
                     }
 
                     val parsed = com.aigate.router.network.ProxyLinkParser.parseBatch(body)
                     if (parsed.isEmpty()) {
-                        _snackbarMessage.value = "⚠️ Действительные узлы не найдены"
+                        _snackbarMessage.value = "Действительные узлы не найдены"
                         return@withContext
                     }
 
@@ -887,10 +887,10 @@ companion object {
                     }
                     _proxyProfiles.value = list
                     saveProxyListToPrefs()
-                    _snackbarMessage.value = "✅ Импортировано узлов: $added"
+                    _snackbarMessage.value = "Импортировано узлов: $added"
                 }
             } catch (e: Exception) {
-                _snackbarMessage.value = "❌ Не удалось импортировать подписку: ${e.message}"
+                _snackbarMessage.value = "Не удалось импортировать подписку: ${e.message}"
             }
         }
     }
@@ -906,10 +906,10 @@ companion object {
                 )
                 addProxy(profile)
             } else {
-                _snackbarMessage.value = "❌ Не удалось разобрать ссылку прокси"
+                _snackbarMessage.value = "Не удалось разобрать ссылку прокси"
             }
         } catch (e: Exception) {
-            _snackbarMessage.value = "❌ Ошибка разбора: ${e.message}"
+            _snackbarMessage.value = "Ошибка разбора: ${e.message}"
         }
     }
 
@@ -948,9 +948,9 @@ companion object {
                         )).waitFor()
                     } catch (_: Exception) { }
                 }
-                _snackbarMessage.value = "✅ Фоновые разрешения привязаны! Разрешите автозапуск в настройках системы"
+                _snackbarMessage.value = "Фоновые разрешения привязаны! Разрешите автозапуск в настройках системы"
             } catch (e: Exception) {
-                _snackbarMessage.value = "⚠️ Часть разрешений не получена (возможно, нужен Root): ${e.message}"
+                _snackbarMessage.value = "Часть разрешений не получена (возможно, нужен Root): ${e.message}"
             }
         }
     }
@@ -1048,6 +1048,55 @@ companion object {
     }
 
     /** 保存新服务商 */
+    /** Показать сообщение пользователю (снекбар). */
+    fun showMessage(text: String) {
+        _snackbarMessage.value = text
+    }
+
+    /**
+     * Подключить провайдера из каталога: адрес, порт и путь берутся из пресета,
+     * пользователь вводит только ключ (или адрес для локального сервера).
+     * Сразу после сохранения запрашиваем у провайдера список моделей.
+     */
+    fun connectFromCatalog(
+        presetIndex: Int,
+        name: String,
+        apiKey: String,
+        baseUrlOverride: String? = null,
+    ) {
+        val preset = PROVIDER_TYPES.getOrNull(presetIndex) ?: return
+        viewModelScope.launch {
+            try {
+                val base = (baseUrlOverride ?: preset.defaultBaseUrl).trimEnd('/')
+                val port = if (baseUrlOverride != null) {
+                    extractPortFromUrl(baseUrlOverride)
+                } else preset.defaultPort
+                val newId = database.providerDao().insert(
+                    Provider(
+                        name = name,
+                        type = preset.defaultType,
+                        baseUrl = base,
+                        port = port,
+                        credentialId = 0,
+                        chatPath = preset.defaultChatPath.takeIf { it.isNotBlank() }
+                    )
+                )
+                if (apiKey.isNotBlank()) {
+                    val credId = CredentialStore.setApiKey(database, newId, apiKey)
+                    if (credId != 0L) {
+                        database.providerDao().getProviderById(newId)?.let {
+                            database.providerDao().update(it.copy(credentialId = credId))
+                        }
+                    }
+                }
+                _snackbarMessage.value = "«$name» подключён, запрашиваю модели"
+                database.providerDao().getProviderById(newId)?.let { syncModels(it) }
+            } catch (e: Exception) {
+                _snackbarMessage.value = "Не удалось подключить: ${e.message}"
+            }
+        }
+    }
+
     fun saveProvider() {
         val form = _providerForm.value
         if (form.name.isBlank()) {
@@ -1079,7 +1128,9 @@ companion object {
                     }
                 }
                 _showAddProviderDialog.value = false
-                _snackbarMessage.value = "✅ Провайдер «${form.name}» успешно добавлен"
+                _snackbarMessage.value = "Провайдер «${form.name}» добавлен, запрашиваю модели"
+                // Модели у провайдера спрашиваем сами: вводить их руками не нужно.
+                database.providerDao().getProviderById(newId)?.let { syncModels(it) }
             } catch (e: Exception) {
                 _snackbarMessage.value = "Не удалось добавить: ${e.message}"
             }
@@ -1093,7 +1144,7 @@ companion object {
                 val credId = CredentialStore.setApiKey(database, provider.id, apiKey)
                 database.providerDao().update(provider.copy(credentialId = credId))
                 _showEditProviderDialog.value = null
-                _snackbarMessage.value = "✅ Провайдер обновлён"
+                _snackbarMessage.value = "Провайдер обновлён"
             } catch (e: Exception) {
                 _snackbarMessage.value = "Не удалось обновить: ${e.message}"
             }
@@ -1109,7 +1160,7 @@ companion object {
                 CredentialStore.deleteForProvider(database, provider.id)
                 // 同时删除该服务商下的所有模型
                 database.aiModelDao().deleteByProvider(provider.id)
-                _snackbarMessage.value = "🗑️ Провайдер «${provider.name}» и связанные модели удалены"
+                _snackbarMessage.value = "Провайдер «${provider.name}» и связанные модели удалены"
             } catch (e: Exception) {
                 _snackbarMessage.value = "Не удалось удалить: ${e.message}"
             }
@@ -1153,39 +1204,56 @@ companion object {
             _syncingProviderId.value = provider.id
             _syncResult.value = null
 
+            // У Codex список моделей отдаёт бэкенд ChatGPT, а не /v1/models.
+            if (com.aigate.router.gateway.CodexUpstream.isCodex(provider)) {
+                val count = withContext(Dispatchers.IO) {
+                    runCatching {
+                        com.aigate.router.auth.CliSessionManager.syncCodexModels(database, provider.id)
+                    }.getOrNull()
+                }
+                _syncingProviderId.value = null
+                _syncResult.value = if (count != null) {
+                    "${provider.name}: моделей — $count"
+                } else {
+                    "${provider.name}: сервер не отдал список моделей"
+                }
+                return@launch
+            }
+
             try {
                 withContext(Dispatchers.IO) {
-                    // ★★ 平台判断 & 预设模型 ★★
-                    val platformType = provider.type
-                    val presetModels: List<String>? = when {
-                        platformType.contains("Claude", ignoreCase = true) -> listOf(
-                            "claude-3-5-sonnet-latest", "claude-3-opus", "claude-3-haiku"
+                    // Anthropic и Gemini отвечают своим форматом и своей
+                    // авторизацией — спрашиваем у них реальный список моделей
+                    // вместо прежнего захардкоженного перечня.
+                    val family = com.aigate.router.network.ModelCatalogApi.familyOf(provider)
+                    if (family != com.aigate.router.network.ModelCatalogApi.Family.OPENAI_COMPATIBLE) {
+                        val remote = com.aigate.router.network.ModelCatalogApi.fetch(
+                            provider = provider,
+                            apiKey = CredentialStore.apiKeyForProvider(provider)
                         )
-                        platformType.contains("Gemini", ignoreCase = true) -> listOf(
-                            "gemini-2.5-pro", "gemini-2.5-flash", "gemini-1.5-pro"
-                        )
-                        else -> null
-                    }
-
-                    if (presetModels != null) {
-                        // 使用预设模型列表
+                        if (remote.isNullOrEmpty()) {
+                            _syncResult.value = "${provider.name}: провайдер не отдал список моделей"
+                            _snackbarMessage.value = "Список моделей получить не удалось"
+                            _syncingProviderId.value = null
+                            return@withContext
+                        }
                         val existingModels = database.aiModelDao().getModelsByProvider(provider.id)
                         val enabledMap = existingModels.associate { it.modelId to it.isEnabled }
-
-                        val models = presetModels.map { modelId ->
-                            AiModel(
-                                providerId = provider.id,
-                                modelId = modelId,
-                                displayName = modelId,
-                                syncStatus = "Synced",
-                                isEnabled = enabledMap[modelId] ?: true,
-                                customAlias = ""
-                            )
-                        }
                         database.aiModelDao().deleteByProvider(provider.id)
-                        database.aiModelDao().insertAll(models)
-                        _syncResult.value = "✅ Загружено предустановленных моделей: ${presetModels.size}"
-                        _snackbarMessage.value = "✅ Загружено предустановленных моделей: ${presetModels.size}"
+                        database.aiModelDao().insertAll(
+                            remote.map { m ->
+                                AiModel(
+                                    providerId = provider.id,
+                                    modelId = m.id,
+                                    displayName = m.displayName,
+                                    syncStatus = "Synced",
+                                    isEnabled = enabledMap[m.id] ?: true,
+                                    customAlias = ""
+                                )
+                            }
+                        )
+                        _syncResult.value = "${provider.name}: моделей — ${remote.size}"
+                        _snackbarMessage.value = "Моделей получено: ${remote.size}"
                         return@withContext
                     }
 
@@ -1198,7 +1266,7 @@ companion object {
 
                     if (!response.isSuccessful) {
                         val errorBody = response.body?.string() ?: "Неизвестная ошибка"
-                        _syncResult.value = "❌ Синхронизация не удалась (${response.code}): $errorBody"
+                        _syncResult.value = "Синхронизация не удалась (${response.code}): $errorBody"
                         _snackbarMessage.value = "Синхронизация моделей не удалась: HTTP ${response.code}"
                         _syncingProviderId.value = null
                         return@withContext
@@ -1209,7 +1277,7 @@ companion object {
                     val dataArray = jsonObj["data"]?.jsonArray
 
                     if (dataArray == null) {
-                        _syncResult.value = "❌ В ответе не найден список моделей"
+                        _syncResult.value = "В ответе не найден список моделей"
                         _snackbarMessage.value = "Синхронизация моделей не удалась: неверный формат ответа"
                         _syncingProviderId.value = null
                         return@withContext
@@ -1236,17 +1304,17 @@ companion object {
                     }
 
                     if (models.isEmpty()) {
-                        _syncResult.value = "⚠️ Провайдер вернул пустой список моделей"
+                        _syncResult.value = "Провайдер вернул пустой список моделей"
                         _snackbarMessage.value = "Синхронизация завершена, но модели не найдены"
                     } else {
                         database.aiModelDao().deleteByProvider(provider.id)
                         database.aiModelDao().insertAll(models)
-                        _syncResult.value = "✅ Синхронизировано моделей: ${models.size}"
-                        _snackbarMessage.value = "✅ Синхронизировано моделей: ${models.size}"
+                        _syncResult.value = "Синхронизировано моделей: ${models.size}"
+                        _snackbarMessage.value = "Синхронизировано моделей: ${models.size}"
                     }
                 }
             } catch (e: Exception) {
-                _syncResult.value = "❌ Ошибка синхронизации: ${e.message}"
+                _syncResult.value = "Ошибка синхронизации: ${e.message}"
                 _snackbarMessage.value = "Синхронизация моделей не удалась: ${e.message}"
             } finally {
                 _syncingProviderId.value = null
@@ -1288,7 +1356,7 @@ fun selectModel(model: AiModel?) {
                     _selectedModel.value = null
                 }
                 _snackbarMessage.value = if (newEnabled) {
-                    "✅ Модель включена"
+                    "Модель включена"
                 } else {
                     "⏸️ Модель приостановлена"
                 }
@@ -1326,9 +1394,9 @@ fun selectModel(model: AiModel?) {
                     isEnabled = true
                 )
                 database.aiModelDao().insert(model)
-                onResult(true, "✅ Модель $modelId добавлена")
+                onResult(true, "Модель $modelId добавлена")
             } catch (e: Exception) {
-                onResult(false, "❌ Не удалось добавить: ${e.message}")
+                onResult(false, "Не удалось добавить: ${e.message}")
             }
         }
     }
@@ -1341,12 +1409,12 @@ fun saveModelAlias(model: AiModel, alias: String) {
                 model.copy(customAlias = alias)
             )
             _snackbarMessage.value = if (alias.isNotBlank()) {
-                "✅ Псевдоним обновлён: $alias"
+                "Псевдоним обновлён: $alias"
             } else {
-                "✅ Восстановлено имя по умолчанию"
+                "Восстановлено имя по умолчанию"
             }
         } catch (e: Exception) {
-            _snackbarMessage.value = "❌ Не удалось сохранить псевдоним: ${e.message}"
+            _snackbarMessage.value = "Не удалось сохранить псевдоним: ${e.message}"
         }
     }
 }
@@ -1357,10 +1425,10 @@ fun toggleModelProxy(model: AiModel) {
         try {
             val newUseProxy = !model.useProxy
             database.aiModelDao().update(model.copy(useProxy = newUseProxy))
-            val status = if (newUseProxy) "🔄 через прокси" else "🔗 прямое подключение"
-            _snackbarMessage.value = "✅ ${model.displayName} переключён на $status"
+            val status = if (newUseProxy) "через прокси" else "прямое подключение"
+            _snackbarMessage.value = "${model.displayName} переключён на $status"
         } catch (e: Exception) {
-            _snackbarMessage.value = "❌ Не удалось настроить прокси модели: ${e.message}"
+            _snackbarMessage.value = "Не удалось настроить прокси модели: ${e.message}"
         }
     }
 }
@@ -1369,7 +1437,7 @@ fun toggleModelProxy(model: AiModel) {
 fun getDisplayModelName(model: AiModel): String {
     // ★★ auto 虚拟模型特殊显示
     if (VirtualModel.isVirtual(model.modelId)) {
-        return localizeGeneratedName("🔄 Автопереключение")
+        return localizeGeneratedName("Автопереключение")
     }
     return if (model.customAlias.isNotBlank()) {
         "${localizeGeneratedName(model.displayName)} (${model.customAlias})"
@@ -1394,7 +1462,7 @@ fun getDisplayModelName(model: AiModel): String {
             try {
                 database.tokenUsageDao().clearAll()
                 refreshTokenStats()
-                _snackbarMessage.value = "✅ Записи об использовании очищены"
+                _snackbarMessage.value = "Записи об использовании очищены"
             } catch (e: Exception) {
                 _snackbarMessage.value = "Не удалось очистить: ${e.message}"
             }
@@ -1451,9 +1519,9 @@ fun getDisplayModelName(model: AiModel): String {
                 database.tokenUsageDao().clearAll()
                 database.aiModelDao().deleteAll()
                 database.providerDao().deleteAll()
-                _snackbarMessage.value = "✅ Все данные сброшены"
+                _snackbarMessage.value = "Все данные сброшены"
             } catch (e: Exception) {
-                _snackbarMessage.value = "❌ Не удалось сбросить: ${e.message}"
+                _snackbarMessage.value = "Не удалось сбросить: ${e.message}"
             }
         }
     }
@@ -1475,7 +1543,7 @@ fun getDisplayModelName(model: AiModel): String {
 
                     if (!response.isSuccessful) {
                         val errorBody = response.body?.string() ?: "Неизвестная ошибка"
-                        _syncResult.value = "❌ Не удалось получить модели (${response.code}): $errorBody"
+                        _syncResult.value = "Не удалось получить модели (${response.code}): $errorBody"
                         return@withContext
                     }
 
@@ -1484,7 +1552,7 @@ fun getDisplayModelName(model: AiModel): String {
                     val dataArray = jsonObj["data"]?.jsonArray
 
                     if (dataArray == null) {
-                        _syncResult.value = "⚠️ В ответе не найден список моделей, но подключение успешно"
+                        _syncResult.value = "В ответе не найден список моделей, но подключение успешно"
                         return@withContext
                     }
 
@@ -1493,10 +1561,10 @@ fun getDisplayModelName(model: AiModel): String {
                         obj["id"]?.jsonPrimitive?.content
                     }
 
-                    _syncResult.value = "✅ Получено ${modelNames.size} моделей: ${modelNames.joinToString(", ")}"
+                    _syncResult.value = "Получено ${modelNames.size} моделей: ${modelNames.joinToString(", ")}"
                 }
             } catch (e: Exception) {
-                _syncResult.value = "❌ Не удалось получить список моделей: ${e.message}"
+                _syncResult.value = "Не удалось получить список моделей: ${e.message}"
             }
         }
     }
@@ -1511,14 +1579,22 @@ fun getDisplayModelName(model: AiModel): String {
                 _snackbarMessage.value = "⏳ Замер скорости ${model.displayName}..."
                 withContext(Dispatchers.IO) {
                     val provider = database.providerDao().getProviderById(model.providerId) ?: run {
-                        _snackbarMessage.value = "❌ ${model.displayName}: связанный провайдер не найден"
+                        _snackbarMessage.value = "${model.displayName}: связанный провайдер не найден"
                         return@withContext
                     }
-                    val metrics = speedTester.measure(model.modelId, provider.resolvedBaseUrl, CredentialStore.apiKeyForProvider(provider), provider.chatPath)
+                    val isCodex = com.aigate.router.gateway.CodexUpstream.isCodex(provider)
+                    val metrics = speedTester.measure(
+                        modelId = model.modelId,
+                        baseUrl = provider.resolvedBaseUrl,
+                        apiKey = CredentialStore.apiKeyForProvider(provider),
+                        chatPath = provider.chatPath,
+                        useResponsesApi = isCodex,
+                        accountId = if (isCodex) com.aigate.router.auth.CodexAccount.headerAccountId(database.credentialDao().getByProvider(provider.id)?.accountId, CredentialStore.apiKeyForProvider(provider)) else null
+                    )
                     val result = if (metrics.ttftMs < 0) {
-                        "❌ ${model.displayName}: замер скорости не удался"
+                        "${model.displayName}: замер скорости не удался"
                     } else {
-                        "✅ ${model.displayName}: TTFT=${metrics.ttftMs}ms  TPS=${"%.1f".format(metrics.tps)}  итого=${metrics.totalMs}ms  tokens=${metrics.tokenCount}"
+                        "${model.displayName}: TTFT=${metrics.ttftMs} мс · TPS=${"%.1f".format(metrics.tps)} · итого ${metrics.totalMs} мс"
                     }
                     _snackbarMessage.value = result
                     // ★★ 记录测速历史 ★★
@@ -1529,7 +1605,7 @@ fun getDisplayModelName(model: AiModel): String {
                     } catch (_: Exception) {}
                 }
             } catch (e: Exception) {
-                _snackbarMessage.value = "❌ ${model.displayName} — замер скорости не удался: ${e.localizedMessage ?: e.message}"
+                _snackbarMessage.value = "${model.displayName} — замер скорости не удался: ${e.localizedMessage ?: e.message}"
             }
         }
     }
@@ -1539,7 +1615,7 @@ fun getDisplayModelName(model: AiModel): String {
         viewModelScope.launch {
             try {
                 database.aiModelDao().delete(model)
-                _snackbarMessage.value = "🗑️ Модель удалена: ${model.displayName}"
+                _snackbarMessage.value = "Модель удалена: ${model.displayName}"
             } catch (e: Exception) {
                 _snackbarMessage.value = "Не удалось удалить: ${e.message}"
             }
@@ -1600,9 +1676,9 @@ fun getDisplayModelName(model: AiModel): String {
                         failed++
                     }
                 }
-                _snackbarMessage.value = "✅ Пакетный тест завершён: $passed пройдено (включены), $failed не удалось"
+                _snackbarMessage.value = "Пакетный тест завершён: $passed пройдено (включены), $failed не удалось"
             } catch (e: Exception) {
-                _snackbarMessage.value = "❌ Ошибка пакетного теста: ${e.message}"
+                _snackbarMessage.value = "Ошибка пакетного теста: ${e.message}"
             } finally {
                 _batchTesting.value = false
             }
@@ -1625,7 +1701,7 @@ fun clearSyncResult() {
         val newMode = !_debugMode.value
         _debugMode.value = newMode
         GatewayForegroundService.saveDebugMode(newMode)
-        _snackbarMessage.value = if (newMode) "🔍 Режим перехвата включён, логи запросов записываются" else "🔍 Режим перехвата выключен"
+        _snackbarMessage.value = if (newMode) "Режим перехвата включён" else "Режим перехвата выключен"
     }
     fun getDebugLogs(): List<String> = GatewayForegroundService.getDebugLogs()
     fun clearDebugLogs() { GatewayForegroundService.clearDebugLogs() }
@@ -1685,7 +1761,7 @@ fun clearSyncResult() {
                         val provider = database.providerDao().getProviderById(model.providerId)
                         if (provider == null || !provider.isEnabled) {
                             val sk = _pipelineStatus.value.toMutableList()
-                            sk[realIdx] = sk[realIdx].copy(status = "⛔ Провайдер отключён", latencyMs = Long.MAX_VALUE, isCurrent = false)
+                            sk[realIdx] = sk[realIdx].copy(status = "Провайдер отключён", latencyMs = Long.MAX_VALUE, isCurrent = false)
                             _pipelineStatus.value = sk; continue
                         }
 
@@ -1695,7 +1771,15 @@ fun clearSyncResult() {
                         try {
                             withContext(Dispatchers.IO) {
                                 val resolvedUrl = provider.resolvedBaseUrl.trimEnd('/')
-                                val metrics = speedTester.measure(model.modelId, resolvedUrl, CredentialStore.apiKeyForProvider(provider), provider.chatPath)
+                                val isCodexProvider = com.aigate.router.gateway.CodexUpstream.isCodex(provider)
+                                val metrics = speedTester.measure(
+                                    modelId = model.modelId,
+                                    baseUrl = resolvedUrl,
+                                    apiKey = CredentialStore.apiKeyForProvider(provider),
+                                    chatPath = provider.chatPath,
+                                    useResponsesApi = isCodexProvider,
+                                    accountId = if (isCodexProvider) com.aigate.router.auth.CodexAccount.headerAccountId(database.credentialDao().getByProvider(provider.id)?.accountId, CredentialStore.apiKeyForProvider(provider)) else null
+                                )
                                 latency = metrics.totalMs
                                 ttft = metrics.ttftMs
                                 tps = metrics.tps
@@ -1829,7 +1913,7 @@ fun clearSyncResult() {
         } else {
             stopPipelineTest()
         }
-        _snackbarMessage.value = if (newMode) "🔄 Автопереключение при сбое включено, при ошибке модель сменится автоматически" else "🔄 Автопереключение при сбое выключено"
+        _snackbarMessage.value = if (newMode) "Автопереключение при сбое включено" else "Автопереключение при сбое выключено"
     }
 
     // ★ 自动化切换（auto）独立开关
@@ -1844,7 +1928,7 @@ fun clearSyncResult() {
             // 开启自动化切换时，清除强制切换，回到自动排行
             GatewayForegroundService.saveForcedModel("")
         }
-        _snackbarMessage.value = if (newMode) "🔄 Автопереключение включено" else "🔄 Автопереключение выключено"
+        _snackbarMessage.value = if (newMode) "Автопереключение включено" else "Автопереключение выключено"
     }
 
     // ★ 手动强制切换模型（点排行榜上的模型）
@@ -1857,13 +1941,13 @@ fun clearSyncResult() {
         if (_forcedModelKey.value == modelKey) {
             _forcedModelKey.value = ""
             GatewayForegroundService.saveForcedModel("")
-            _snackbarMessage.value = "↩️ Принудительное переключение отменено, возврат к авторанжированию"
+            _snackbarMessage.value = "Принудительное переключение отменено, возврат к авторанжированию"
         } else {
             _forcedModelKey.value = modelKey
             GatewayForegroundService.saveForcedModel(modelKey)
             val item = _pipelineStatus.value.find { it.selectionKey == modelKey }
             val rankPrefix = rankingId?.let { "#$it · " }.orEmpty()
-            _snackbarMessage.value = "🎯 Выбрано: ${rankPrefix}P$providerId · ${item?.modelName ?: modelId}"
+            _snackbarMessage.value = "Выбрано: ${rankPrefix}P$providerId · ${item?.modelName ?: modelId}"
         }
     }
 

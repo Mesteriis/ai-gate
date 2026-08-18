@@ -268,13 +268,26 @@ object GatewayScheduler {
                 if (!provider.isEnabled) continue
                 val start = System.currentTimeMillis()
                 val resolvedUrl = provider.resolvedBaseUrl.trimEnd('/')
-                val testBody = """{"model":"${model.modelId}","messages":[{"role":"user","content":"hi"}],"max_tokens":1,"stream":false}"""
+                val chatBody = """{"model":"${model.modelId}","messages":[{"role":"user","content":"hi"}],"max_tokens":1,"stream":false}"""
+                // Codex отвечает только по Responses API — проверяем его тем же путём,
+                // которым потом пойдут реальные запросы.
+                val isCodex = CodexUpstream.isCodex(provider)
+                val testBody = if (isCodex) CodexUpstream.translateRequest(chatBody) else chatBody
                 val request = okhttp3.Request.Builder()
-                    .url("$resolvedUrl" + (provider.chatPath?.let { if (it.startsWith("/")) it else "/$it" } ?: "/v1/chat/completions"))
+                    .url(
+                        if (isCodex) CodexUpstream.responsesUrl(provider)
+                        else "$resolvedUrl" + (provider.chatPath?.let { if (it.startsWith("/")) it else "/$it" } ?: "/v1/chat/completions")
+                    )
                     .post(testBody.toRequestBody(DEFAULT_CT))
                     .apply {
                         val k = CredentialStore.apiKeyForProvider(provider)
-                        if (!k.isNullOrBlank()) {
+                        if (isCodex) {
+                            CodexUpstream.applyHeaders(
+                                this, k,
+                                com.aigate.router.auth.CodexAccount.headerAccountId(database.credentialDao().getByProvider(provider.id)?.accountId, CredentialStore.apiKeyForProvider(provider)),
+                                java.util.UUID.randomUUID().toString()
+                            )
+                        } else if (!k.isNullOrBlank()) {
                             header("Authorization", "Bearer $k")
                         }
                     }
