@@ -193,6 +193,15 @@ object CodexAuth {
     const val CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
     const val DEFAULT_BASE_URL = "https://chatgpt.com/backend-api/codex"
 
+    /** Известные модели Codex (ChatGPT). Засеваются при подключении, чтобы «читались». */
+    val MODELS = listOf(
+        "gpt-5-codex" to "GPT-5 Codex",
+        "gpt-5" to "GPT-5",
+        "o3" to "o3",
+        "o4-mini" to "o4-mini",
+        "codex-mini-latest" to "Codex mini"
+    )
+
     val config = OAuthFlowConfig(
         providerType = PROVIDER_TYPE,
         authUrl = "https://auth.openai.com/oauth/authorize",
@@ -218,7 +227,7 @@ object CliSessionManager {
     suspend fun connectCodex(context: android.content.Context, db: AppDatabase): Result<Long> {
         val res = OAuthBrowserFlow.authorize(context, CodexAuth.config)
         return res.mapCatching { session ->
-            connect(
+            val providerId = connect(
                 db = db,
                 providerType = CodexAuth.PROVIDER_TYPE,
                 name = CodexAuth.DISPLAY_NAME,
@@ -228,7 +237,37 @@ object CliSessionManager {
                 clientId = CodexAuth.CLIENT_ID,
                 clientSecret = null
             )
+            seedCodexModels(db, providerId)
+            // Сразу пересчитать пулы/квоты, чтобы Codex появился на экране ресурсов.
+            runCatching { com.aigate.router.quota.QuotaRepository.refreshAll(db) }
+            providerId
         }
+    }
+
+    /** Досеять модели Codex для уже подключённых провайдеров (вызывать на старте). */
+    suspend fun ensureCodexModels(db: AppDatabase) {
+        val codex = db.providerDao().getAllProvidersOnce().filter { it.type.equals("codex", true) }
+        for (p in codex) seedCodexModels(db, p.id)
+    }
+
+    /** Засеять известные модели Codex, если у провайдера их ещё нет. */
+    private suspend fun seedCodexModels(db: AppDatabase, providerId: Long) {
+        val dao = db.aiModelDao()
+        val existing = dao.getModelsByProvider(providerId).map { it.modelId }.toSet()
+        val toAdd = CodexAuth.MODELS.filter { it.first !in existing }.mapIndexed { i, (id, name) ->
+            com.aigate.router.data.model.AiModel(
+                providerId = providerId,
+                modelId = id,
+                displayName = name,
+                isDefault = i == 0,
+                syncStatus = "Synced",
+                isEnabled = true,
+                customAlias = "",
+                useProxy = false,
+                contextWindow = 128000
+            )
+        }
+        if (toAdd.isNotEmpty()) dao.insertAll(toAdd)
     }
 
     /** Подключить сессию: вернуть providerId. Сессия сохраняется в Keystore и переживает рестарт. */

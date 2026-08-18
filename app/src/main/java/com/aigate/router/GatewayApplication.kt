@@ -32,6 +32,8 @@ class GatewayApplication : Application() {
             try { CredentialStore.load(database) } catch (_: Exception) { }
             // Восстановить refresh-адаптеры CLI-сессий (автообновление переживает рестарт).
             try { com.aigate.router.auth.CliSessionManager.restoreAdapters() } catch (_: Exception) { }
+            // Досеять модели Codex для уже подключённых провайдеров.
+            try { com.aigate.router.auth.CliSessionManager.ensureCodexModels(database) } catch (_: Exception) { }
             // Засев встроенной таблицы цен + первичный расчёт квот (локальный usage).
             try { com.aigate.router.pricing.PricingTable.seedIfNeeded(database) } catch (_: Exception) { }
             try { com.aigate.router.quota.QuotaRepository.refreshAll(database) } catch (_: Exception) { }
@@ -39,6 +41,9 @@ class GatewayApplication : Application() {
         // Реальные адаптеры квот (документированные публичные endpoint'ы).
         com.aigate.router.quota.QuotaProviderRegistry.register(
             com.aigate.router.quota.adapters.OpenRouterQuotaProvider()
+        )
+        com.aigate.router.quota.QuotaProviderRegistry.register(
+            com.aigate.router.quota.adapters.CodexQuotaProvider()
         )
         // Периодическое обновление квот (каждые 6ч; не поллинг).
         com.aigate.router.quota.QuotaRefreshWorker.schedule(this)
