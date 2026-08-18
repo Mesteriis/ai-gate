@@ -95,69 +95,84 @@ fun MainScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(tr("app_name"), fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
+    // Пункты навигации — общие для нижней панели (компакт) и бокового NavigationRail (большой экран)
+    val navItems = listOf(
+        "🏠" to "Главная",
+        "🔌" to "Провайдеры",
+        "🧭" to "Маршруты",
+        "📋" to "Логи",
+        "⚙️" to "Настройки"
+    )
+    val content: @Composable () -> Unit = {
+        when (selectedTab) {
+            0 -> HomeScreen(viewModel)
+            1 -> ProvidersScreen(viewModel)
+            2 -> RoutesScreen(viewModel)
+            3 -> LogsScreen(viewModel)
+            4 -> DataManagementScreen(viewModel)
+        }
+    }
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        // Большой экран (например, разложенный Fold) → боковой NavigationRail + широкий контент.
+        val expanded = maxWidth >= 720.dp
+        if (expanded) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                NavigationRail(
                     containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.primary
-                )
-            )
-        },
-        bottomBar = {
-            NavigationBar {
-                NavigationBarItem(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    icon = { Text("🏠") },
-                    label = { Text(tr("nav_home")) }
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    icon = { Text("🔌") },
-                    label = { Text(tr("nav_providers")) }
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
-                    icon = { Text("🤖") },
-                    label = { Text(tr("nav_models")) }
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 3,
-                    onClick = { selectedTab = 3 },
-                    icon = { Text("📊") },
-                    label = { Text(tr("nav_stats")) }
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 4,
-                    onClick = { selectedTab = 4 },
-                    icon = { Text("⚙️") },
-                    label = { Text(tr("nav_manage")) }
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 5,
-                    onClick = { selectedTab = 5 },
-                    icon = { Text("ℹ️") },
-                    label = { Text(tr("nav_about")) }
-                )
+                    header = {
+                        Text(
+                            tr("app_name"),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(vertical = 16.dp)
+                        )
+                    }
+                ) {
+                    navItems.forEachIndexed { i, (icon, label) ->
+                        NavigationRailItem(
+                            selected = selectedTab == i,
+                            onClick = { selectedTab = i },
+                            icon = { Text(icon) },
+                            label = { Text(label, maxLines = 1) }
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    contentAlignment = Alignment.TopCenter
+                ) { content() }
             }
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier.padding(paddingValues).fillMaxSize(),
-            contentAlignment = Alignment.TopCenter
-        ) {
-            when (selectedTab) {
-                0 -> HomeScreen(viewModel)
-                1 -> ProvidersScreen(viewModel)
-                2 -> ModelsScreen(viewModel)
-                3 -> StatsScreen(viewModel)
-                4 -> DataManagementScreen(viewModel)
-                5 -> AboutScreen(viewModel)
+        } else {
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = { Text(tr("app_name"), fontWeight = FontWeight.Bold) },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.background,
+                            titleContentColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                },
+                bottomBar = {
+                    NavigationBar {
+                        navItems.forEachIndexed { i, (icon, label) ->
+                            NavigationBarItem(
+                                selected = selectedTab == i,
+                                onClick = { selectedTab = i },
+                                icon = { Text(icon) },
+                                label = { Text(label) }
+                            )
+                        }
+                    }
+                },
+                snackbarHost = { SnackbarHost(snackbarHostState) }
+            ) { paddingValues ->
+                Box(
+                    modifier = Modifier.padding(paddingValues).fillMaxSize(),
+                    contentAlignment = Alignment.TopCenter
+                ) { content() }
             }
         }
     }

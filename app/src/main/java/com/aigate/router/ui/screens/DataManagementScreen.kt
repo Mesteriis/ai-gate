@@ -125,6 +125,9 @@ fun DataManagementScreen(
     var showRoutingRules by remember { mutableStateOf(false) }
     var showDebugLogs by remember { mutableStateOf(false) }
     var showKeyManagement by remember { mutableStateOf(false) }
+    var showModelsOverlay by remember { mutableStateOf(false) }
+    var showStatsOverlay by remember { mutableStateOf(false) }
+    var showAboutOverlay by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -139,11 +142,46 @@ fun DataManagementScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
             // 标题
-            Text(localizedText("📋 数据管理", "📋 Data management"), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text(localizedText("备份、恢复和重置应用数据，以及添加新的 AI 服务商", "Back up, restore, and reset app data, and add new AI providers"),
+            Text(localizedText("⚙️ Настройки", "⚙️ Settings"), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text(localizedText("Провайдеры, ключи, прокси, резервные копии и разделы приложения", "Providers, keys, proxy, backups and app sections"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(8.dp))
+
+            // Разделы: Модели / Статистика / О программе (перенесены сюда из отдельных вкладок)
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column {
+                    Row(modifier = Modifier.fillMaxWidth().clickable { showModelsOverlay = true }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.SmartToy, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(localizedText("Модели", "Models"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(localizedText("Список моделей и синхронизация", "Model list & sync"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    HorizontalDivider()
+                    Row(modifier = Modifier.fillMaxWidth().clickable { showStatsOverlay = true }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.BarChart, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(localizedText("Статистика", "Statistics"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(localizedText("Токены, трафик, скорость", "Tokens, traffic, speed"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    HorizontalDivider()
+                    Row(modifier = Modifier.fillMaxWidth().clickable { showAboutOverlay = true }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(localizedText("О программе", "About"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(localizedText("Версия и информация", "Version & info"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
 
             // 自启管理 + 隐藏多任务
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -895,6 +933,41 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
     // 路由规则管理弹窗
     if (showRoutingRules) {
         RoutingRulesDialog(viewModel = viewModel, onDismiss = { showRoutingRules = false })
+    }
+
+    // Разделы, перенесённые из отдельных вкладок → полноэкранные оверлеи
+    if (showModelsOverlay) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { showModelsOverlay = false }) { Icon(Icons.Default.Close, contentDescription = null) }
+                    Text(localizedText("Модели", "Models"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                }
+                ModelsScreen(viewModel)
+            }
+        }
+    }
+    if (showStatsOverlay) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { showStatsOverlay = false }) { Icon(Icons.Default.Close, contentDescription = null) }
+                    Text(localizedText("Статистика", "Statistics"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                }
+                StatsScreen(viewModel)
+            }
+        }
+    }
+    if (showAboutOverlay) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { showAboutOverlay = false }) { Icon(Icons.Default.Close, contentDescription = null) }
+                    Text(localizedText("О программе", "About"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                }
+                AboutScreen(viewModel)
+            }
+        }
     }
 
     // 代理管理弹窗（AboutScreen 连点触发）
