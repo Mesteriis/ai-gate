@@ -21,9 +21,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Dns
-import androidx.compose.material3.Button
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -49,7 +49,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.aigate.router.GatewayApplication
-import com.aigate.router.data.model.SpeedHistory
 import com.aigate.router.quota.QuotaRepository
 import com.aigate.router.quota.ResourcePoolKind
 import com.aigate.router.service.GatewayForegroundService
@@ -121,7 +120,6 @@ fun OverviewScreen(
     val serviceRunning by viewModel.serviceRunning.collectAsState()
     val gatewayPort by viewModel.gatewayPort.collectAsState()
     val providers by viewModel.providers.collectAsState()
-    val latestSpeed by viewModel.latestSpeedHistory.collectAsState()
     val pools by remember { QuotaRepository.observe(db) }.collectAsState(initial = emptyList())
     val ticker by rememberTicker(2_000L)
 
@@ -161,9 +159,6 @@ fun OverviewScreen(
         val forecast = usage?.first
         val days = usage?.second.orEmpty()
         MonthSpendCard(forecast = forecast, days = days)
-
-        SectionHeader("Скорость моделей")
-        SpeedSummaryCard(latestSpeed = latestSpeed, providersCount = providers.size)
 
         TrafficCard(ticker = ticker)
 
@@ -218,16 +213,40 @@ private fun GatewayStatusCard(
 
         Spacer(Modifier.height(Gateway.spacing.md))
         AddressRow("localhost", "http://localhost:$port", onCopy)
-        lanIp?.let { AddressRow("Адрес в сети", "http://$it:$port", onCopy) }
+        // Нет подходящего интерфейса — честная строка вместо чужого адреса.
+        if (lanIp == null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = "Адрес в сети",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = "нет сети",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            AddressRow("Адрес в сети", "http://$lanIp:$port", onCopy)
+        }
 
         Spacer(Modifier.height(Gateway.spacing.lg))
-        Button(
+        OutlinedButton(
             onClick = onToggle,
             modifier = Modifier.fillMaxWidth().height(52.dp),
-            colors = if (running) ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.error,
-                contentColor = MaterialTheme.colorScheme.onError,
-            ) else ButtonDefaults.buttonColors(),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = if (running) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.primary,
+            ),
+            border = BorderStroke(
+                width = 1.dp,
+                color = if (running) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.primary,
+            ),
         ) {
             Icon(
                 imageVector = if (running) Icons.Default.Stop else Icons.Default.PlayArrow,
@@ -477,52 +496,6 @@ private fun MonthSpendCard(forecast: UsageHistory.Forecast?, days: List<UsageHis
 }
 
 /** Сводка скорости: лучшая модель и здоровье парка моделей. */
-@Composable
-private fun SpeedSummaryCard(latestSpeed: List<SpeedHistory>, providersCount: Int) {
-    val healthy = latestSpeed.filter { it.success }
-    val best = healthy.filter { it.ttftMs > 0 }.minByOrNull { it.ttftMs }
-    AppCard(tone = CardTone.Raised) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Outlined.Bolt,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp),
-            )
-            Spacer(Modifier.width(Gateway.spacing.sm))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = best?.modelName ?: "Тест скорости ещё не проводился",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = if (best != null) {
-                        "первый токен ${Fmt.latency(best.ttftMs)} · ${"%.1f".format(best.tps)} ток/с"
-                    } else {
-                        "провайдеров: $providersCount"
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (latestSpeed.isNotEmpty()) {
-                StatusChip(
-                    text = "${healthy.size} из ${latestSpeed.size}",
-                    tone = when {
-                        healthy.isEmpty() -> StatusTone.Error
-                        healthy.size < latestSpeed.size -> StatusTone.Warning
-                        else -> StatusTone.Success
-                    },
-                )
-            }
-        }
-    }
-}
-
-/** Трафик шлюза — вместо четырёх текстовых строк. */
 @Composable
 private fun TrafficCard(ticker: Long) {
     val up = remember(ticker) { GatewayForegroundService.totalUploadBytes.get() }
