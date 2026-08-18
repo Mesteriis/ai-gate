@@ -147,7 +147,10 @@ fun MainScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
-        Box(modifier = Modifier.padding(paddingValues)) {
+        Box(
+            modifier = Modifier.padding(paddingValues).fillMaxSize(),
+            contentAlignment = Alignment.TopCenter
+        ) {
             when (selectedTab) {
                 0 -> HomeScreen(viewModel)
                 1 -> ProvidersScreen(viewModel)
@@ -172,12 +175,16 @@ fun HomeScreen(viewModel: GatewayViewModel) {
 
     Column(
         modifier = Modifier
-            .fillMaxSize()
+            .fillMaxHeight()
+            .widthIn(max = 720.dp)
+            .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Spacer(modifier = Modifier.height(8.dp))
+        com.aigate.router.ui.components.GateHero()
         Spacer(modifier = Modifier.height(16.dp))
 
         // 状态卡片

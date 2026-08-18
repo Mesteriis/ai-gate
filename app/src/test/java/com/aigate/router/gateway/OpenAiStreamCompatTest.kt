@@ -1,5 +1,6 @@
 package com.aigate.router.gateway
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -44,5 +45,34 @@ class OpenAiStreamCompatTest {
         OpenAiStreamCompat.chatCompletionJsonToSse(
             """{"choices":[{"message":{"role":"assistant","content":""}}]}""",
         )
+    }
+
+    @Test
+    fun realDataFrameFollowedByDoneIsBothDataAndDone() {
+        val stream = "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n"
+
+        assertTrue(OpenAiStreamCompat.hasDataFrame(stream))
+        assertTrue(OpenAiStreamCompat.hasDoneFrame(stream))
+    }
+
+    @Test
+    fun doneFrameHasExactSseTerminatorBytes() {
+        val done = OpenAiStreamCompat.doneFrame().toString(Charsets.UTF_8)
+
+        assertEquals("data: [DONE]\n\n", done)
+        assertTrue(OpenAiStreamCompat.hasDoneFrame(done))
+        assertFalse(OpenAiStreamCompat.hasDataFrame(done))
+    }
+
+    @Test
+    fun emptyStreamErrorFrameIsAnErrorDataFrameNotDone() {
+        val frame = OpenAiStreamCompat.emptyStreamErrorFrame().toString(Charsets.UTF_8)
+
+        assertTrue(frame.startsWith("data: "))
+        assertTrue(frame.endsWith("\n\n"))
+        assertTrue(frame.contains("\"type\":\"error\""))
+        // It is a genuine (non-[DONE]) data frame, so clients treat it as payload.
+        assertTrue(OpenAiStreamCompat.hasDataFrame(frame))
+        assertFalse(OpenAiStreamCompat.hasDoneFrame(frame))
     }
 }
