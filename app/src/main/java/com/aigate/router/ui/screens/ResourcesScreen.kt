@@ -8,7 +8,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,8 +23,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aigate.router.data.model.ModelPricing
 import com.aigate.router.data.model.ResourcePool
 import com.aigate.router.notify.QuotaNotifier
+import com.aigate.router.pricing.PricingTable
 import com.aigate.router.quota.QuotaRepository
 import com.aigate.router.quota.QuotaRefreshWorker
 import com.aigate.router.quota.QuotaSource
@@ -161,6 +165,16 @@ fun ResourcesScreen(onBack: () -> Unit) {
                             QuotaNotifier.setThreshold(v)
                         }
                     )
+                }
+
+                // ==================== Цены моделей ====================
+                item {
+                    ModelPricingCard(db = db, scope = scope)
+                }
+
+                // ==================== История расхода ====================
+                item {
+                    UsageHistoryCard(db = db)
                 }
 
                 item { Spacer(modifier = Modifier.height(80.dp)) }
@@ -657,5 +671,296 @@ private fun humanDuration(ms: Long): String {
         days > 0 -> "$days дн"
         hours > 0 -> "$hours ч"
         else -> "$minutes мин"
+    }
+}
+
+// ============================================================
+// Карточка цен моделей (редактор пользовательских цен)
+// ============================================================
+@Composable
+private fun ModelPricingCard(
+    db: com.aigate.router.data.db.AppDatabase,
+    scope: kotlinx.coroutines.CoroutineScope
+) {
+    val pricesFlow = remember { db.modelPricingDao().observeAll() }
+    val prices by pricesFlow.collectAsState(initial = emptyList())
+    var showAddDialog by remember { mutableStateOf(false) }
+    val asOf = remember {
+        java.text.SimpleDateFormat("dd.MM.yyyy", java.util.Locale("ru"))
+            .format(java.util.Date(PricingTable.BUNDLED_AS_OF))
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "💲 Цены моделей",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Для оценки стоимости запросов. Встроенные цены помечены «встроено», ваши — «ваше».",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+
+            if (prices.isEmpty()) {
+                Text(
+                    text = "Цены ещё не загружены.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                prices.take(20).forEach { row ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "${row.providerType}/${row.modelId}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "вход \$${row.inputPer1M}/1M · выход \$${row.outputPer1M}/1M",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Chip(
+                            text = if (row.source == "user") "ваше" else "встроено",
+                            color = if (row.source == "user")
+                                MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (row.source == "user") {
+                            IconButton(
+                                onClick = { scope.launch { db.modelPricingDao().deleteById(row.id) } },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Удалить цену",
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+                }
+                if (prices.size > 20) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "…и ещё ${prices.size - 20}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Встроенные цены на $asOf",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(onClick = { showAddDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Добавить цену")
+                }
+            }
+        }
+    }
+
+    if (showAddDialog) {
+        var providerText by remember { mutableStateOf("") }
+        var modelText by remember { mutableStateOf("") }
+        var inputText by remember { mutableStateOf("") }
+        var outputText by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showAddDialog = false },
+            title = { Text("Новая цена", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = providerText,
+                        onValueChange = { providerText = it },
+                        label = { Text("Тип провайдера") },
+                        placeholder = { Text("напр. openai") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = modelText,
+                        onValueChange = { modelText = it },
+                        label = { Text("Модель") },
+                        placeholder = { Text("напр. gpt-4o") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = inputText,
+                        onValueChange = { inputText = it },
+                        label = { Text("Цена входа за 1M, USD") },
+                        placeholder = { Text("напр. 2.50") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = outputText,
+                        onValueChange = { outputText = it },
+                        label = { Text("Цена выхода за 1M, USD") },
+                        placeholder = { Text("напр. 10.00") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Ваша цена приоритетнее встроенной для той же пары «тип · модель».",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val provider = providerText.trim()
+                    val model = modelText.trim()
+                    val input = inputText.trim().replace(',', '.').toDoubleOrNull()
+                    val output = outputText.trim().replace(',', '.').toDoubleOrNull()
+                    if (provider.isNotEmpty() && model.isNotEmpty() && input != null && output != null) {
+                        showAddDialog = false
+                        scope.launch {
+                            db.modelPricingDao().upsert(
+                                ModelPricing(
+                                    providerType = provider,
+                                    modelId = model,
+                                    inputPer1M = input,
+                                    outputPer1M = output,
+                                    source = "user",
+                                    cachedAt = System.currentTimeMillis()
+                                )
+                            )
+                        }
+                    }
+                }) { Text("Сохранить") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddDialog = false }) { Text("Отмена") }
+            }
+        )
+    }
+}
+
+// ============================================================
+// Карточка истории расхода (14 дней, только чтение)
+// ============================================================
+@Composable
+private fun UsageHistoryCard(db: com.aigate.router.data.db.AppDatabase) {
+    var history by remember { mutableStateOf<List<UsageHistory.DayUsage>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        history = UsageHistory.daily(db, 14)
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "📊 История расхода (14 дней)",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+
+            val active = history.filter { it.calls > 0 }
+            if (active.isEmpty()) {
+                Text(
+                    text = "Пока нет запросов через шлюз.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                val maxUsd = active.maxOf { it.usd }
+                val useTokens = maxUsd <= 0.0
+                val maxTokens = active.maxOf { it.promptTokens + it.completionTokens }.coerceAtLeast(1L)
+                val fmt = remember { java.text.SimpleDateFormat("dd.MM", java.util.Locale("ru")) }
+                active.forEach { day ->
+                    val totalTokens = day.promptTokens + day.completionTokens
+                    val fraction = (if (useTokens)
+                        totalTokens.toFloat() / maxTokens.toFloat()
+                    else
+                        (day.usd / maxUsd).toFloat()
+                    ).coerceIn(0.05f, 1f)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = fmt.format(java.util.Date(day.dayStartMs)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.width(40.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(10.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth(fraction)
+                                    .height(10.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                shape = RoundedCornerShape(4.dp)
+                            ) {}
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "${day.calls} зпр · $totalTokens ток · \$${"%.2f".format(day.usd)}" +
+                                if (day.hasUnpriced) " ≈" else "",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                if (active.any { it.hasUnpriced }) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "≈ — часть запросов без цены, стоимость занижена.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+            }
+        }
     }
 }
