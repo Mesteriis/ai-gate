@@ -2,29 +2,36 @@ package com.aigate.router.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// 主色调：靛蓝科技风
-val Primary = Color(0xFF4F46E5)
-val PrimaryVariant = Color(0xFF3730A3)
-val Secondary = Color(0xFF06B6D4)
-val SecondaryVariant = Color(0xFF0891B2)
+// ── ИИ Врата / AiGate — «морозные врата» (frost-gate) палитра ──
+// Светлая морозно-голубая эстетика: белые карточки, азурные акценты, ледяное сияние.
 
-// 深色主题
-val DarkBackground = Color(0xFF0F172A)
-val DarkSurface = Color(0xFF1E293B)
-val DarkSurfaceVariant = Color(0xFF334155)
+// Акценты
+val Primary = Color(0xFF2E6FE0)         // азур — главный акцент
+val PrimaryVariant = Color(0xFF1E50B5)
+val Secondary = Color(0xFF56B6E8)       // ледяной циан (сияние врат)
+val SecondaryVariant = Color(0xFF3A93C9)
 
-// 浅色主题
-val LightBackground = Color(0xFFF8FAFC)
-val LightSurface = Color(0xFFFFFFFF)
-val LightSurfaceVariant = Color(0xFFF1F5F9)
+// Светлая тема (морозная)
+val LightBackground = Color(0xFFEDF3FC)      // бледный морозно-голубой фон
+val LightSurface = Color(0xFFFFFFFF)         // карточки — белые
+val LightSurfaceVariant = Color(0xFFE4EDFA)  // мягкие голубоватые панели
 
-// 功能色
-val Success = Color(0xFF22C55E)
-val Warning = Color(0xFFF59E0B)
-val Error = Color(0xFFEF4444)
+// Тёмная тема (морозно-тёмная)
+val DarkBackground = Color(0xFF0E1726)
+val DarkSurface = Color(0xFF16233A)
+val DarkSurfaceVariant = Color(0xFF213152)
+
+// Функциональные
+val Success = Color(0xFF23B26A)
+val Warning = Color(0xFFF0A020)
+val Error = Color(0xFFE5484D)
 val Info = Color(0xFF3B82F6)
 
-// 状态色
-val Online = Color(0xFF22C55E)
+// Статусные
+val Online = Color(0xFF23B26A)
 val Offline = Color(0xFF94A3B8)
-val Pending = Color(0xFFF59E0B)
+val Pending = Color(0xFFF0A020)
+
+// Дополнительные оттенки для градиента «врат»
+val FrostTop = Color(0xFFDCE9FB)
+val FrostGlow = Color(0xFF7FC4F5)

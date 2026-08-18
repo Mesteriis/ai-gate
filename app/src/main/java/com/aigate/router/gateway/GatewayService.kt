@@ -755,9 +755,23 @@ class GatewayService(private val database: AppDatabase) {
                         return@get
                     }
                     val logs = synchronized(accessLog) { accessLog.toList() }
-                    val logJson = proxyJson.encodeToString(buildJsonObject {
-                        put("total", JsonPrimitive(logs.size))
+                    // ★ 返回真实访问日志条目：最近在前，最多 200 条，放在 data 字段
+                    val recent = logs.asReversed().take(200)
+                    val dataArray = JsonArray(recent.map { entry ->
+                        buildJsonObject {
+                            entry.forEach { (k, v) ->
+                                when (v) {
+                                    is Number -> put(k, JsonPrimitive(v))
+                                    is Boolean -> put(k, JsonPrimitive(v))
+                                    else -> put(k, JsonPrimitive(v.toString()))
+                                }
+                            }
+                        }
                     })
+                    val logJson = buildJsonObject {
+                        put("total", JsonPrimitive(logs.size))
+                        put("data", dataArray)
+                    }.toString()
                     call.respondText(logJson, ContentType.Application.Json.withCharset(Charsets.UTF_8))
                 }
             }
@@ -836,30 +850,14 @@ private fun logAccess(call: ApplicationCall, modelId: String, statusCode: Int, d
 private val proxyJson = Json { ignoreUnknownKeys = true; prettyPrint = false }
 private val DEFAULT_CT = "application/json".toMediaType()
 private const val MAX_RETRIES = 3
-/** ★ 修正请求体中的参数，确保符合 OpenAI 标准和各模型限制 */
+/**
+ * ★ 请求体透传（pass-through）。
+ * 旧实现用 StringBuilder + `sb.replace(Regex){...}` 解析为 CharSequence 扩展，返回值被丢弃 →
+ * 从未真正钳制 temperature/top_p 等参数（no-op），且会误导。这里改为明确的直通，
+ * 保持转发行为不变，避免对上游本就合法的参数做隐式改写。
+ */
 private fun sanitizeRequestBody(bodyStr: String): String {
-    try {
-        val json = proxyJson.parseToJsonElement(bodyStr).jsonObject
-        val sb = StringBuilder(bodyStr)
-
-        sb.replace(Regex(""""temperature"\s*:\s*([\d.]+)""")) { match ->
-            val value = match.groupValues[1].toDoubleOrNull()
-            if (value != null) { val clamped = value.coerceIn(0.0, 1.999); if (clamped != value) "\"temperature\":$clamped" else match.value } else match.value
-        }
-        sb.replace(Regex(""""top_p"\s*:\s*([\d.]+)""")) { match ->
-            val value = match.groupValues[1].toDoubleOrNull()
-            if (value != null) { val clamped = value.coerceIn(0.0, 1.0); if (clamped != value) "\"top_p\":$clamped" else match.value } else match.value
-        }
-        sb.replace(Regex(""""(presence_penalty|frequency_penalty)"\s*:\s*([-\d.]+)""")) { match ->
-            val value = match.groupValues[2].toDoubleOrNull()
-            if (value != null) { val clamped = value.coerceIn(-2.0, 2.0); if (clamped != value) "\"${match.groupValues[1]}\":$clamped" else match.value } else match.value
-        }
-        sb.replace(Regex(""""max_tokens"\s*:\s*(\d+)""")) { match ->
-            val value = match.groupValues[1].toIntOrNull()
-            if (value != null) { val clamped = value.coerceIn(1, 128000); if (clamped != value) "\"max_tokens\":$clamped" else match.value } else match.value
-        }
-        return sb.toString()
-    } catch (_: Exception) { return bodyStr }
+    return bodyStr
 }
 
 /** 替换请求体中的model字段（用于auto解析后的真实模型ID替换） */
@@ -875,23 +873,28 @@ private suspend fun executeWithRetry(client: okhttp3.OkHttpClient, request: okht
         try {
             // ★★ OkHttp execute() 是阻塞的，用 IO 调度器避免卡死 Ktor
             val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
-            if (response.isSuccessful || attempt == retries) {
+            // ★ POST 非幂等：只对真正瞬时的状态码(429/502/503/504)重试；其它 4xx/5xx(如 400/401/403)
+            //   是确定性的，重试只会浪费时间并可能重复副作用 → 直接返回真实响应给调用方。
+            val retryableStatus = response.code == 429 || response.code == 502 || response.code == 503 || response.code == 504
+            if (response.isSuccessful || !retryableStatus || attempt == retries) {
                 return response
             }
             response.close()
-            if (attempt < retries) {
-                val waitMs = (attempt * 1000L).coerceAtMost(5000L)
-                delay(waitMs)
-            }
+            val waitMs = (attempt * 1000L).coerceAtMost(5000L)
+            delay(waitMs)
         } catch (e: SocketTimeoutException) {
             lastError = e
             if (attempt < retries) { delay((attempt * 1000L).coerceAtMost(5000L)) }
         } catch (e: ConnectException) {
             lastError = e
             if (attempt < retries) { delay((attempt * 1500L).coerceAtMost(5000L)) }
-        } catch (e: Exception) {
+        } catch (e: java.io.IOException) {
+            // 其它网络 I/O 异常(连接重置/读写失败等)也属于瞬时故障 → 重试
             lastError = e
-            if (attempt < retries) { delay(1000) }
+            if (attempt < retries) { delay((attempt * 1000L).coerceAtMost(5000L)) }
+        } catch (e: Exception) {
+            // 非网络异常(如参数/状态错误)不是瞬时故障 → 不重试，直接抛出
+            throw e
         }
     }
     throw lastError ?: Exception("Request failed after $retries retries")
@@ -904,7 +907,23 @@ private fun corsResponse(call: ApplicationCall) {
     call.response.headers.append("Access-Control-Allow-Headers", "Content-Type, Authorization, x-api-key, anthropic-version, x-goog-api-key")
 }
 
-private fun openAIError(status: HttpStatusCode, message: String, type: String = "invalid_request_error", code: Int? = null): Pair<HttpStatusCode, String> {
+// ★ OpenAI-совместимый конверт ошибок:
+//   - "type" ВСЕГДА выводится из HTTP-статуса (vocabulary OpenAI), не передаётся вызовом
+//   - "code" — строка (например "invalid_api_key", "upstream_error", "server_error") или null, НИКОГДА не int
+//   - 3-й позиционный аргумент вызова трактуется как строковый "code"
+//   - 4-й (legacyCode: Int?) сохранён только для совместимости старых вызовов и игнорируется
+private fun openAIError(
+    status: HttpStatusCode,
+    message: String,
+    code: String? = null,
+    @Suppress("UNUSED_PARAMETER") legacyCode: Int? = null
+): Pair<HttpStatusCode, String> {
+    val type = when {
+        status.value == 401 -> "authentication_error"
+        status.value == 429 -> "rate_limit_error"
+        status.value in 500..599 -> "server_error"
+        else -> "invalid_request_error"
+    }
     val errorJson = buildJsonObject {
         put("error", buildJsonObject {
             put("message", JsonPrimitive(message))
@@ -992,8 +1011,8 @@ private val ApplicationCall.apiKeyEntry: ApiKeyEntry? get() = attributes.getOrNu
 /** ★ 获取API密钥标签（用于用量统计） */
 private val ApplicationCall.apiKeyLabel: String get() = apiKeyEntry?.label ?: ""
 
-/** ★ 会话记忆：源IP → 最后成功使用的模型ID */
-private val sessionModelCache = mutableMapOf<String, String>()
+/** ★ 会话记忆：源IP → 最后成功使用的模型ID（并发安全：Ktor 协程与清理协程同时读写）*/
+private val sessionModelCache = java.util.concurrent.ConcurrentHashMap<String, String>()
 
 /** ★ 记录会话成功使用的模型 */
 private fun recordSessionModel(call: ApplicationCall, modelId: String) {
@@ -1019,11 +1038,11 @@ private fun getSessionKey(call: ApplicationCall): String {
 // ★★ 会话延迟断开（闲置超时+自适应）★★
 // ═══════════════════════════════════════════
 
-/** 会话最后活跃时间戳 */
-private val sessionLastActive = mutableMapOf<String, Long>()
+/** 会话最后活跃时间戳（并发安全）*/
+private val sessionLastActive = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
-/** 会话历史延迟（毫秒），用于自适应计算超时 */
-private val sessionLatencyHistory = mutableMapOf<String, MutableList<Long>>()
+/** 会话历史延迟（毫秒），用于自适应计算超时（并发安全：map 用 ConcurrentHashMap，内层列表用 CopyOnWriteArrayList）*/
+private val sessionLatencyHistory = java.util.concurrent.ConcurrentHashMap<String, MutableList<Long>>()
 
 /** 默认闲置超时基数（秒） */
 private const val SESSION_IDLE_BASE_SECONDS = 30
@@ -1041,7 +1060,8 @@ private fun updateSessionActivity(sessionKey: String) {
 
 /** 记录会话延迟，用于自适应调节超时 */
 private fun recordSessionLatency(sessionKey: String, latencyMs: Long) {
-    val history = sessionLatencyHistory.getOrPut(sessionKey) { mutableListOf() }
+    // computeIfAbsent 原子创建；CopyOnWriteArrayList 让 add/removeAt/average 在并发下不抛 CME
+    val history = sessionLatencyHistory.computeIfAbsent(sessionKey) { java.util.concurrent.CopyOnWriteArrayList<Long>() }
     history.add(latencyMs)
     // 只保留最近5次
     if (history.size > 5) history.removeAt(0)
@@ -1108,7 +1128,8 @@ private suspend fun proxyRequest(call: ApplicationCall, database: AppDatabase) {
     // 1. 读取原始请求体（二进制，兼容所有 Content-Type）
     val startMs = System.currentTimeMillis()
     val rawBytes = try { call.receive<ByteArray>() } catch (_: Exception) { ByteArray(0) }
-    val requestBodyStr = String(rawBytes, Charsets.UTF_8)
+    // ★ var: 允许被 route 路由规则改写后的请求体覆盖（见路由规则块之后的应用点）
+    var requestBodyStr = String(rawBytes, Charsets.UTF_8)
 
     // ★★★ 全面请求体校验：给所有错误情况返回标准400，绝不挂起 ★★★
     if (requestBodyStr.isNotBlank()) {
@@ -1246,12 +1267,8 @@ private suspend fun proxyRequest(call: ApplicationCall, database: AppDatabase) {
                                     Regex(""""model"\s*:\s*"[^"]*""""),
                                     "\"model\":\"${targetModel.modelId}\""
                                 )
-                                // 更新rawBytes和requestBodyStr
-                                val modifiedBytes = modifiedBody.toByteArray(Charsets.UTF_8)
                                 GatewayForegroundService.addDebugLog("🔀 路由规则: $requestModelId → ${targetModel.modelId} (规则: ${matchedRule.name})")
-                                // 使用修改后的请求体继续处理
-                                // 注意：这里需要修改requestBodyStr变量，但它是val，所以需要用其他方式
-                                // 方案：将修改后的body存入call属性，后续从属性读取
+                                // 将改写后的 body 存入 call 属性；在路由规则块之后统一应用到工作变量 requestBodyStr
                                 call.attributes.put(ROUTING_MODIFIED_BODY_KEY, modifiedBody)
                             }
                         }
@@ -1259,6 +1276,9 @@ private suspend fun proxyRequest(call: ApplicationCall, database: AppDatabase) {
                 }
             }
         } catch (_: Exception) { }
+        // ★ 应用 route 规则改写后的请求体：让 model 改写真正生效（此前只写属性、无人读取 → route 动作是死代码）
+        //   后续所有链路(工具检测/主转发/故障转移)都从 requestBodyStr 重新解析 model，因此覆盖它即可改变转发目标模型。
+        call.attributes.getOrNull(ROUTING_MODIFIED_BODY_KEY)?.let { requestBodyStr = it }
     }
 
     // ★★ 工具指令检测：在转发前先解析并执行操作指令 ★★
@@ -1345,7 +1365,7 @@ private suspend fun proxyRequest(call: ApplicationCall, database: AppDatabase) {
                     put("type", JsonPrimitive("no_available_model"))
                 })
             }
-            call.respondText(contentType = ContentType.Application.Json.withCharset(Charsets.UTF_8), text = noModelResp.toString())
+            call.respondText(contentType = ContentType.Application.Json.withCharset(Charsets.UTF_8), status = HttpStatusCode.ServiceUnavailable, text = noModelResp.toString())
             logAccess(call, VirtualModel.ID, 503, System.currentTimeMillis() - startMs)
             return
         }
@@ -1684,7 +1704,13 @@ private suspend fun pipeNormalResponse(
                         val firstChoice = choices[0]?.jsonObject
                         val msg = firstChoice?.get("message")?.jsonObject
                         val content = msg?.get("content")?.jsonPrimitive?.content
-                        if (content.isNullOrBlank()) {
+                        // ★ tool_calls / function_call 是合法响应：content 为空(null) 但携带工具调用不算失败。
+                        //   仅当既无正文内容、又无 tool_calls、也无 function_call 时，才视为上游空响应触发故障转移。
+                        val toolCalls = msg?.get("tool_calls") as? JsonArray
+                        val hasToolCalls = toolCalls != null && toolCalls.isNotEmpty()
+                        val functionCall = msg?.get("function_call")
+                        val hasFunctionCall = functionCall != null && functionCall !is JsonNull
+                        if (content.isNullOrBlank() && !hasToolCalls && !hasFunctionCall) {
                             throw Exception("Upstream ${resp.code}: blank content in response")
                         }
                     } catch (e: Exception) {
