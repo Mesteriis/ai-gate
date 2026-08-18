@@ -30,6 +30,8 @@ class GatewayApplication : Application() {
         // ★★ 预加载凭据缓存（Keystore 解密），确保网关启动后能解析上游密钥 ★★
         applicationScope.launch(Dispatchers.IO) {
             try { CredentialStore.load(database) } catch (_: Exception) { }
+            // Восстановить refresh-адаптеры CLI-сессий (автообновление переживает рестарт).
+            try { com.aigate.router.auth.CliSessionManager.restoreAdapters() } catch (_: Exception) { }
             // Засев встроенной таблицы цен + первичный расчёт квот (локальный usage).
             try { com.aigate.router.pricing.PricingTable.seedIfNeeded(database) } catch (_: Exception) { }
             try { com.aigate.router.quota.QuotaRepository.refreshAll(database) } catch (_: Exception) { }

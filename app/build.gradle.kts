@@ -70,6 +70,13 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        unitTests {
+            // Android-заглушки (android.util.Log и т.п.) возвращают дефолты, а не бросают
+            // «not mocked» в JVM-тестах.
+            isReturnDefaultValues = true
+        }
+    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"

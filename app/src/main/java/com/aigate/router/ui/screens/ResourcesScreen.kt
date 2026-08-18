@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -23,6 +24,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aigate.router.auth.CliProviderCatalog
+import com.aigate.router.auth.CliProviderTemplate
+import com.aigate.router.auth.CliSessionImporter
+import com.aigate.router.auth.CliSessionManager
 import com.aigate.router.data.model.ModelPricing
 import com.aigate.router.data.model.ResourcePool
 import com.aigate.router.notify.QuotaNotifier
@@ -175,6 +180,11 @@ fun ResourcesScreen(onBack: () -> Unit) {
                 // ==================== История расхода ====================
                 item {
                     UsageHistoryCard(db = db)
+                }
+
+                // ==================== CLI-сессии (эксперимент) ====================
+                item {
+                    CliSessionsCard(db = db, scope = scope)
                 }
 
                 item { Spacer(modifier = Modifier.height(80.dp)) }
@@ -963,4 +973,352 @@ private fun UsageHistoryCard(db: com.aigate.router.data.db.AppDatabase) {
             }
         }
     }
+}
+
+// ============================================================
+// Карточка CLI-сессий (эксперимент): подключение провайдеров через
+// сохранённую сессию их CLI (Codex / Gemini / Claude) — как в omniroute.
+// Сессия хранится в Keystore и обновляется автоматически.
+// ============================================================
+@Composable
+private fun CliSessionsCard(
+    db: com.aigate.router.data.db.AppDatabase,
+    scope: kotlinx.coroutines.CoroutineScope
+) {
+    var sessions by remember { mutableStateOf<List<CliSessionManager.SessionStatus>>(emptyList()) }
+    var reload by remember { mutableStateOf(0) }
+    var showConnectDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(reload) {
+        sessions = CliSessionManager.listSessions(db)
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "🔐 CLI-сессии (эксперим.)",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Подключение провайдеров через сохранённую сессию их CLI " +
+                    "(Codex, Gemini, Claude) — как в omniroute. Сессия хранится в Keystore " +
+                    "и обновляется автоматически.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Использование приватных эндпоинтов провайдера сторонним клиентом " +
+                    "может нарушать их Terms — на ваш риск.",
+                style = MaterialTheme.typography.labelSmall,
+                color = Warning
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (sessions.isEmpty()) {
+                Text(
+                    text = "Нет подключённых CLI-сессий.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                sessions.forEach { s ->
+                    CliSessionRow(
+                        status = s,
+                        onRefresh = {
+                            scope.launch {
+                                CliSessionManager.refreshNow(db, s.provider.id)
+                                reload++
+                            }
+                        },
+                        onDisconnect = {
+                            scope.launch {
+                                CliSessionManager.disconnect(db, s.provider.id)
+                                reload++
+                            }
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(6.dp))
+            TextButton(onClick = { showConnectDialog = true }) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Подключить CLI-сессию")
+            }
+        }
+    }
+
+    if (showConnectDialog) {
+        ConnectCliSessionDialog(
+            db = db,
+            scope = scope,
+            onDismiss = { showConnectDialog = false },
+            onConnected = {
+                showConnectDialog = false
+                reload++
+            }
+        )
+    }
+}
+
+// ============================================================
+// Одна подключённая CLI-сессия
+// ============================================================
+@Composable
+private fun CliSessionRow(
+    status: CliSessionManager.SessionStatus,
+    onRefresh: () -> Unit,
+    onDisconnect: () -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = status.provider.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = status.provider.type,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (status.connected) {
+                    Chip(text = "● Подключён", color = Online)
+                } else {
+                    Chip(text = "○ Нет токена", color = Offline)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Аккаунт: ${status.accountId ?: "—"}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(2.dp))
+            val expiresAt = status.expiresAt
+            if (expiresAt == null) {
+                Text(
+                    text = "Срок: без указания",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                val remainingMs = expiresAt - System.currentTimeMillis()
+                if (remainingMs <= 0) {
+                    Text(
+                        text = "Истекла",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        color = Error
+                    )
+                } else {
+                    Text(
+                        text = "Истекает через ${humanDuration(remainingMs)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "Авто-обновление: ${if (status.hasRefresh) "да" else "нет"}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onRefresh) { Text("Обновить") }
+                Spacer(modifier = Modifier.width(4.dp))
+                TextButton(onClick = onDisconnect) {
+                    Text("Отключить", color = Error)
+                }
+            }
+        }
+    }
+}
+
+// ============================================================
+// Диалог подключения CLI-сессии
+// ============================================================
+@Composable
+private fun ConnectCliSessionDialog(
+    db: com.aigate.router.data.db.AppDatabase,
+    scope: kotlinx.coroutines.CoroutineScope,
+    onDismiss: () -> Unit,
+    onConnected: () -> Unit
+) {
+    var template by remember { mutableStateOf(CliProviderCatalog.all().first()) }
+    var name by remember { mutableStateOf(template.displayName) }
+    var baseUrl by remember { mutableStateOf(template.defaultBaseUrl) }
+    var sessionJson by remember { mutableStateOf("") }
+    var tokenUrl by remember { mutableStateOf(template.tokenUrl ?: "") }
+    var clientId by remember { mutableStateOf("") }
+    var clientSecret by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Подключить CLI-сессию", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState())
+            ) {
+                // Выбор шаблона провайдера.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CliProviderCatalog.all().forEach { t ->
+                        FilterChip(
+                            selected = template.id == t.id,
+                            onClick = {
+                                val prev = template
+                                template = t
+                                if (name.isBlank() || name == prev.displayName) name = t.displayName
+                                if (baseUrl.isBlank() || baseUrl == prev.defaultBaseUrl) baseUrl = t.defaultBaseUrl
+                                if (tokenUrl.isBlank() || tokenUrl == (prev.tokenUrl ?: "")) tokenUrl = t.tokenUrl ?: ""
+                            },
+                            label = { Text(t.displayName) }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = if (template.experimental) "эксперим. · ${template.note}" else template.note,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Название") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = baseUrl,
+                    onValueChange = { baseUrl = it },
+                    label = { Text("Base URL") },
+                    placeholder = { Text("https://…") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = sessionJson,
+                    onValueChange = { sessionJson = it },
+                    label = { Text("Сессия (JSON из файла CLI)") },
+                    minLines = 4,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "Вставьте содержимое auth.json / oauth_creds.json вашего CLI.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Автообновление (необязательно)",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                OutlinedTextField(
+                    value = tokenUrl,
+                    onValueChange = { tokenUrl = it },
+                    label = { Text("OAuth token URL") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = clientId,
+                    onValueChange = { clientId = it },
+                    label = { Text("client_id") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = clientSecret,
+                    onValueChange = { clientSecret = it },
+                    label = { Text("client_secret") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                val err = error
+                if (err != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = err,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                val s = if (baseUrl.isBlank()) null else CliSessionImporter.parse(sessionJson)
+                when {
+                    baseUrl.isBlank() -> error = "Укажите Base URL"
+                    s == null -> error = "Не удалось разобрать сессию (нужен access_token)"
+                    else -> {
+                        error = null
+                        scope.launch {
+                            CliSessionManager.connect(
+                                db = db,
+                                providerType = template.id,
+                                name = name.ifBlank { template.displayName },
+                                baseUrl = baseUrl.trim(),
+                                session = s,
+                                refreshTokenUrl = tokenUrl.ifBlank { null },
+                                clientId = clientId.ifBlank { null },
+                                clientSecret = clientSecret.ifBlank { null }
+                            )
+                        }
+                        onConnected()
+                    }
+                }
+            }) { Text("Подключить") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        }
+    )
 }
