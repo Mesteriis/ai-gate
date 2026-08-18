@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">QiTong AI Gateway</string>
+    <string name="channel_name">Gateway service</string>
+    <string name="channel_description">Keeps the AI gateway running in the background</string>
+    <string name="service_running">AI gateway is running</string>
+    <string name="notification_text">Port 8889 · Tap to open gateway management</string>
+</resources>
