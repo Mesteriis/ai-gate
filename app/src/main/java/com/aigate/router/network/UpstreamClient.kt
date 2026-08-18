@@ -77,20 +77,9 @@ object UpstreamClient {
                         }
                     }
 
-                    // HTTPS 代理需要 SSL 支持
-                    if (config.type.uppercase() == "HTTPS") {
-                        try {
-                            val trustAllCerts = arrayOf<javax.net.ssl.X509TrustManager>(object : javax.net.ssl.X509TrustManager {
-                                override fun checkClientTrusted(chain: Array<java.security.cert.X509Certificate>?, authType: String?) {}
-                                override fun checkServerTrusted(chain: Array<java.security.cert.X509Certificate>?, authType: String?) {}
-                                override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = arrayOf()
-                            })
-                            val sslContext = javax.net.ssl.SSLContext.getInstance("TLS")
-                            sslContext.init(null, trustAllCerts, java.security.SecureRandom())
-                            builder.sslSocketFactory(sslContext.socketFactory, trustAllCerts[0])
-                            builder.hostnameVerifier { _, _ -> true }
-                        } catch (_: Exception) { }
-                    }
+                    // HTTPS proxies use the platform default TLS validation (system trust
+                    // store, real hostname verification). The upstream "trust-all + verify{true}"
+                    // MITM hole from QiTong is intentionally NOT reproduced here.
                 }
                 "SOCKS5", "SOCKS" -> {
                     // 使用自定义 Socks5SocketFactory（支持 RFC 1929 认证）
@@ -157,6 +146,35 @@ object UpstreamClient {
 
     private val jsonMediaType = "application/json".toMediaType()
 
+    // ── Cleartext policy ──────────────────────────────────────────────
+    // network_security_config permits cleartext at the platform level so LAN LLM
+    // servers work; the real restriction is enforced HERE: plain http:// is allowed
+    // only to loopback / RFC1918 private hosts (or a user allowlist). Public hosts
+    // must use HTTPS. (Static network_security_config can't express private CIDRs.)
+    private fun isLocalOrPrivate(host: String): Boolean {
+        if (host.equals("localhost", true) || host == "::1") return true
+        if (host.endsWith(".local", true)) return true
+        val o = host.split(".")
+        if (o.size == 4 && o.all { (it.toIntOrNull() ?: -1) in 0..255 }) {
+            val a = o[0].toInt(); val b = o[1].toInt()
+            return a == 127 || a == 10 || (a == 192 && b == 168) || (a == 172 && b in 16..31) || (a == 169 && b == 254)
+        }
+        return false
+    }
+
+    private fun userCleartextAllowlist(): Set<String> =
+        com.aigate.router.service.GatewayForegroundService
+            .getGatewayConfig("cleartext_allowlist", "")
+            .split(",").map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet()
+
+    /** Throws if [url] is cleartext http:// to a non-local, non-allowlisted host. */
+    fun enforceCleartextPolicy(url: String) {
+        if (!url.startsWith("http://", ignoreCase = true)) return
+        val host = try { java.net.URI(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
+        if (host.isEmpty() || isLocalOrPrivate(host) || host in userCleartextAllowlist()) return
+        throw java.io.IOException("Cleartext HTTP to '$host' is blocked. Use HTTPS, or add the host to the LAN cleartext allowlist.")
+    }
+
     /**
      * 同步请求上游 API（非流式）
      */
@@ -167,6 +185,7 @@ object UpstreamClient {
         path: String = "/v1/chat/completions"
     ): Response {
         val url = baseUrl.trimEnd('/') + path
+        enforceCleartextPolicy(url)
         val builder = Request.Builder()
             .url(url)
             .post(requestBody.toRequestBody(jsonMediaType))
@@ -190,6 +209,7 @@ object UpstreamClient {
         listener: EventSourceListener
     ): EventSource {
         val url = baseUrl.trimEnd('/') + path
+        enforceCleartextPolicy(url)
         val builder = Request.Builder()
             .url(url)
             .post(requestBody.toRequestBody(jsonMediaType))
@@ -213,6 +233,7 @@ object UpstreamClient {
         apiPath: String = "/v1/models"
     ): Response {
         val url = baseUrl.trimEnd('/') + apiPath
+        enforceCleartextPolicy(url)
         val builder = Request.Builder().url(url).get()
         if (!apiKey.isNullOrBlank()) {
             builder.header("Authorization", "Bearer $apiKey")

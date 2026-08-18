@@ -18,8 +18,8 @@ data class Provider(
     val baseUrl: String,
     @ColumnInfo(name = "port")
     val port: String = "",
-    @ColumnInfo(name = "api_key")
-    val apiKey: String? = null,
+    @ColumnInfo(name = "credential_id")
+    val credentialId: Long = 0,   // → credentials.id (0 = none); secret NEVER lives on Provider
     @ColumnInfo(name = "is_enabled")
     val isEnabled: Boolean = true,
     @ColumnInfo(name = "order_index")

@@ -1,5 +1,6 @@
 package com.aigate.router.gateway
 
+import com.aigate.router.data.credential.CredentialStore
 import com.aigate.router.data.db.AppDatabase
 import com.aigate.router.data.model.AiModel
 import com.aigate.router.data.model.ModelRouteKey
@@ -272,8 +273,9 @@ object GatewayScheduler {
                     .url("$resolvedUrl" + (provider.chatPath?.let { if (it.startsWith("/")) it else "/$it" } ?: "/v1/chat/completions"))
                     .post(testBody.toRequestBody(DEFAULT_CT))
                     .apply {
-                        if (!provider.apiKey.isNullOrBlank()) {
-                            header("Authorization", "Bearer ${provider.apiKey}")
+                        val k = CredentialStore.apiKeyForProvider(provider)
+                        if (!k.isNullOrBlank()) {
+                            header("Authorization", "Bearer $k")
                         }
                     }
                     .build()

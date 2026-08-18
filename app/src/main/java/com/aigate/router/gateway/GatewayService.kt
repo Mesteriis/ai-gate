@@ -63,6 +63,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import com.aigate.router.GatewayApplication
+import com.aigate.router.data.credential.CredentialStore
 import com.aigate.router.data.db.AutoBackupWorker
 
 /**
@@ -305,7 +306,7 @@ class GatewayService(private val database: AppDatabase) {
                         val client = UpstreamClient.getClientForModel(targetModel.useProxy)
                         val req = okhttp3.Request.Builder().url("$upstreamUrl" + (provider.chatPath?.let { if (it.startsWith("/")) it else "/$it" } ?: "/v1/chat/completions"))
                             .post(upstreamBody.toByteArray(Charsets.UTF_8).toRequestBody(DEFAULT_CT))
-                            .apply { if (!provider.apiKey.isNullOrBlank()) header("Authorization", "Bearer ${provider.apiKey}") }
+                            .apply { val k = CredentialStore.apiKeyForProvider(provider); if (!k.isNullOrBlank()) header("Authorization", "Bearer $k") }
                             .build()
                         val resp = withContext(Dispatchers.IO) { client.newCall(req).execute() }
                         val respBody = resp.body?.string() ?: "{}"
@@ -399,7 +400,7 @@ class GatewayService(private val database: AppDatabase) {
                         val client = UpstreamClient.getClientForModel(targetModel.useProxy)
                         val req = okhttp3.Request.Builder().url("$upstreamUrl" + (provider.chatPath?.let { if (it.startsWith("/")) it else "/$it" } ?: "/v1/chat/completions"))
                             .post(upstreamBody.toByteArray(Charsets.UTF_8).toRequestBody(DEFAULT_CT))
-                            .apply { if (!provider.apiKey.isNullOrBlank()) header("Authorization", "Bearer ${provider.apiKey}") }
+                            .apply { val k = CredentialStore.apiKeyForProvider(provider); if (!k.isNullOrBlank()) header("Authorization", "Bearer $k") }
                             .build()
                         val resp = withContext(Dispatchers.IO) { client.newCall(req).execute() }
                         val respBody = resp.body?.string() ?: "{}"
@@ -466,7 +467,7 @@ class GatewayService(private val database: AppDatabase) {
                         val client = UpstreamClient.getClientForModel(targetModel.useProxy)
                         val req = okhttp3.Request.Builder().url("$upstreamUrl/v1/embeddings")
                             .post(upstreamBody.toByteArray(Charsets.UTF_8).toRequestBody(DEFAULT_CT))
-                            .apply { if (!provider.apiKey.isNullOrBlank()) header("Authorization", "Bearer ${provider.apiKey}") }
+                            .apply { val k = CredentialStore.apiKeyForProvider(provider); if (!k.isNullOrBlank()) header("Authorization", "Bearer $k") }
                             .build()
                         val resp = withContext(Dispatchers.IO) { client.newCall(req).execute() }
                         val respBody = resp.body?.string() ?: "{}"
@@ -493,7 +494,7 @@ class GatewayService(private val database: AppDatabase) {
                         if(provider==null||!provider.isEnabled){call.respondText(openAIError(HttpStatusCode.NotFound,"Provider for $modelId not available").second,ContentType.Application.Json,status=HttpStatusCode.NotFound);return@post}
                         val upstreamUrl=provider.resolvedBaseUrl.trimEnd('/'); val upstreamBody=sanitizeRequestBody(rawBytes.decodeToString())
                         val client=UpstreamClient.getClientForModel(targetModel.useProxy)
-                        val req=okhttp3.Request.Builder().url("$upstreamUrl/v1/rerank").post(upstreamBody.toByteArray(Charsets.UTF_8).toRequestBody(DEFAULT_CT)).apply{if(!provider.apiKey.isNullOrBlank())header("Authorization","Bearer ${provider.apiKey}")}.build()
+                        val req=okhttp3.Request.Builder().url("$upstreamUrl/v1/rerank").post(upstreamBody.toByteArray(Charsets.UTF_8).toRequestBody(DEFAULT_CT)).apply{val k=CredentialStore.apiKeyForProvider(provider);if(!k.isNullOrBlank())header("Authorization","Bearer $k")}.build()
                         val rStartMs=System.currentTimeMillis()
                         val resp=withContext(Dispatchers.IO){client.newCall(req).execute()}; val respBody=resp.body?.string()?:"{}"; resp.close()
                         GatewayForegroundService.totalDownloadBytes.addAndGet(respBody.length.toLong()); GatewayForegroundService.trafficDownloadBytes.addAndGet(respBody.length.toLong())
@@ -516,7 +517,7 @@ class GatewayService(private val database: AppDatabase) {
                         if(provider==null||!provider.isEnabled){call.respondText(openAIError(HttpStatusCode.NotFound,"Provider for $modelId not available").second,ContentType.Application.Json,status=HttpStatusCode.NotFound);return@post}
                         val upstreamUrl=provider.resolvedBaseUrl.trimEnd('/'); val upstreamBody=sanitizeRequestBody(rawBytes.decodeToString())
                         val client=UpstreamClient.getClientForModel(effectiveModel.useProxy)
-                        val req=okhttp3.Request.Builder().url("$upstreamUrl/v1/moderations").post(upstreamBody.toByteArray(Charsets.UTF_8).toRequestBody(DEFAULT_CT)).apply{if(!provider.apiKey.isNullOrBlank())header("Authorization","Bearer ${provider.apiKey}")}.build()
+                        val req=okhttp3.Request.Builder().url("$upstreamUrl/v1/moderations").post(upstreamBody.toByteArray(Charsets.UTF_8).toRequestBody(DEFAULT_CT)).apply{val k=CredentialStore.apiKeyForProvider(provider);if(!k.isNullOrBlank())header("Authorization","Bearer $k")}.build()
                         val mStartMs=System.currentTimeMillis()
                         val resp=withContext(Dispatchers.IO){client.newCall(req).execute()}; val respBody=resp.body?.string()?:"{}"; resp.close()
                         GatewayForegroundService.totalDownloadBytes.addAndGet(respBody.length.toLong()); GatewayForegroundService.trafficDownloadBytes.addAndGet(respBody.length.toLong())
@@ -538,7 +539,7 @@ class GatewayService(private val database: AppDatabase) {
                         val upstreamUrl=provider.resolvedBaseUrl.trimEnd('/'); val upstreamBody=rawBytes // 保持二进制
                         val client=UpstreamClient.getClientForModel(targetModel.useProxy)
                         val contentType=call.request.headers["Content-Type"]?: "application/json"
-                        val req=okhttp3.Request.Builder().url("$upstreamUrl/v1/audio/speech").post(upstreamBody.toRequestBody(contentType.toMediaType())).apply{if(!provider.apiKey.isNullOrBlank())header("Authorization","Bearer ${provider.apiKey}")}.build()
+                        val req=okhttp3.Request.Builder().url("$upstreamUrl/v1/audio/speech").post(upstreamBody.toRequestBody(contentType.toMediaType())).apply{val k=CredentialStore.apiKeyForProvider(provider);if(!k.isNullOrBlank())header("Authorization","Bearer $k")}.build()
                         val startMs=System.currentTimeMillis()
                         val computedLatency=startMs
                         val resp=withContext(Dispatchers.IO){client.newCall(req).execute()}; val respBytes=resp.body?.bytes()?:ByteArray(0); resp.close()
@@ -574,7 +575,7 @@ class GatewayService(private val database: AppDatabase) {
                         val upstreamUrl=provider.resolvedBaseUrl.trimEnd('/')
                         val upstreamBody=sanitizeRequestBody(bodyStr)
                         val client=UpstreamClient.getClientForModel(targetModel.useProxy)
-                        val req=okhttp3.Request.Builder().url("$upstreamUrl/v1/images/generations").post(upstreamBody.toByteArray(Charsets.UTF_8).toRequestBody(DEFAULT_CT)).apply{if(!provider.apiKey.isNullOrBlank())header("Authorization","Bearer ${provider.apiKey}")}.build()
+                        val req=okhttp3.Request.Builder().url("$upstreamUrl/v1/images/generations").post(upstreamBody.toByteArray(Charsets.UTF_8).toRequestBody(DEFAULT_CT)).apply{val k=CredentialStore.apiKeyForProvider(provider);if(!k.isNullOrBlank())header("Authorization","Bearer $k")}.build()
                         val imgStartMs=System.currentTimeMillis()
                         val resp=withContext(Dispatchers.IO){client.newCall(req).execute()}; val respBody=resp.body?.string()?:"{}"; resp.close()
                         GatewayForegroundService.totalDownloadBytes.addAndGet(respBody.length.toLong()); GatewayForegroundService.trafficDownloadBytes.addAndGet(respBody.length.toLong())
@@ -596,7 +597,7 @@ class GatewayService(private val database: AppDatabase) {
                         val upstreamUrl=provider.resolvedBaseUrl.trimEnd('/'); val upstreamBody=rawBytes
                         val client=UpstreamClient.getClientForModel(targetModel.useProxy)
                         val contentType=call.request.headers["Content-Type"]?:"application/json"
-                        val req=okhttp3.Request.Builder().url("$upstreamUrl/v1/videos").post(upstreamBody.toRequestBody(contentType.toMediaType())).apply{if(!provider.apiKey.isNullOrBlank())header("Authorization","Bearer ${provider.apiKey}")}.build()
+                        val req=okhttp3.Request.Builder().url("$upstreamUrl/v1/videos").post(upstreamBody.toRequestBody(contentType.toMediaType())).apply{val k=CredentialStore.apiKeyForProvider(provider);if(!k.isNullOrBlank())header("Authorization","Bearer $k")}.build()
                         val vStartMs=System.currentTimeMillis()
                         val resp=withContext(Dispatchers.IO){client.newCall(req).execute()}; val respBody=resp.body?.string()?:"{}"; resp.close()
                         GatewayForegroundService.totalDownloadBytes.addAndGet(respBody.length.toLong()); GatewayForegroundService.trafficDownloadBytes.addAndGet(respBody.length.toLong())
@@ -617,7 +618,7 @@ class GatewayService(private val database: AppDatabase) {
                         if(provider==null||!provider.isEnabled){call.respondText(openAIError(HttpStatusCode.NotFound,"Provider for $modelId not available").second,ContentType.Application.Json,status=HttpStatusCode.NotFound);return@post}
                         val upstreamUrl=provider.resolvedBaseUrl.trimEnd('/'); val upstreamBody=sanitizeRequestBody(rawBytes.decodeToString())
                         val client=UpstreamClient.getClientForModel(targetModel.useProxy)
-                        val req=okhttp3.Request.Builder().url("$upstreamUrl/v1/video/generations").post(upstreamBody.toByteArray(Charsets.UTF_8).toRequestBody(DEFAULT_CT)).apply{if(!provider.apiKey.isNullOrBlank())header("Authorization","Bearer ${provider.apiKey}")}.build()
+                        val req=okhttp3.Request.Builder().url("$upstreamUrl/v1/video/generations").post(upstreamBody.toByteArray(Charsets.UTF_8).toRequestBody(DEFAULT_CT)).apply{val k=CredentialStore.apiKeyForProvider(provider);if(!k.isNullOrBlank())header("Authorization","Bearer $k")}.build()
                         val vTaskStartMs=System.currentTimeMillis()
                         val resp=withContext(Dispatchers.IO){client.newCall(req).execute()}; val respBody=resp.body?.string()?:"{}"; resp.close()
                         GatewayForegroundService.totalDownloadBytes.addAndGet(respBody.length.toLong()); GatewayForegroundService.trafficDownloadBytes.addAndGet(respBody.length.toLong())
@@ -637,7 +638,7 @@ class GatewayService(private val database: AppDatabase) {
                         if(provider==null||!provider.isEnabled){call.respondText(openAIError(HttpStatusCode.NotFound,"No available provider").second,ContentType.Application.Json,status=HttpStatusCode.NotFound);return@get}
                         val upstreamUrl=provider.resolvedBaseUrl.trimEnd('/')
                         val client=UpstreamClient.getClientForModel(targetModel.useProxy)
-                        val req=okhttp3.Request.Builder().url("$upstreamUrl/v1/video/generations/$taskId").get().apply{if(!provider.apiKey.isNullOrBlank())header("Authorization","Bearer ${provider.apiKey}")}.build()
+                        val req=okhttp3.Request.Builder().url("$upstreamUrl/v1/video/generations/$taskId").get().apply{val k=CredentialStore.apiKeyForProvider(provider);if(!k.isNullOrBlank())header("Authorization","Bearer $k")}.build()
                         val vGetStartMs=System.currentTimeMillis()
                         val resp=withContext(Dispatchers.IO){client.newCall(req).execute()}; val respBody=resp.body?.string()?:"{}"; resp.close()
                         GatewayForegroundService.totalDownloadBytes.addAndGet(respBody.length.toLong()); GatewayForegroundService.trafficDownloadBytes.addAndGet(respBody.length.toLong())
@@ -659,7 +660,7 @@ class GatewayService(private val database: AppDatabase) {
                         val upstreamUrl=provider.resolvedBaseUrl.trimEnd('/'); val upstreamBody=rawBytes
                         val client=UpstreamClient.getClientForModel(targetModel.useProxy)
                         val contentType=call.request.headers["Content-Type"]?:"application/json"
-                        val req=okhttp3.Request.Builder().url("$upstreamUrl/v1beta/models/$geminiModel:generateContent").post(upstreamBody.toRequestBody(contentType.toMediaType())).apply{if(!provider.apiKey.isNullOrBlank())header("Authorization","Bearer ${provider.apiKey}")}.build()
+                        val req=okhttp3.Request.Builder().url("$upstreamUrl/v1beta/models/$geminiModel:generateContent").post(upstreamBody.toRequestBody(contentType.toMediaType())).apply{val k=CredentialStore.apiKeyForProvider(provider);if(!k.isNullOrBlank())header("Authorization","Bearer $k")}.build()
                         val gStartMs=System.currentTimeMillis()
                         val resp=withContext(Dispatchers.IO){client.newCall(req).execute()}; val respBody=resp.body?.string()?:"{}"; resp.close()
                         GatewayForegroundService.totalDownloadBytes.addAndGet(respBody.length.toLong()); GatewayForegroundService.trafficDownloadBytes.addAndGet(respBody.length.toLong())
@@ -680,7 +681,7 @@ class GatewayService(private val database: AppDatabase) {
                         if(provider==null||!provider.isEnabled){call.respondText(openAIError(HttpStatusCode.NotFound,"Provider for $modelId not available").second,ContentType.Application.Json,status=HttpStatusCode.NotFound);return@post}
                         val upstreamUrl=provider.resolvedBaseUrl.trimEnd('/'); val upstreamBody=sanitizeRequestBody(rawBytes.decodeToString())
                         val client=UpstreamClient.getClientForModel(targetModel.useProxy)
-                        val req=okhttp3.Request.Builder().url("$upstreamUrl/v1/engines/$engineModel/embeddings").post(upstreamBody.toByteArray(Charsets.UTF_8).toRequestBody(DEFAULT_CT)).apply{if(!provider.apiKey.isNullOrBlank())header("Authorization","Bearer ${provider.apiKey}")}.build()
+                        val req=okhttp3.Request.Builder().url("$upstreamUrl/v1/engines/$engineModel/embeddings").post(upstreamBody.toByteArray(Charsets.UTF_8).toRequestBody(DEFAULT_CT)).apply{val k=CredentialStore.apiKeyForProvider(provider);if(!k.isNullOrBlank())header("Authorization","Bearer $k")}.build()
                         val eStartMs=System.currentTimeMillis()
                         val resp=withContext(Dispatchers.IO){client.newCall(req).execute()}; val respBody=resp.body?.string()?:"{}"; resp.close()
                         GatewayForegroundService.totalDownloadBytes.addAndGet(respBody.length.toLong()); GatewayForegroundService.trafficDownloadBytes.addAndGet(respBody.length.toLong())
@@ -1631,7 +1632,7 @@ private suspend fun pipeNormalResponse(
             .url(url)
             .post(reqBody)
             .apply {
-                if (!provider.apiKey.isNullOrBlank()) header("Authorization", "Bearer ${provider.apiKey}")
+                val k = CredentialStore.apiKeyForProvider(provider); if (!k.isNullOrBlank()) header("Authorization", "Bearer $k")
             }
             .build()
 
@@ -1786,7 +1787,7 @@ private suspend fun pipeStreamResponse(
             val reqBody = rawBody.toRequestBody(DEFAULT_CT)
             val request = okhttp3.Request.Builder()
                 .url(url).post(reqBody)
-                .apply { if (!provider.apiKey.isNullOrBlank()) header("Authorization", "Bearer ${provider.apiKey}") }
+                .apply { val k = CredentialStore.apiKeyForProvider(provider); if (!k.isNullOrBlank()) header("Authorization", "Bearer $k") }
                 .build()
             val resp = executeWithRetry(httpClient, request)
             resp

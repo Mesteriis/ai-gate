@@ -515,8 +515,8 @@ val totalDownloadBytes = java.util.concurrent.atomic.AtomicLong(0L)   // ★ APP
         //   Loopback (127.0.0.1) всегда без авторизации. lan_token шифруется в фазе Keystore.
         fun getLanModeEnabled(): Boolean = getGatewayConfig("lan_mode_enabled", "false").toBooleanStrictOrNull() ?: false
         fun setLanModeEnabled(enabled: Boolean) = saveGatewayConfig("lan_mode_enabled", enabled.toString())
-        fun getLanToken(): String = getGatewayConfig("lan_token", "")
-        fun setLanToken(token: String) = saveGatewayConfig("lan_token", token)
+        fun getLanToken(): String = com.aigate.router.security.CryptoBox.decrypt(getGatewayConfig("lan_token", ""))
+        fun setLanToken(token: String) = saveGatewayConfig("lan_token", com.aigate.router.security.CryptoBox.encrypt(token))
         fun getAllowedApiKeys(): Set<String> {
             val keysStr = getGatewayConfig("allowed_api_keys", "")
             return keysStr.split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()

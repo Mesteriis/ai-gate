@@ -4,12 +4,14 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import com.aigate.router.data.db.AppDatabase
+import com.aigate.router.data.credential.CredentialStore
 import com.aigate.router.service.GatewayForegroundService
 import com.aigate.router.utils.TranslationManager
 import com.aigate.router.utils.CrashHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class GatewayApplication : Application() {
 
@@ -25,6 +27,10 @@ class GatewayApplication : Application() {
         CrashHandler.init(this)  // ★ 初始化全局崩溃捕获
         TranslationManager.init(this)  // ★ 初始化多语言
         createNotificationChannel()
+        // ★★ 预加载凭据缓存（Keystore 解密），确保网关启动后能解析上游密钥 ★★
+        applicationScope.launch(Dispatchers.IO) {
+            try { CredentialStore.load(database) } catch (_: Exception) { }
+        }
         // ★★ 从 SharedPreferences 恢复上次网关运行状态（进程重建时最可靠的初始化）★★
         if (GatewayForegroundService.getGatewayWasRunning()) {
             GatewayForegroundService.isServiceRunning = true

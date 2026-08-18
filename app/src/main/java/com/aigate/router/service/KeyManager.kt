@@ -1,6 +1,7 @@
 package com.aigate.router.service
 
 import com.aigate.router.GatewayApplication
+import com.aigate.router.security.CryptoBox
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -24,18 +25,20 @@ object KeyManager {
     private const val PREF_KEY = "api_key_entries"
     private val json = Json { ignoreUnknownKeys = true }
     
-    /** 获取所有密钥 */
+    /** 获取所有密钥（Keystore 解密；兼容旧的明文存储） */
     fun getAllKeys(): List<ApiKeyEntry> {
-        val str = GatewayForegroundService.getGatewayConfig(PREF_KEY, "[]")
-        if (str.isBlank()) return emptyList()
+        val raw = GatewayForegroundService.getGatewayConfig(PREF_KEY, "")
+        if (raw.isBlank()) return emptyList()
+        // Ciphertext (base64) → decrypt; legacy plaintext JSON → use as-is.
+        val str = CryptoBox.decrypt(raw).ifEmpty { raw }
         return try {
             json.decodeFromString<List<ApiKeyEntry>>(str)
         } catch (_: Exception) { emptyList() }
     }
-    
-    /** 保存密钥列表 */
+
+    /** 保存密钥列表（Keystore 加密） */
     private fun saveAllKeys(keys: List<ApiKeyEntry>) {
-        GatewayForegroundService.saveGatewayConfig(PREF_KEY, json.encodeToString(keys))
+        GatewayForegroundService.saveGatewayConfig(PREF_KEY, CryptoBox.encrypt(json.encodeToString(keys)))
     }
     
     /** 添加密钥 */
@@ -44,18 +47,15 @@ object KeyManager {
         if (keys.any { it.key == key }) return false // 已存在
         keys.add(ApiKeyEntry(key = key, label = label, allowedModels = allowedModels, autoAccess = autoAccess))
         saveAllKeys(keys)
-        // 同步到旧式密钥列表
-        syncToLegacyAllowedKeys()
         return true
     }
-    
+
     /** 删除密钥 */
     fun deleteKey(key: String): Boolean {
         val keys = getAllKeys().toMutableList()
         val removed = keys.removeAll { it.key == key }
         if (removed) {
             saveAllKeys(keys)
-            syncToLegacyAllowedKeys()
         }
         return removed
     }
@@ -73,10 +73,9 @@ object KeyManager {
             autoAccess = autoAccess ?: old.autoAccess
         )
         saveAllKeys(keys)
-        syncToLegacyAllowedKeys()
         return true
     }
-    
+
     /** 验证密钥是否有效 */
     fun validateKey(key: String): ApiKeyEntry? {
         return getAllKeys().find { it.key == key && it.enabled }
@@ -97,15 +96,8 @@ object KeyManager {
     /** 清空所有密钥 */
     fun clearAllKeys() {
         saveAllKeys(emptyList())
-        syncToLegacyAllowedKeys()
     }
-    
-    /** 同步到旧式 allowed_api_keys 配置（兼容） */
-    private fun syncToLegacyAllowedKeys() {
-        val allKeys = getAllKeys().filter { it.enabled }.map { it.key }.toSet()
-        GatewayForegroundService.saveAllowedApiKeys(allKeys)
-    }
-    
+
     /**
      * Только настоящий loopback освобождается от авторизации.
      * ВАЖНО: вся частная сеть (RFC1918) больше НЕ обходит проверку — доступ из LAN

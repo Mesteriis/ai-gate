@@ -50,12 +50,19 @@ class BackupManager(private val database: AppDatabase) {
             val tokenUsage = database.tokenUsageDao().getAllUsageOnce()
             val speedHistory = database.speedHistoryDao().getAllOnce()
             val routingRules = database.routingRuleDao().getAllOnce()
-            val proxyListJson = GatewayForegroundService.getProxyListJson()
+            // Secrets travel ONLY in a password-encrypted backup, via the dedicated
+            // proxyListJson / apiKeyEntriesJson fields. Automatic (passwordless) backups
+            // are secret-free. (Provider rows never carried the key — it lives in the
+            // credentials table, which is not part of BackupData.)
+            val includeSecrets = encrypt && password.isNotBlank()
+            val proxyListJson = if (includeSecrets) GatewayForegroundService.getProxyListJson() else ""
             val gatewayPort = GatewayForegroundService.getGatewayPort()
-            val apiKeyEntriesJson = Json { ignoreUnknownKeys = true }.encodeToString(KeyManager.getAllKeys())
-            // ★ 收集所有设置（SharedPreferences 中所有以 config_ 开头的键值对）
+            val apiKeyEntriesJson = if (includeSecrets) Json { ignoreUnknownKeys = true }.encodeToString(KeyManager.getAllKeys()) else ""
+            // ★ 收集所有设置（SharedPreferences 中所有以 config_ 开头的键值对，排除密文/明文密钥）
+            val secretConfigKeys = setOf("config_api_key_entries", "config_lan_token", "config_proxy_list_json", "config_allowed_api_keys")
             val prefs = GatewayApplication.getInstance().getSharedPreferences("aigate_config", android.content.Context.MODE_PRIVATE)
-            val allEntries = prefs.all.filterKeys { it.startsWith("config_") ||
+            val allEntries = prefs.all.filterKeys {
+                (it.startsWith("config_") && it !in secretConfigKeys) ||
                 it in listOf("proxy_enabled", "auto_failover", "debug_mode", "auto_model_enabled", "wake_enabled", "hide_from_recents",
                     "gateway_port", "gateway_was_running",
                     "forced_model", "last_real_model", "failover_model",
@@ -64,7 +71,6 @@ class BackupManager(private val database: AppDatabase) {
                     "require_api_key",
                     "pipeline_interval_minutes",
                     "traffic_upload_total", "traffic_download_total",
-                    "proxy_list_json", "allowed_api_keys", "proxy_protocol", "proxy_host", "proxy_port",
                     "last_auto_backup_time", "auto_backup_retention_days", "initial_setup_done")
             }
             val settingsJson = org.json.JSONObject(allEntries.mapValues { it.value.toString() }).toString()

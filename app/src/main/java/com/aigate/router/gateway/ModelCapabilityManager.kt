@@ -1,5 +1,6 @@
 package com.aigate.router.gateway
 
+import com.aigate.router.data.credential.CredentialStore
 import com.aigate.router.service.GatewayForegroundService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -177,7 +178,7 @@ object ModelCapabilityManager {
                         val (t, v, g) = getCapabilities(model.modelId)
                         if (t && v && g) continue
                         
-                        probeModel(model.modelId, provider.resolvedBaseUrl, provider.apiKey, provider.chatPath)
+                        probeModel(model.modelId, provider.resolvedBaseUrl, CredentialStore.apiKeyForProvider(provider), provider.chatPath)
                         kotlinx.coroutines.delay(500) // 每个模型间隔500ms，避免并发
                     }
                 } catch (_: Exception) { }

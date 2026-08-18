@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import android.app.ActivityManager
 import android.content.Context
 import com.aigate.router.GatewayApplication
+import com.aigate.router.data.credential.CredentialStore
 import com.aigate.router.data.db.AppDatabase
 import com.aigate.router.data.model.AiModel
 import com.aigate.router.data.model.ModelRouteKey
@@ -1060,17 +1061,23 @@ companion object {
 
         viewModelScope.launch {
             try {
-                database.providerDao().insert(
+                val newId = database.providerDao().insert(
                     Provider(
                         name = form.name,
                         type = form.type,
                         baseUrl = form.baseUrl.trimEnd('/'),
                         port = form.port,
-                        apiKey = form.apiKey.ifBlank { null },
+                        credentialId = 0,
                         orderIndex = form.orderIndex,
                         chatPath = form.chatPath.ifBlank { null }
                     )
                 )
+                val credId = CredentialStore.setApiKey(database, newId, form.apiKey)
+                if (credId != 0L) {
+                    database.providerDao().getProviderById(newId)?.let { inserted ->
+                        database.providerDao().update(inserted.copy(credentialId = credId))
+                    }
+                }
                 _showAddProviderDialog.value = false
                 _snackbarMessage.value = "✅ 服务商「${form.name}」添加成功"
             } catch (e: Exception) {
@@ -1080,10 +1087,11 @@ companion object {
     }
 
     /** 更新服务商 */
-    fun updateProvider(provider: Provider) {
+    fun updateProvider(provider: Provider, apiKey: String) {
         viewModelScope.launch {
             try {
-                database.providerDao().update(provider)
+                val credId = CredentialStore.setApiKey(database, provider.id, apiKey)
+                database.providerDao().update(provider.copy(credentialId = credId))
                 _showEditProviderDialog.value = null
                 _snackbarMessage.value = "✅ 服务商已更新"
             } catch (e: Exception) {
@@ -1097,6 +1105,8 @@ companion object {
         viewModelScope.launch {
             try {
                 database.providerDao().delete(provider)
+                // 同时删除该服务商的凭据
+                CredentialStore.deleteForProvider(database, provider.id)
                 // 同时删除该服务商下的所有模型
                 database.aiModelDao().deleteByProvider(provider.id)
                 _snackbarMessage.value = "🗑️ 服务商「${provider.name}」及关联模型已删除"
@@ -1183,7 +1193,7 @@ companion object {
                     val resolvedUrl = provider.resolvedBaseUrl
                     val response = UpstreamClient.fetchModels(
                         baseUrl = resolvedUrl,
-                        apiKey = provider.apiKey
+                        apiKey = CredentialStore.apiKeyForProvider(provider)
                     )
 
                     if (!response.isSuccessful) {
@@ -1504,7 +1514,7 @@ fun getDisplayModelName(model: AiModel): String {
                         _snackbarMessage.value = "❌ ${model.displayName}: 未找到关联服务商"
                         return@withContext
                     }
-                    val metrics = speedTester.measure(model.modelId, provider.resolvedBaseUrl, provider.apiKey, provider.chatPath)
+                    val metrics = speedTester.measure(model.modelId, provider.resolvedBaseUrl, CredentialStore.apiKeyForProvider(provider), provider.chatPath)
                     val result = if (metrics.ttftMs < 0) {
                         "❌ ${model.displayName}: 测速失败"
                     } else {
@@ -1515,7 +1525,7 @@ fun getDisplayModelName(model: AiModel): String {
                     recordSpeedHistory(model.routeKey, model.customAlias.ifBlank { model.displayName }, model.providerId, metrics)
                     // ★★ 同时探测模型能力 ★★
                     try {
-                        ModelCapabilityManager.probeModel(model.modelId, provider.resolvedBaseUrl, provider.apiKey, provider.chatPath)
+                        ModelCapabilityManager.probeModel(model.modelId, provider.resolvedBaseUrl, CredentialStore.apiKeyForProvider(provider), provider.chatPath)
                     } catch (_: Exception) {}
                 }
             } catch (e: Exception) {
@@ -1572,7 +1582,7 @@ fun getDisplayModelName(model: AiModel): String {
                             val chatPath = provider.chatPath?.let { if (it.startsWith("/")) it else "/$it" } ?: "/v1/chat/completions"
                             val request = okhttp3.Request.Builder()
                                 .url("${provider.resolvedBaseUrl}$chatPath").post(body)
-                                .apply { provider.apiKey?.let { header("Authorization", "Bearer $it") } }
+                                .apply { CredentialStore.apiKeyForProvider(provider)?.let { header("Authorization", "Bearer $it") } }
                                 .build()
                             val response = client.newCall(request).execute()
                             val success = response.isSuccessful
@@ -1685,7 +1695,7 @@ fun clearSyncResult() {
                         try {
                             withContext(Dispatchers.IO) {
                                 val resolvedUrl = provider.resolvedBaseUrl.trimEnd('/')
-                                val metrics = speedTester.measure(model.modelId, resolvedUrl, provider.apiKey, provider.chatPath)
+                                val metrics = speedTester.measure(model.modelId, resolvedUrl, CredentialStore.apiKeyForProvider(provider), provider.chatPath)
                                 latency = metrics.totalMs
                                 ttft = metrics.ttftMs
                                 tps = metrics.tps
@@ -1712,7 +1722,7 @@ fun clearSyncResult() {
                                         ModelCapabilityManager.probeModel(
                                             model.modelId,
                                             provider.resolvedBaseUrl,
-                                            provider.apiKey,
+                                            CredentialStore.apiKeyForProvider(provider),
                                             provider.chatPath
                                         )
                                     } catch (_: Exception) {}

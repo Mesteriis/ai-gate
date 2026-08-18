@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Cleartext is permitted at the platform level so AiGate can reach local/LAN LLM
+    servers (Ollama, LM Studio) over http://. The real restriction — plain http only
+    to loopback / RFC1918 private hosts (or a user allowlist), HTTPS for public
+    providers — is enforced in code (UpstreamClient.enforceCleartextPolicy), because a
+    static network-security-config cannot express private-IP CIDR ranges.
+    TLS validation uses the system trust store only (user-added CAs are not trusted).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

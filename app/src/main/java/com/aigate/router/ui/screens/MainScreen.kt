@@ -48,6 +48,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.aigate.router.data.credential.CredentialStore
 import com.aigate.router.data.model.AiModel
 import com.aigate.router.data.model.ModelRouteKey
 import com.aigate.router.data.model.Provider
@@ -934,8 +935,8 @@ fun ProvidersScreen(viewModel: GatewayViewModel) {
         EditProviderDialog(
             provider = provider,
             onDismiss = { viewModel.hideEditProvider() },
-            onSave = { updated ->
-                viewModel.updateProvider(updated)
+            onSave = { updated, apiKey ->
+                viewModel.updateProvider(updated, apiKey)
             }
         )
     }
@@ -1038,9 +1039,9 @@ private fun ProviderCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 2.dp)
             )
-            if (provider.apiKey != null) {
+            if (provider.credentialId != 0L) {
                 Text(
-                    text = "API Key: ${provider.apiKey.take(8)}...",
+                    text = "API Key: ••••",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp)
@@ -1257,13 +1258,13 @@ private fun AddProviderDialog(
 private fun EditProviderDialog(
     provider: Provider,
     onDismiss: () -> Unit,
-    onSave: (Provider) -> Unit
+    onSave: (Provider, String) -> Unit
 ) {
     var name by remember { mutableStateOf(provider.name) }
     var type by remember { mutableStateOf(provider.type) }
     var baseUrl by remember { mutableStateOf(provider.baseUrl) }
     var port by remember { mutableStateOf(provider.port) }
-    var apiKey by remember { mutableStateOf(provider.apiKey ?: "") }
+    var apiKey by remember { mutableStateOf(CredentialStore.apiKeyForProvider(provider) ?: "") }
     var chatPath by remember { mutableStateOf(provider.chatPath ?: "") }
     var showApiKey by remember { mutableStateOf(false) }
     var typeExpanded by remember { mutableStateOf(false) }
@@ -1417,9 +1418,9 @@ supportingText = {
                         type = type,
                         baseUrl = baseUrl.trimEnd('/'),
                         port = port,
-                        apiKey = apiKey.ifBlank { null },
                         chatPath = chatPath.ifBlank { null }
-                    )
+                    ),
+                    apiKey
                 )
             }) {
                 Text(tr("save"))
