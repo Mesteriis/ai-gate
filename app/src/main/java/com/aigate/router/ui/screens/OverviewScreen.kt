@@ -167,6 +167,16 @@ fun OverviewScreen(
         val days = usage?.second.orEmpty()
         MonthSpendCard(forecast = forecast, days = days)
 
+        UsageByDayCard(days = days)
+
+        // История снимков нужна графику темпа: читаем её один раз на все пулы.
+        val histories by produceState(initialValue = emptyMap<Long, List<com.aigate.router.data.model.QuotaSnapshot>>(), pools.size, ticker / 15) {
+            value = withContext(Dispatchers.IO) {
+                pools.associate { it.pool.id to db.quotaSnapshotDao().getHistoryForPool(it.pool.id) }
+            }
+        }
+        QuotaBurnCard(pools = pools, histories = histories)
+
         TrafficCard(ticker = ticker)
 
         LiveSessionsCard(viewModel = viewModel, running = serviceRunning, ticker = ticker)
