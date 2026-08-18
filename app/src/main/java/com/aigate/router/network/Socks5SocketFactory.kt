@@ -100,7 +100,7 @@ class Socks5SocketFactory(
             } catch (e: Exception) {
                 try { close() } catch (_: Exception) {}
                 throw ConnectException(
-                    "SOCKS5代理失败 [${proxyHost}:${proxyPort}→${targetHost}:${targetPort}]: ${e.message}"
+                    "Сбой SOCKS5 прокси [${proxyHost}:${proxyPort}→${targetHost}:${targetPort}]: ${e.message}"
                 )
             }
         }
@@ -121,19 +121,19 @@ class Socks5SocketFactory(
             readFully(input, resp)
 
             if (resp[0].toInt() != 0x05) {
-                throw IOException("代理版本错误: ${resp[0].toInt()}")
+                throw IOException("Неверная версия прокси: ${resp[0].toInt()}")
             }
 
             val chosenMethod = resp[1].toInt() and 0xFF
             when (chosenMethod) {
-                0xFF -> throw IOException("代理拒绝所有认证方法")
+                0xFF -> throw IOException("Прокси отклонил все методы аутентификации")
                 0x02 -> {
                     // RFC 1929 用户名/密码认证
-                    if (!hasAuth) throw IOException("代理要求认证但未提供用户名密码")
+                    if (!hasAuth) throw IOException("Прокси требует аутентификацию, но не предоставлены имя пользователя и пароль")
                     doAuth(input, output)
                 }
                 0x00 -> { /* 无认证，继续 */ }
-                else -> throw IOException("代理选择未知认证方法: $chosenMethod")
+                else -> throw IOException("Прокси выбрал неизвестный метод аутентификации: $chosenMethod")
             }
 
             // 2) CONNECT
@@ -161,23 +161,23 @@ class Socks5SocketFactory(
             readFully(input, header)
 
             if (header[0].toInt() != 0x05) {
-                throw IOException("CONNECT响应版本错误: ${header[0].toInt()}")
+                throw IOException("Неверная версия ответа CONNECT: ${header[0].toInt()}")
             }
 
             val rep = header[1].toInt() and 0xFF
             if (rep != 0x00) {
                 val msg = when (rep) {
-                    0x01 -> "通用服务器故障"
-                    0x02 -> "连接不被允许"
-                    0x03 -> "网络不可达"
-                    0x04 -> "主机不可达"
-                    0x05 -> "连接被拒绝"
-                    0x06 -> "TTL超时"
-                    0x07 -> "不支持的命令"
-                    0x08 -> "不支持的地址类型"
-                    else -> "未知错误($rep)"
+                    0x01 -> "Общий сбой сервера"
+                    0x02 -> "Подключение не разрешено"
+                    0x03 -> "Сеть недоступна"
+                    0x04 -> "Хост недоступен"
+                    0x05 -> "В подключении отказано"
+                    0x06 -> "Таймаут TTL"
+                    0x07 -> "Команда не поддерживается"
+                    0x08 -> "Тип адреса не поддерживается"
+                    else -> "Неизвестная ошибка($rep)"
                 }
-                throw IOException("代理拒绝连接 $targetHost:$targetPort → $msg")
+                throw IOException("Прокси отклонил подключение $targetHost:$targetPort → $msg")
             }
 
             // 读取绑定地址（忽略）
@@ -204,15 +204,15 @@ class Socks5SocketFactory(
 
             val resp = ByteArray(2)
             readFully(input, resp)
-            if (resp[0].toInt() != 0x01) throw IOException("认证版本错误")
-            if (resp[1].toInt() != 0x00) throw IOException("认证失败，请检查用户名密码")
+            if (resp[0].toInt() != 0x01) throw IOException("Неверная версия аутентификации")
+            if (resp[1].toInt() != 0x00) throw IOException("Аутентификация не удалась, проверьте имя пользователя и пароль")
         }
 
         private fun readFully(input: InputStream, buf: ByteArray) {
             var offset = 0
             while (offset < buf.size) {
                 val n = input.read(buf, offset, buf.size - offset)
-                if (n < 0) throw IOException("连接意外关闭")
+                if (n < 0) throw IOException("Подключение неожиданно закрыто")
                 offset += n
             }
         }

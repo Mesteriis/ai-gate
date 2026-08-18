@@ -21,15 +21,15 @@ data class ModelCapabilities(
     /** 转成 UI 标签列表，按固定顺序 */
     fun toTags(): List<CapabilityTag> {
         val list = mutableListOf<CapabilityTag>()
-        if (toolCall)   list += CapabilityTag("tool_call",  "工具调用",  "🔧")
-        if (vision)     list += CapabilityTag("vision",     "视觉理解",  "👁️")
-        if (thinking)   list += CapabilityTag("thinking",   "深度思考",  "🧠")
-        if (audioIn)    list += CapabilityTag("audio_in",   "语音输入",  "🎤")
-        if (audioOut)   list += CapabilityTag("audio_out",  "语音输出",  "🔊")
-        if (video)      list += CapabilityTag("video",      "视频",      "🎬")
-        if (imageGen)   list += CapabilityTag("image_gen",  "图像生成",  "🎨")
-        if (embeddings) list += CapabilityTag("embeddings", "向量嵌入",  "📐")
-        if (realtime)   list += CapabilityTag("realtime",   "实时对话",  "⚡")
+        if (toolCall)   list += CapabilityTag("tool_call",  "Инструменты",  "🔧")
+        if (vision)     list += CapabilityTag("vision",     "Зрение",  "👁️")
+        if (thinking)   list += CapabilityTag("thinking",   "Рассуждение",  "🧠")
+        if (audioIn)    list += CapabilityTag("audio_in",   "Голос вход",  "🎤")
+        if (audioOut)   list += CapabilityTag("audio_out",  "Голос выход",  "🔊")
+        if (video)      list += CapabilityTag("video",      "Видео",      "🎬")
+        if (imageGen)   list += CapabilityTag("image_gen",  "Генерация изображений",  "🎨")
+        if (embeddings) list += CapabilityTag("embeddings", "Эмбеддинги",  "📐")
+        if (realtime)   list += CapabilityTag("realtime",   "Реалтайм",  "⚡")
         return list
     }
 

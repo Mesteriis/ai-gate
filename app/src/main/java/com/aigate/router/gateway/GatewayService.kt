@@ -86,7 +86,7 @@ class GatewayService(private val database: AppDatabase) {
 
         // ★★★ 端口占用提前检测：启动前确认端口可用，避免 BindException 崩溃 ★★★
         if (!isPortAvailable(port)) {
-            GatewayForegroundService.addDebugLog("⚠️ 端口 $port 已被占用，尝试备选端口...")
+            GatewayForegroundService.addDebugLog("⚠️ Порт $port уже занят, пробую резервный порт…")
             // 检测到端口占用：尝试备选端口（8889+1 起，最多试20个）
             var altPort = port + 1
             var found = -1
@@ -98,12 +98,12 @@ class GatewayService(private val database: AppDatabase) {
             }
             if (found > 0) {
                 // ★★ 自动切换备选端口并持久化，避免下次再冲突 ★★
-                GatewayForegroundService.addDebugLog("✅ 端口 $port 被占用，已自动切换到备选端口 $found")
+                GatewayForegroundService.addDebugLog("✅ Порт $port занят, автоматически переключился на резервный порт $found")
                 GatewayForegroundService.saveGatewayPort(found)
                 startWithPort(found)
             } else {
-                GatewayForegroundService.addDebugLog("❌ 端口 $port 及其备选端口均被占用，请在数据管理页修改网关端口后重试")
-                GatewayForegroundService.addDebugLog("❌ 端口占用：$port 正被其他进程使用，网关未启动")
+                GatewayForegroundService.addDebugLog("❌ Порт $port и резервные порты заняты, измените порт шлюза в разделе управления данными и повторите")
+                GatewayForegroundService.addDebugLog("❌ Порт занят: $port используется другим процессом, шлюз не запущен")
                 return
             }
             return
@@ -140,12 +140,12 @@ class GatewayService(private val database: AppDatabase) {
             // 任务1：自动启动测速（如果启用了自动故障转移）
             try {
                 if (GatewayForegroundService.getAutoFailover()) {
-                    GatewayForegroundService.addDebugLog("⚡ 自动启动流水线测速...")
+                    GatewayForegroundService.addDebugLog("⚡ Автозапуск замера скорости…")
                     GatewayScheduler.refreshHealthCache(database)
-                    GatewayForegroundService.addDebugLog("✅ 自动测速完成")
+                    GatewayForegroundService.addDebugLog("✅ Замер скорости завершён")
                 }
             } catch (e: Exception) {
-                GatewayForegroundService.addDebugLog("⚠️ 自动测速失败: ${e.message}")
+                GatewayForegroundService.addDebugLog("⚠️ Ошибка замера скорости: ${e.message}")
             }
             // 任务2：检查并调度定时备份
             try {
@@ -154,10 +154,10 @@ class GatewayService(private val database: AppDatabase) {
                     val hour = GatewayForegroundService.getGatewayConfig("auto_backup_hour", "3").toIntOrNull() ?: 3
                     val minute = GatewayForegroundService.getGatewayConfig("auto_backup_minute", "0").toIntOrNull() ?: 0
                     AutoBackupWorker.schedule(context, hour, minute)
-                    GatewayForegroundService.addDebugLog("✅ 定时备份已调度: 每日 $hour:${minute.toString().padStart(2, '0')}")
+                    GatewayForegroundService.addDebugLog("✅ Резервное копирование по расписанию: ежедневно $hour:${minute.toString().padStart(2, '0')}")
                 }
             } catch (e: Exception) {
-                GatewayForegroundService.addDebugLog("⚠️ 定时备份调度失败: ${e.message}")
+                GatewayForegroundService.addDebugLog("⚠️ Ошибка планирования резервного копирования: ${e.message}")
             }
         }
 
@@ -223,7 +223,7 @@ class GatewayService(private val database: AppDatabase) {
                             put("object", JsonPrimitive("model"))
                             put("owned_by", JsonPrimitive("aigate"))
                             put("model_id", JsonPrimitive(VirtualModel.ID))
-                            put("display_name", JsonPrimitive("🔄 自动化切换"))
+                            put("display_name", JsonPrimitive("🔄 Автопереключение"))
                             put("custom_alias", JsonPrimitive(""))
                         }
                         val response = buildJsonObject {
@@ -1094,7 +1094,7 @@ private fun cleanupExpiredSessions() {
         sessionLatencyHistory.remove(key)
     }
     if (expiredKeys.isNotEmpty()) {
-        GatewayForegroundService.addDebugLog("🧹 清理 ${expiredKeys.size} 个过期会话")
+        GatewayForegroundService.addDebugLog("🧹 Очищено просроченных сессий: ${expiredKeys.size}")
     }
 }
 
@@ -1237,7 +1237,7 @@ private suspend fun proxyRequest(call: ApplicationCall, database: AppDatabase) {
                 providerId = requestProviderId
             )
             if (matchedRule != null) {
-                GatewayForegroundService.addDebugLog("🔀 路由规则匹配: ${matchedRule.name} [${matchedRule.action}]")
+                GatewayForegroundService.addDebugLog("🔀 Совпадение правила маршрутизации: ${matchedRule.name} [${matchedRule.action}]")
                 when (matchedRule.action) {
                     "block" -> {
                         val blockMsg = matchedRule.blockMessage.ifBlank { "Request blocked by routing rule: ${matchedRule.name}" }
@@ -1267,7 +1267,7 @@ private suspend fun proxyRequest(call: ApplicationCall, database: AppDatabase) {
                                     Regex(""""model"\s*:\s*"[^"]*""""),
                                     "\"model\":\"${targetModel.modelId}\""
                                 )
-                                GatewayForegroundService.addDebugLog("🔀 路由规则: $requestModelId → ${targetModel.modelId} (规则: ${matchedRule.name})")
+                                GatewayForegroundService.addDebugLog("🔀 Правило маршрутизации: $requestModelId → ${targetModel.modelId} (правило: ${matchedRule.name})")
                                 // 将改写后的 body 存入 call 属性；在路由规则块之后统一应用到工作变量 requestBodyStr
                                 call.attributes.put(ROUTING_MODIFIED_BODY_KEY, modifiedBody)
                             }
@@ -1353,7 +1353,7 @@ private suspend fun proxyRequest(call: ApplicationCall, database: AppDatabase) {
                     }
                     GatewayScheduler.recordModelResult(finalTarget.modelId, finalTarget.providerId, true)
                     GatewayScheduler.recordModelUsage(finalTarget.modelId, finalTarget.providerId)
-                    GatewayForegroundService.addDebugLog("🔄 ${VirtualModel.ID}透传 → ${finalTarget.modelId}")
+                    GatewayForegroundService.addDebugLog("🔄 ${VirtualModel.ID} проброс → ${finalTarget.modelId}")
                     return
                 }
             }
@@ -1361,7 +1361,7 @@ private suspend fun proxyRequest(call: ApplicationCall, database: AppDatabase) {
             // ★★★ 所有模型都不可用，返回错误而非静默 ★★★
             val noModelResp = buildJsonObject {
                 put("error", buildJsonObject {
-                    put("message", JsonPrimitive("${VirtualModel.ID}无前缀转发失败：没有可用的已启用模型"))
+                    put("message", JsonPrimitive("${VirtualModel.ID} пересылка без префикса не удалась: нет доступных включённых моделей"))
                     put("type", JsonPrimitive("no_available_model"))
                 })
             }
@@ -1402,7 +1402,7 @@ private suspend fun proxyRequest(call: ApplicationCall, database: AppDatabase) {
                     if (GatewayForegroundService.activeNodeName != visionModel.modelId) {
                         GatewayForegroundService.activeNodeName = visionModel.modelId
                     }
-                    GatewayForegroundService.addDebugLog("👁️ 图片检测→自动切视觉: $modelId → ${visionModel.modelId}")
+                    GatewayForegroundService.addDebugLog("👁️ Обнаружено изображение → автопереключение на зрение: $modelId → ${visionModel.modelId}")
                     visionModel.modelId
                 } else modelId
             } else modelId
@@ -1491,7 +1491,7 @@ val attemptModels: List<AiModel> = if (allEnabled.isNotEmpty()) {
             val session = LiveSession(
                 modelName = rawModelName,
                 requestPreview = displayPreview,
-                status = "📤 发送",
+                status = "📤 Отправка",
                 responsePreview = ""
             )
             GatewayForegroundService.addLiveSession(session)
@@ -1528,7 +1528,7 @@ val attemptModels: List<AiModel> = if (allEnabled.isNotEmpty()) {
 
                     recordSessionModel(call, primaryModel.modelId)
                     GatewayScheduler.recordModelResult(primaryModel.modelId, primaryModel.providerId, true)
-                    GatewayForegroundService.updateLiveSession(session.id, "📥 回复", "✅ 成功")
+                    GatewayForegroundService.updateLiveSession(session.id, "📥 Ответ", "✅ Успешно")
                     return
                 } catch (e: Exception) {
                     failCount++
@@ -1543,7 +1543,7 @@ val attemptModels: List<AiModel> = if (allEnabled.isNotEmpty()) {
             for ((idx, matchedModel) in attemptModels.withIndex()) {
                 if (idx == 0) continue // 跳过已经试过的主模型
                 if (GatewayForegroundService.getDebugMode()) {
-                    GatewayForegroundService.addDebugLog("↻ 故障转移 #${idx} → ${matchedModel.modelId}")
+                    GatewayForegroundService.addDebugLog("↻ Переключение при сбое #${idx} → ${matchedModel.modelId}")
                 }
 
                 if (!matchedModel.isEnabled) continue
@@ -1580,7 +1580,7 @@ val attemptModels: List<AiModel> = if (allEnabled.isNotEmpty()) {
                     GatewayScheduler.recordModelResult(matchedModel.modelId, matchedModel.providerId, true)
 
                     // ★★ 更新会话状态为 📥 回复 ★★
-                    GatewayForegroundService.updateLiveSession(session.id, "📥 回复", "✅ 成功")
+                    GatewayForegroundService.updateLiveSession(session.id, "📥 Ответ", "✅ Успешно")
                     return
                 } catch (e: Exception) {
                     failCount++
@@ -1592,8 +1592,8 @@ val attemptModels: List<AiModel> = if (allEnabled.isNotEmpty()) {
             } // ★★ 结束故障转移循环 ★★
             } // ★★ 结束 attemptModels 非空判断 ★★
             val errMsg = when {
-                VirtualModel.isVirtual(modelId) && !GatewayForegroundService.getAutoModelEnabled() -> "🔄 自动化切换已禁用，请在模型页面开启"
-                VirtualModel.isVirtual(modelId) && GatewayScheduler.pipelineSortedModelKeys.isEmpty() && allEnabled.isEmpty() -> "暂无可用模型，请先添加服务商并同步模型"
+                VirtualModel.isVirtual(modelId) && !GatewayForegroundService.getAutoModelEnabled() -> "🔄 Автопереключение отключено, включите на странице моделей"
+                VirtualModel.isVirtual(modelId) && GatewayScheduler.pipelineSortedModelKeys.isEmpty() && allEnabled.isEmpty() -> "Нет доступных моделей, сначала добавьте провайдера и синхронизируйте модели"
                 autoFailover -> "All ${failCount} models failed. Last: $lastError"
                 else -> "Model '$modelId' error: $lastError"
             }
@@ -1938,7 +1938,7 @@ private suspend fun pipeStreamResponse(
                     httpStatus = response.code,
                     elapsedMs = System.currentTimeMillis() - pipeStartTime,
                     headers = "Content-Type: $ct",
-                    body = "[Stream: 流式响应内容，未记录]",
+                    body = "[Stream: потоковый ответ, не записан]",
                     bodySize = 0,
                     modelId = modelId,
                     isStream = true

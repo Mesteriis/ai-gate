@@ -29,7 +29,7 @@ data class LiveSession(
     val id: Long = System.nanoTime(),
     val modelName: String,
     val requestPreview: String,
-    val status: String = "📤 发送",   // 📤 发送 | 💭 思考 | 📥 回复
+    val status: String = "📤 Отправка",   // 📤 发送 | 💭 思考 | 📥 回复
     val responsePreview: String = "",
     val timestamp: Long = System.currentTimeMillis()
 )
@@ -53,8 +53,8 @@ class GatewayForegroundService : Service() {
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val immediateNotification = NotificationCompat.Builder(this, GatewayApplication.CHANNEL_ID)
-            .setContentTitle(localizedText("ИИ Врата запускается...", "AiGate starting..."))
-            .setContentText(localizedText("正在初始化...", "Initializing..."))
+            .setContentTitle("ИИ Врата запускается…")
+            .setContentText("Инициализация…")
             .setSmallIcon(android.R.drawable.ic_menu_share)
             .setContentIntent(immediatePi)
             .setOngoing(true)
@@ -114,9 +114,9 @@ class GatewayForegroundService : Service() {
             val port = getGatewayPort()
             if (getGatewayWasRunning()) {
                 gatewayService.start(port = port)
-                addDebugLog("🔁 自启→网关已启动（上次运行中）")
+                addDebugLog("🔁 Автозапуск → шлюз запущен (был активен)")
             } else {
-                addDebugLog("🔁 自启→网关未启动（上次已关闭）")
+                addDebugLog("🔁 Автозапуск → шлюз не запущен (был выключен)")
             }
         }
 
@@ -146,7 +146,7 @@ class GatewayForegroundService : Service() {
 
         // 从代理列表 JSON 中读取当前激活的代理（与APP内同步）
         val proxyListJson = getProxyListJson()
-        var proxyText = localizedText("代理: 未开启", "Proxy: disabled")
+        var proxyText = "Прокси: выключен"
         if (proxyListJson.isNotBlank()) {
             try {
                 val arr = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
@@ -158,7 +158,7 @@ class GatewayForegroundService : Service() {
                         val h = obj["host"]?.jsonPrimitive?.content ?: ""
                         val p = obj["port"]?.jsonPrimitive?.content ?: "0"
                         val u = obj["username"]?.jsonPrimitive?.content ?: ""
-                        proxyText = localizedText("代理: ", "Proxy: ") + "$t $h:$p"
+                        proxyText = "Прокси: " + "$t $h:$p"
                         if (u.isNotBlank()) proxyText += " ($u)"
                         break
                     }
@@ -188,14 +188,14 @@ class GatewayForegroundService : Service() {
         lastDownloadBytes = downBytes
 
         val text = buildString {
-            append(localizedText("端口 ", "Port ")).append(port)
-            append(localizedText("\n📊 当前会话 ", "\n📊 Current session ")).append("↑${formatBytes(upBytes)} ↓${formatBytes(downBytes)}")
-            append(localizedText("\n📈 总统计 ", "\n📈 All-time totals ")).append("↑${formatBytes(totalUp)} ↓${formatBytes(totalDown)}")
+            append("Порт ").append(port)
+            append("\n📊 Текущая сессия ").append("↑${formatBytes(upBytes)} ↓${formatBytes(downBytes)}")
+            append("\n📈 Всего ").append("↑${formatBytes(totalUp)} ↓${formatBytes(totalDown)}")
             append("\n$proxyText")
         }
 
         val title = buildString {
-            append(if (wakeEnabled) localizedText("ИИ Врата (защита от сна)", "AiGate (keep-alive)") else localizedText("ИИ Врата", "AiGate"))
+            append(if (wakeEnabled) "ИИ Врата (защита от сна)" else "ИИ Врата")
             if (nodeName.isNotBlank()) {
                 val light = if (hasTraffic && isActive) " 🟢" else if (hasTraffic) " ⚪" else ""
                 append(" ·$light $nodeName")
@@ -229,10 +229,10 @@ class GatewayForegroundService : Service() {
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .addAction(android.R.drawable.ic_menu_sort_by_size,
-                if (wakeEnabled) localizedText("取消唤醒", "Disable keep-alive") else localizedText("唤醒保活", "Enable keep-alive"), toggleWakePI)
+                if (wakeEnabled) "Отключить активность" else "Поддержание активности", toggleWakePI)
             // ★★ 退出按钮（停止网关+前台服务）★★
             .addAction(android.R.drawable.ic_menu_close_clear_cancel,
-                localizedText("退出", "Exit"), stopPI)
+                "Выход", stopPI)
             .build()
 
         // ★★ 首次用 startForeground 初始化，后续用 notify 更新避免闪烁 ★★

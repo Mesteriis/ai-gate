@@ -6,7 +6,7 @@ package com.aigate.router.network
 object ProxyLinkParser {
 
     data class ProxyLinkInfo(
-        val name: String = "未命名",
+        val name: String = "Без названия",
         val type: String = "HTTP",
         val host: String = "",
         val port: Int = 443

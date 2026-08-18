@@ -52,22 +52,22 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
         val stackTrace = sw.toString()
 
         val deviceInfo = buildString {
-            appendLine("===== 设备信息 =====")
-            appendLine("品牌: ${Build.BRAND}")
-            appendLine("型号: ${Build.MODEL}")
-            appendLine("系统: Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
-            appendLine("架构: ${Build.SUPPORTED_ABIS.joinToString(", ")}")
-            appendLine("应用版本: ${try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName } catch (_: Exception) { "unknown" } }")
+            appendLine("===== Информация об устройстве =====")
+            appendLine("Бренд: ${Build.BRAND}")
+            appendLine("Модель: ${Build.MODEL}")
+            appendLine("Система: Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+            appendLine("Архитектура: ${Build.SUPPORTED_ABIS.joinToString(", ")}")
+            appendLine("Версия приложения: ${try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName } catch (_: Exception) { "unknown" } }")
             appendLine("VersionCode: ${try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionCode } catch (_: Exception) { "?" } }")
         }
 
         FileWriter(file, true).use { writer ->
             writer.write("=".repeat(60) + "\n")
-            writer.write("崩溃时间: $timeStr\n")
+            writer.write("Время сбоя: $timeStr\n")
             writer.write(deviceInfo)
-            writer.write("异常类型: ${throwable.javaClass.name}\n")
-            writer.write("异常信息: ${throwable.message ?: "无"}\n")
-            writer.write("堆栈跟踪:\n")
+            writer.write("Тип исключения: ${throwable.javaClass.name}\n")
+            writer.write("Информация об исключении: ${throwable.message ?: "нет"}\n")
+            writer.write("Стек вызовов:\n")
             writer.write(stackTrace)
             writer.write("=".repeat(60) + "\n")
             writer.write("\n")
@@ -76,10 +76,10 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
 
     /** 读取崩溃日志 */
     fun getCrashLog(): String {
-        val ctx = context ?: return "CrashHandler 未初始化"
+        val ctx = context ?: return "CrashHandler не инициализирован"
         val file = File(File(ctx.filesDir, CRASH_DIR), CRASH_FILE)
         if (!file.exists()) return ""
-        return try { file.readText() } catch (_: Exception) { "读取失败" }
+        return try { file.readText() } catch (_: Exception) { "Ошибка чтения" }
     }
 
     /** 清除崩溃日志 */

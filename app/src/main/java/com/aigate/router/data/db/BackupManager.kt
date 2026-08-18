@@ -128,12 +128,12 @@ class BackupManager(private val database: AppDatabase) {
             val payload = bytes.copyOfRange(4 + headerLen, bytes.size)
             val checksum = sha256(payload)
             if (checksum != header.checksum) {
-                return@withContext Result.failure(Exception("校验和不匹配，文件可能损坏"))
+                return@withContext Result.failure(Exception("Контрольная сумма не совпадает, файл повреждён"))
             }
 
             val decrypted = if (header.encrypted) {
-                if (password.isBlank()) return@withContext Result.failure(Exception("备份已加密，请输入密码"))
-                try { aesDecrypt(payload, password) } catch (e: Exception) { return@withContext Result.failure(Exception("密码错误或解密失败")) }
+                if (password.isBlank()) return@withContext Result.failure(Exception("Резервная копия зашифрована, введите пароль"))
+                try { aesDecrypt(payload, password) } catch (e: Exception) { return@withContext Result.failure(Exception("Неверный пароль или ошибка расшифровки")) }
             } else payload
 
             val jsonBytes = gzipDecompress(decrypted)

@@ -64,7 +64,7 @@ class MainActivity : AppCompatActivity() {
                 if (showPermDialog) {
                     AlertDialog(
                         onDismissRequest = { showPermDialog = false },
-                        title = { Text(localizedText("⚙️ 优化建议", "⚙️ Optimization suggestion")) },
+                        title = { Text("⚙️ Рекомендация") },
                         text = { Text(permMessage) },
                         confirmButton = {
                             Button(onClick = {
@@ -89,12 +89,12 @@ class MainActivity : AppCompatActivity() {
                                     } catch (_: Exception) {}
                                 }
                             }) {
-                                Text(localizedText("去设置", "Go to settings"))
+                                Text("В настройки")
                             }
                         },
                         dismissButton = {
                             TextButton(onClick = { showPermDialog = false }) {
-                                Text(localizedText("稍后", "Later"))
+                                Text("Позже")
                             }
                         }
                     )
@@ -112,7 +112,7 @@ class MainActivity : AppCompatActivity() {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED
             ) {
-                missingPerms.add(localizedText("通知权限", "Notification permission"))
+                missingPerms.add("Разрешение на уведомления")
                 // 尝试直接请求
                 notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
@@ -122,7 +122,7 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= 23) {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-                missingPerms.add(localizedText("忽略电池优化", "Battery optimization whitelist"))
+                missingPerms.add("Игнорировать оптимизацию батареи")
             }
         }
 
@@ -133,15 +133,12 @@ class MainActivity : AppCompatActivity() {
                 .getBoolean("wake_enabled", false)
         }
         if (!wakeEnabled) {
-            missingPerms.add(localizedText("🔌 唤醒保活（通知栏开启）", "🔌 Keep-alive mode (enable in notification)"))
+            missingPerms.add("🔌 Поддержание активности (включить в уведомлении)")
         }
 
         // 如果有缺失，生成提示消息
         if (missingPerms.isNotEmpty()) {
-            permMessage = localizedText(
-                "检测到以下功能未开启，可能影响后台运行：\n\n• " + missingPerms.joinToString("\n• ") + "\n\n建议开启以确保网关稳定运行。",
-                "The following features are not enabled and may affect background operation:\n\n• " + missingPerms.joinToString("\n• ") + "\n\nEnable them to ensure stable gateway operation."
-            )
+            permMessage = "Следующие функции не включены и могут повлиять на работу в фоне:\n\n• " + missingPerms.joinToString("\n• ") + "\n\nВключите их для стабильной работы шлюза."
             showPermDialog = true
         }
     }

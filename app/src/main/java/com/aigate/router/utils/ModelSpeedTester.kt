@@ -53,7 +53,7 @@ class ModelSpeedTester(
                 client.newCall(request).execute().use { resp ->
                     if (!resp.isSuccessful) {
                         val errBody = resp.body?.string()?.take(200) ?: "unknown"
-                        Log.w(TAG, "测速失败 HTTP ${resp.code}: $errBody")
+                        Log.w(TAG, "Замер скорости не удался HTTP ${resp.code}: $errBody")
                         return@use SpeedMetrics(
                             ttftMs = -1, tps = 0.0, totalMs = -1, tokenCount = 0, measuredAt = System.currentTimeMillis()
                         )
@@ -98,7 +98,7 @@ class ModelSpeedTester(
                             tokenCount = estimateTokens(content)
                             firstContent = content
                         } else {
-                            Log.w(TAG, "测速 $modelId 响应格式无法解析: ${fullBody.take(200)}")
+                            Log.w(TAG, "Замер скорости $modelId: не удалось разобрать формат ответа: ${fullBody.take(200)}")
                             return@use SpeedMetrics(
                                 ttftMs = -1, tps = 0.0, totalMs = -1, tokenCount = 0, measuredAt = System.currentTimeMillis()
                             )
@@ -120,14 +120,14 @@ class ModelSpeedTester(
 
             // ★ 超时处理
             if (result == null) {
-                Log.w(TAG, "测速超时(30s): $modelId")
+                Log.w(TAG, "Таймаут замера скорости(30s): $modelId")
                 return@withContext SpeedMetrics(
                     ttftMs = -1, tps = 0.0, totalMs = -1, tokenCount = 0, measuredAt = System.currentTimeMillis()
                 )
             }
             result
         } catch (e: Exception) {
-            Log.w(TAG, "测速异常: ${e.message}")
+            Log.w(TAG, "Сбой замера скорости: ${e.message}")
             SpeedMetrics(
                 ttftMs = -1, tps = 0.0, totalMs = -1, tokenCount = 0, measuredAt = System.currentTimeMillis()
             )
@@ -163,7 +163,7 @@ class ModelSpeedTester(
 
     companion object {
         private const val TAG = "ModelSpeedTester"
-        const val DEFAULT_PROMPT = "请用一句话介绍你自己。"
+        const val DEFAULT_PROMPT = "Расскажите о себе одним предложением."
         private val JSON_TYPE = "application/json; charset=utf-8".toMediaType()
     }
 }

@@ -25,7 +25,7 @@ class AutoBackupWorker(
 
     override suspend fun doWork(): Result {
         return try {
-            Log.i(TAG, "定时备份开始...")
+            Log.i(TAG, "Плановое резервное копирование начато...")
             val db = com.aigate.router.data.db.AppDatabase.getInstance(applicationContext)
             val manager = BackupManager(db)
 
@@ -35,16 +35,16 @@ class AutoBackupWorker(
 
             val result = manager.exportToFile(file)
             if (result.isSuccess) {
-                Log.i(TAG, "定时备份成功: ${file.absolutePath}")
+                Log.i(TAG, "Плановое резервное копирование выполнено: ${file.absolutePath}")
                 // 清理旧备份（保留5天内的）
                 manager.cleanupOldBackups(5)
                 Result.success()
             } else {
-                Log.e(TAG, "定时备份失败: ${result.exceptionOrNull()?.message}")
+                Log.e(TAG, "Плановое резервное копирование не удалось: ${result.exceptionOrNull()?.message}")
                 Result.retry()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "定时备份异常", e)
+            Log.e(TAG, "Сбой планового резервного копирования", e)
             Result.retry()
         }
     }
@@ -62,7 +62,7 @@ class AutoBackupWorker(
             try {
                 val existing = workManager.getWorkInfosForUniqueWork(WORK_NAME).get()
                 if (existing.isNotEmpty() && existing.any { it.state == WorkInfo.State.ENQUEUED || it.state == WorkInfo.State.RUNNING }) {
-                    Log.i(TAG, "定时备份已在调度中，跳过重复注册")
+                    Log.i(TAG, "Плановое резервное копирование уже запланировано, пропуск повторной регистрации")
                     return
                 }
             } catch (_: Exception) { }
@@ -85,7 +85,7 @@ class AutoBackupWorker(
                 ExistingPeriodicWorkPolicy.KEEP,  // ★ KEEP 不 REPLACE，避免重置计时器
                 request
             )
-            Log.i(TAG, "定时备份已调度: 每日 ${hour}:${minute.toString().padStart(2, '0')}")
+            Log.i(TAG, "Плановое резервное копирование запланировано: ежедневно в ${hour}:${minute.toString().padStart(2, '0')}")
         }
 
         /**
@@ -93,7 +93,7 @@ class AutoBackupWorker(
          */
         fun cancel(context: Context) {
             WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
-            Log.i(TAG, "定时备份已取消")
+            Log.i(TAG, "Плановое резервное копирование отменено")
         }
 
         /**
@@ -105,7 +105,7 @@ class AutoBackupWorker(
                 .addTag("aigate_backup_test")
                 .build()
             WorkManager.getInstance(context).enqueue(testRequest)
-            Log.i(TAG, "测试备份已调度（10秒后执行）")
+            Log.i(TAG, "Тестовое резервное копирование запланировано (запуск через 10 секунд)")
         }
 
         private fun calculateInitialDelay(hour: Int, minute: Int): Long {
