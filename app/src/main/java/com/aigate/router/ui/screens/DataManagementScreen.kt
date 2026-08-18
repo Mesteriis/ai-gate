@@ -599,6 +599,56 @@ Text(localizedText("💡 备份格式: .qtbk (GZIP压缩+SHA256校验+AES-256加
             }
             Spacer(Modifier.height(8.dp))
 
+            // ★ LAN-режим: доступ из локальной сети по паролю-токену
+            var lanEnabled by remember { mutableStateOf(GatewayForegroundService.getLanModeEnabled()) }
+            var lanToken by remember { mutableStateOf(GatewayForegroundService.getLanToken()) }
+            var lanTokenVisible by remember { mutableStateOf(false) }
+            var lanSavedHint by remember { mutableStateOf(false) }
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Lan, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(localizedText("🌐 LAN-режим", "🌐 LAN mode"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(localizedText("По умолчанию шлюз слушает только 127.0.0.1. Включите доступ из локальной сети по паролю.", "By default the gateway listens on 127.0.0.1 only. Enable LAN access protected by a password."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = lanEnabled, onCheckedChange = { lanEnabled = it; lanSavedHint = false })
+                    }
+                    if (lanEnabled) {
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = lanToken,
+                            onValueChange = { lanToken = it; lanSavedHint = false },
+                            label = { Text(localizedText("Пароль (Bearer-токен для LAN)", "Password (Bearer token for LAN)")) },
+                            singleLine = true,
+                            visualTransformation = if (lanTokenVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            trailingIcon = {
+                                IconButton(onClick = { lanTokenVisible = !lanTokenVisible }) {
+                                    Icon(if (lanTokenVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(localizedText("Все запросы не с 127.0.0.1 обязаны прислать этот пароль как «Authorization: Bearer <пароль>».", "Every non-loopback request must send this password as \"Authorization: Bearer <password>\"."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            GatewayForegroundService.setLanModeEnabled(lanEnabled && lanToken.isNotBlank())
+                            GatewayForegroundService.setLanToken(lanToken.trim())
+                            lanSavedHint = true
+                        },
+                        enabled = !lanEnabled || lanToken.isNotBlank()
+                    ) { Text(localizedText("Сохранить и применить", "Save & apply")) }
+                    if (lanSavedHint) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(localizedText("Сохранено. Перезапустите шлюз, чтобы применить адрес прослушивания.", "Saved. Restart the gateway to apply the listen address."), style = MaterialTheme.typography.bodySmall, color = Online)
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+
             // ★ Debug 抓包模式
             val debugMode by viewModel.debugMode.collectAsState()
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {

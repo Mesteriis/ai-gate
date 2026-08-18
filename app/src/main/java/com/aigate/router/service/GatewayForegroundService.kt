@@ -509,6 +509,14 @@ val totalDownloadBytes = java.util.concurrent.atomic.AtomicLong(0L)   // ★ APP
         // ★ API密钥验证配置
         fun getRequireApiKey(): Boolean = getGatewayConfig("require_api_key", "false").toBooleanStrictOrNull() ?: false
         fun saveRequireApiKey(enabled: Boolean) = saveGatewayConfig("require_api_key", enabled.toString())
+
+        // ★ LAN-режим (opt-in): при включении сервер слушает 0.0.0.0, и все
+        //   не-loopback запросы обязаны предъявить Bearer-токен = заданный пароль.
+        //   Loopback (127.0.0.1) всегда без авторизации. lan_token шифруется в фазе Keystore.
+        fun getLanModeEnabled(): Boolean = getGatewayConfig("lan_mode_enabled", "false").toBooleanStrictOrNull() ?: false
+        fun setLanModeEnabled(enabled: Boolean) = saveGatewayConfig("lan_mode_enabled", enabled.toString())
+        fun getLanToken(): String = getGatewayConfig("lan_token", "")
+        fun setLanToken(token: String) = saveGatewayConfig("lan_token", token)
         fun getAllowedApiKeys(): Set<String> {
             val keysStr = getGatewayConfig("allowed_api_keys", "")
             return keysStr.split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()

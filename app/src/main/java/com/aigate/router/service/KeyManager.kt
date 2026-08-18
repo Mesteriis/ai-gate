@@ -106,8 +106,12 @@ object KeyManager {
         GatewayForegroundService.saveAllowedApiKeys(allKeys)
     }
     
-    /** 判断是否为本地请求（免密钥） */
-    fun isLocalRequest(ip: String): Boolean {
-        return ip == "localhost" || ip == "127.0.0.1" || ip == "::1" || ip == "0.0.0.0" || ip.startsWith("192.168.") || ip.startsWith("10.") || ip.startsWith("172.16.")
+    /**
+     * Только настоящий loopback освобождается от авторизации.
+     * ВАЖНО: вся частная сеть (RFC1918) больше НЕ обходит проверку — доступ из LAN
+     * возможен лишь в LAN-режиме и только по токену.
+     */
+    fun isLoopback(ip: String): Boolean {
+        return ip == "localhost" || ip == "::1" || ip.startsWith("127.")
     }
 }

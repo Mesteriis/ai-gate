@@ -160,7 +160,13 @@ class GatewayService(private val database: AppDatabase) {
             }
         }
 
-        val embedded = embeddedServer(CIO, port = port) {
+        // ★★ Bind: loopback-only по умолчанию; 0.0.0.0 только в явном LAN-режиме ★★
+        val bindHost = if (GatewayForegroundService.getLanModeEnabled()) "0.0.0.0" else "127.0.0.1"
+        GatewayForegroundService.addDebugLog(
+            if (bindHost == "0.0.0.0") "🌐 LAN-режим: слушаю 0.0.0.0:$port (нужен токен)"
+            else "🔒 Loopback: слушаю 127.0.0.1:$port"
+        )
+        val embedded = embeddedServer(CIO, host = bindHost, port = port) {
             // ★★ 安装 WebSocket 支持 ★★★
             install(io.ktor.server.websocket.WebSockets)
             routing {
@@ -177,18 +183,14 @@ class GatewayService(private val database: AppDatabase) {
                 get("/health") {
                     val running = GatewayForegroundService.isServiceRunning
                     val port = GatewayForegroundService.getGatewayPort()
-                    val failover = GatewayForegroundService.getAutoFailover()
                     val healthJson = buildJsonObject {
                         put("status", JsonPrimitive("ok"))
                         put("service", JsonPrimitive("aigate"))
-                        put("version", JsonPrimitive("3.7.4"))
+                        put("version", JsonPrimitive("0.1.0"))
                         put("running", JsonPrimitive(running))
                         put("port", JsonPrimitive(port))
-                        put("failover", JsonPrimitive(failover))
                         put("models_count", JsonPrimitive(database.aiModelDao().getEnabledModelsList().size))
                         put("uptime_seconds", JsonPrimitive((System.currentTimeMillis() - startTime) / 1000))
-                        put("log_entries", JsonPrimitive(synchronized(accessLog) { accessLog.size }))
-                        put("require_api_key", JsonPrimitive(GatewayForegroundService.getRequireApiKey()))
                     }
                     call.respondText(healthJson.toString(), ContentType.Application.Json.withCharset(Charsets.UTF_8))
                 }
@@ -247,6 +249,11 @@ class GatewayService(private val database: AppDatabase) {
                 // ★★★ 兼容不带 /v1 前缀的路径 ★★★
                 post("/chat/completions") {
                     corsResponse(call)
+                    if (!validateApiKey(call)) {
+                        val (s, b) = openAIError(HttpStatusCode.Unauthorized, "Invalid or missing API key", "invalid_api_key")
+                        call.respondText(contentType = ContentType.Application.Json, status = s, text = b)
+                        return@post
+                    }
                     proxyRequest(call, database)
                 }
 
@@ -777,21 +784,29 @@ private val accessLog = mutableListOf<Map<String, Any>>()
 private const val logMaxSize = 1000
 
 private fun validateApiKey(call: ApplicationCall): Boolean {
-    val requireKey = GatewayForegroundService.getRequireApiKey()
-    if (!requireKey) return true
-    // ★★ 本地请求免密钥 ★★
     val remoteIp = call.request.local.remoteHost ?: ""
-    if (KeyManager.isLocalRequest(remoteIp)) return true
-    val authHeader = call.request.headers["Authorization"]
-    if (authHeader.isNullOrBlank()) return false
-    val apiKey = authHeader.removePrefix("Bearer ").trim()
-    // 验证密钥是否存在且启用
-    val entry = KeyManager.validateKey(apiKey)
-    if (entry != null) {
-        // ★ 将密钥信息存入call属性，用于后续用量统计
-        call.attributes.put(API_KEY_ENTRY_KEY, entry)
+    // ★ Loopback (127.0.0.1 / ::1) — всегда без авторизации ★
+    if (KeyManager.isLoopback(remoteIp)) return true
+
+    // ★ Не-loopback (LAN): только в LAN-режиме и только по токену ★
+    if (!GatewayForegroundService.getLanModeEnabled()) return false
+    val authHeader = call.request.headers["Authorization"] ?: return false
+    val presented = authHeader.removePrefix("Bearer ").trim()
+    if (presented.isEmpty()) return false
+
+    // Пароль LAN-режима = перманентный Bearer-токен (constant-time сравнение)
+    val lanToken = GatewayForegroundService.getLanToken()
+    if (lanToken.isNotBlank() && java.security.MessageDigest.isEqual(
+            presented.toByteArray(Charsets.UTF_8), lanToken.toByteArray(Charsets.UTF_8))) {
+        return true
     }
-    return entry != null
+    // Дополнительно принимаем валидные ключи из менеджера ключей (тонкий контроль доступа)
+    val entry = KeyManager.validateKey(presented)
+    if (entry != null) {
+        call.attributes.put(API_KEY_ENTRY_KEY, entry)
+        return true
+    }
+    return false
 }
 
 private fun logAccess(call: ApplicationCall, modelId: String, statusCode: Int, durationMs: Long) {
