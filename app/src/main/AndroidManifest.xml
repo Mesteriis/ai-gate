@@ -2,6 +2,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!--
+      Библиотека Gemini Nano требует minSdk 26, у приложения 24. Снижать охват
+      ради одной необязательной функции нельзя: на устройствах без AICore она и
+      так выключена. Обращения к её классам закрыты проверкой версии и
+      загружаемости в DeviceSupportProbe, поэтому на Android 7 они просто
+      не выполняются.
+    -->
+    <uses-sdk tools:overrideLibrary="com.google.mlkit.genai.prompt, com.google.mlkit.genai.common" />
+
     <!-- 网络权限 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />

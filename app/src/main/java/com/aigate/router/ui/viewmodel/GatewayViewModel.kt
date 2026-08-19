@@ -404,6 +404,12 @@ fun refreshTokenStats() {
     )
     
 companion object {
+            /** Идентификатор встроенной модели в списке моделей шлюза. */
+            const val NANO_MODEL_ID = "gemini-nano"
+
+            /** Предел входа Gemini Nano — около четырёх тысяч токенов. */
+            const val NANO_CONTEXT_WINDOW = 4096
+
             val PROVIDER_TYPES = listOf(
                 ProviderTypePreset(
                     displayName = "OpenAI",
@@ -1235,6 +1241,17 @@ companion object {
                 return@launch
             }
 
+            // Локальные провайдеры ни о чём не спрашивают сеть: список
+            // системной модели известен заранее, а список скачанных ведёт
+            // каталог. Обычная ветка попыталась бы сходить по адресу
+            // «local://», которого не существует.
+            if (com.aigate.router.gateway.local.LocalBackendRegistry.ownsType(provider.type)) {
+                val message = withContext(Dispatchers.IO) { syncLocalProvider(provider) }
+                _syncingProviderId.value = null
+                _syncResult.value = message
+                return@launch
+            }
+
             // У подписки Claude каталог может быть закрыт для токена — там свой
             // путь с запасным списком, поэтому обычная ветка не подходит.
             if (provider.type.equals(com.aigate.router.auth.ClaudeCliAuth.PROVIDER_TYPE, true)) {
@@ -1351,6 +1368,109 @@ companion object {
             } finally {
                 _syncingProviderId.value = null
             }
+        }
+    }
+
+    /**
+     * Подключение встроенной модели одним шагом.
+     *
+     * Ни адреса, ни ключа у неё нет — провайдер описывает саму возможность
+     * устройства. Если системе ещё нужно скачать модель, загрузка запускается
+     * здесь же: пользователь только что явно об этом попросил, и это
+     * единственное место, где такое ожидаемо.
+     */
+    suspend fun connectDeviceModel(): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val type = com.aigate.router.gateway.local.LocalBackendRegistry.TYPE_NANO
+            val availability = com.aigate.router.gateway.local.nano.AiCoreStatus.availability()
+            if (availability == com.aigate.router.gateway.local.nano.AiCoreStatus.Availability.UNAVAILABLE) {
+                error("Встроенная модель недоступна на этом устройстве")
+            }
+
+            val existing = database.providerDao().getAllProvidersList()
+                .firstOrNull { it.type.equals(type, ignoreCase = true) }
+            val provider = existing ?: Provider(
+                name = "Системная модель",
+                type = type,
+                baseUrl = "local://device",
+                isEnabled = true,
+                orderIndex = database.providerDao().getAllProvidersList().size,
+            ).let { it.copy(id = database.providerDao().insert(it)) }
+
+            if (availability == com.aigate.router.gateway.local.nano.AiCoreStatus.Availability.DOWNLOADABLE) {
+                // Загрузку запускаем и не ждём: она идёт силами системы,
+                // весит гигабайты и переживает закрытие приложения. Держать
+                // ради неё нажатие «подключить» значило бы повесить экран на
+                // несколько минут.
+                viewModelScope.launch(Dispatchers.IO) {
+                    runCatching { com.aigate.router.gateway.local.nano.AiCoreStatus.download()?.collect {} }
+                    com.aigate.router.gateway.local.nano.AiCoreStatus.invalidate()
+                    // Состояние модели изменилось — обновляем строку в списке.
+                    database.providerDao().getAllProvidersList()
+                        .firstOrNull { it.type.equals(type, ignoreCase = true) }
+                        ?.let { runCatching { syncLocalProvider(it) } }
+                }
+            }
+
+            syncLocalProvider(provider)
+            _snackbarMessage.value = when (availability) {
+                com.aigate.router.gateway.local.nano.AiCoreStatus.Availability.AVAILABLE ->
+                    "Системная модель подключена"
+
+                else -> "Система скачивает встроенную модель"
+            }
+            Unit
+        }
+    }
+
+    /**
+     * Список моделей локального провайдера.
+     *
+     * У системной модели он ровно из одной строки, и её состояние определяет
+     * система: пока модель не скачана, строка заводится выключенной — так
+     * пользователь видит, что модель есть, но пока не отвечает, а шлюз её не
+     * трогает. У движков скачанных моделей список ведёт каталог.
+     */
+    private suspend fun syncLocalProvider(provider: Provider): String {
+        if (provider.type != com.aigate.router.gateway.local.LocalBackendRegistry.TYPE_NANO) {
+            runCatching { com.aigate.router.download.LocalModelSync.sync(database) }
+            val count = database.aiModelDao().getModelsByProvider(provider.id).size
+            return "${provider.name}: моделей — $count"
+        }
+
+        com.aigate.router.gateway.local.nano.AiCoreStatus.invalidate()
+        val availability = com.aigate.router.gateway.local.nano.AiCoreStatus.availability()
+        if (availability == com.aigate.router.gateway.local.nano.AiCoreStatus.Availability.UNAVAILABLE) {
+            return "Встроенная модель недоступна на этом устройстве"
+        }
+
+        val existing = database.aiModelDao().getModelsByProvider(provider.id)
+            .firstOrNull { it.modelId == NANO_MODEL_ID }
+        val enabled = availability == com.aigate.router.gateway.local.nano.AiCoreStatus.Availability.AVAILABLE
+        if (existing == null) {
+            database.aiModelDao().insert(
+                AiModel(
+                    providerId = provider.id,
+                    modelId = NANO_MODEL_ID,
+                    displayName = "Gemini Nano (на устройстве)",
+                    syncStatus = "Synced",
+                    isEnabled = enabled,
+                    useProxy = false,
+                    contextWindow = NANO_CONTEXT_WINDOW,
+                )
+            )
+        } else if (existing.isEnabled != enabled) {
+            database.aiModelDao().update(existing.copy(isEnabled = enabled))
+        }
+
+        return when (availability) {
+            com.aigate.router.gateway.local.nano.AiCoreStatus.Availability.AVAILABLE ->
+                "Встроенная модель готова"
+
+            com.aigate.router.gateway.local.nano.AiCoreStatus.Availability.DOWNLOADING ->
+                "Система скачивает встроенную модель"
+
+            else -> "Встроенную модель нужно скачать"
         }
     }
 

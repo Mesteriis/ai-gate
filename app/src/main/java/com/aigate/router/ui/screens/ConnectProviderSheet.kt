@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -33,6 +34,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.aigate.router.GatewayApplication
 import com.aigate.router.auth.CliSessionManager
+import com.aigate.router.gateway.local.nano.AiCoreStatus
 import com.aigate.router.ui.design.AppCard
 import com.aigate.router.ui.design.CardTone
 import com.aigate.router.ui.design.FormSheet
@@ -40,7 +42,9 @@ import com.aigate.router.ui.design.Gateway
 import com.aigate.router.ui.design.ProviderAvatar
 import com.aigate.router.ui.design.SectionHeader
 import com.aigate.router.ui.viewmodel.GatewayViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Как подключается провайдер.
@@ -51,7 +55,7 @@ import kotlinx.coroutines.launch
  * нужен только адрес. [Manual] — всё остальное: адрес, ключ и, если требуется,
  * путь.
  */
-private enum class ConnectKind { OAuth, ApiKey, LocalAddress, Manual }
+private enum class ConnectKind { OAuth, ApiKey, LocalAddress, Manual, Device }
 
 private data class CatalogEntry(
     val title: String,
@@ -86,6 +90,22 @@ fun ConnectProviderSheet(
     var pending by remember { mutableStateOf<CatalogEntry?>(null) }
     var connecting by remember { mutableStateOf(false) }
 
+    // Состояние встроенной модели спрашиваем у системы при открытии: оно
+    // меняется само (модель могли скачать в фоне), и запоминать его надолго
+    // значит показывать вчерашнюю картину.
+    val deviceState by produceState<AiCoreStatus.Availability?>(initialValue = null) {
+        value = withContext(Dispatchers.IO) { AiCoreStatus.availability() }
+    }
+    val deviceReady = deviceState == AiCoreStatus.Availability.AVAILABLE ||
+        deviceState == AiCoreStatus.Availability.DOWNLOADABLE
+    val deviceHint = when (deviceState) {
+        AiCoreStatus.Availability.AVAILABLE -> "встроена в Android, подключение в один шаг"
+        AiCoreStatus.Availability.DOWNLOADABLE -> "система скачает модель при подключении"
+        AiCoreStatus.Availability.DOWNLOADING -> "система скачивает модель"
+        AiCoreStatus.Availability.UNAVAILABLE -> "недоступна: устройство не поддерживает AICore"
+        null -> null
+    }
+
     val selected = pending
     if (selected == null) {
         FormSheet(title = "Подключить провайдера", onDismiss = onDismiss) {
@@ -118,6 +138,27 @@ fun ConnectProviderSheet(
 
             Spacer(Modifier.height(Gateway.spacing.sm))
             SectionHeader("Локальные модели")
+            // Встроенная модель подключается одним нажатием: ни адреса, ни
+            // ключа у неё нет — она уже в системе. Строка видна и когда модель
+            // недоступна, но не нажимается: так понятно, что функция есть и
+            // почему именно она сейчас выключена.
+            deviceHint?.let { hint ->
+                CatalogRow(
+                    entry = CatalogEntry("Системная модель (Gemini Nano)", ConnectKind.Device, -1, hint),
+                    busy = connecting,
+                    enabled = deviceReady,
+                ) {
+                    connecting = true
+                    scope.launch {
+                        val result = viewModel.connectDeviceModel()
+                        connecting = false
+                        result.fold(
+                            onSuccess = { onDismiss() },
+                            onFailure = { viewModel.showMessage(it.message ?: "Подключить не удалось") },
+                        )
+                    }
+                }
+            }
             entries.filter { it.kind == ConnectKind.LocalAddress }.forEach { entry ->
                 CatalogRow(entry = entry) { pending = entry }
             }
@@ -207,8 +248,14 @@ fun ConnectProviderSheet(
 }
 
 @Composable
-private fun CatalogRow(entry: CatalogEntry, busy: Boolean = false, onClick: () -> Unit) {
-    AppCard(tone = CardTone.Plain, onClick = if (busy) null else onClick) {
+private fun CatalogRow(
+    entry: CatalogEntry,
+    busy: Boolean = false,
+    /** false — строка видна, но не нажимается: функция есть, а сейчас недоступна. */
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    AppCard(tone = CardTone.Plain, onClick = if (busy || !enabled) null else onClick) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,

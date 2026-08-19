@@ -114,11 +114,16 @@ class GatewayApplication : Application() {
                 GatewayForegroundService.addDebugLog("Локальный отладочный бэкенд подключён")
                 return@runCatching
             }
+            if (support.nano.supported) {
+                com.aigate.router.gateway.local.LocalBackendRegistry.register(
+                    com.aigate.router.gateway.local.nano.GeminiNanoBackend()
+                )
+            }
             if (!support.anyLocalSupported) {
                 GatewayForegroundService.addDebugLog("Локальные модели недоступны: ${support.nano.reasonRu}")
             }
-            // Настоящие движки подключатся здесь по мере готовности:
-            // Gemini Nano, LiteRT-LM и llama.cpp.
+            // Движки скачанных моделей подключатся здесь по мере готовности:
+            // LiteRT-LM и llama.cpp.
         }
     }
 

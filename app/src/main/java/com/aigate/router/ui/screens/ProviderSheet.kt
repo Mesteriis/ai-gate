@@ -78,6 +78,13 @@ fun ProviderSheet(
         }
     }
 
+    // Провайдер, созданный самим приложением под возможности устройства. Пока
+    // движок на месте, удалять его нельзя: он вернётся сам, а скачанные модели
+    // тем временем останутся без владельца.
+    val isBuiltIn = remember(provider.type) {
+        com.aigate.router.capability.LocalGuard.isTypeSupported(provider.type)
+    }
+
     var showNotify by remember { mutableStateOf(false) }
     var showBudget by remember { mutableStateOf(false) }
     var showPlanPrice by remember { mutableStateOf(false) }
@@ -162,7 +169,20 @@ fun ProviderSheet(
             value = if (isOAuth) "имя провайдера" else "имя и ключ",
             onClick = onEdit,
         )
-        SheetActionRow("Удалить провайдера", "", destructive = true) { confirmDelete = true }
+        // Встроенный провайдер описывает возможности самого устройства, а не
+        // чужой сервис с ключом: удалять его бессмысленно — он вернётся при
+        // следующей синхронизации, а до тех пор скачанные модели окажутся
+        // ничьими. Когда движка на устройстве нет, удаление разрешаем: это
+        // строка от другого телефона, и убрать её должно быть можно.
+        if (isBuiltIn) {
+            SheetActionRow(
+                title = "Встроенный провайдер",
+                value = "управляется в разделе «Локальные модели»",
+                onClick = null,
+            )
+        } else {
+            SheetActionRow("Удалить провайдера", "", destructive = true) { confirmDelete = true }
+        }
     }
 }
 
@@ -317,7 +337,8 @@ private fun SheetActionRow(
     title: String,
     value: String,
     destructive: Boolean = false,
-    onClick: () -> Unit,
+    /** null — строка-пояснение без действия. */
+    onClick: (() -> Unit)?,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -339,7 +360,9 @@ private fun SheetActionRow(
                 )
             }
         }
-        TextButton(onClick = onClick) { Text(if (destructive) "Удалить" else "Открыть") }
+        if (onClick != null) {
+            TextButton(onClick = onClick) { Text(if (destructive) "Удалить" else "Открыть") }
+        }
     }
 }
 

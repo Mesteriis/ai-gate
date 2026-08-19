@@ -103,6 +103,12 @@ dependencies {
     // QR-код адреса шлюза
     implementation(libs.zxing.core)
 
+    // Встроенная в систему модель: Gemini Nano исполняется в AICore.
+    // Библиотеке нужен minSdk 26, у приложения 24 — расхождение снято
+    // в манифесте через tools:overrideLibrary, а все обращения к её классам
+    // закрыты проверкой версии и загружаемости (см. DeviceSupportProbe).
+    implementation(libs.mlkit.genai.prompt)
+
     // Ktor Server
     implementation(libs.ktor.server.cio)
     implementation(libs.ktor.server.content.negotiation)
