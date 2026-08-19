@@ -189,6 +189,8 @@ fun OverviewScreen(
             blockedAttempts = GatewayForegroundService.blockedAttempts.get(),
         )
 
+        NextRequestCard(viewModel = viewModel, ticker = ticker)
+
         ConnectivityCheckCard(db = db, port = gatewayPort)
 
         SectionHeader("Ресурсы провайдеров")
@@ -210,6 +212,26 @@ fun OverviewScreen(
             }
         }
         QuotaBurnCard(pools = pools, histories = histories)
+
+        // Экономия локальных моделей: показываем только когда есть по чему считать.
+        val savings by produceState<com.aigate.router.usage.LocalSavings.Result?>(initialValue = null, ticker / 15) {
+            value = withContext(Dispatchers.IO) { com.aigate.router.usage.LocalSavings.monthToDate(db) }
+        }
+        savings?.takeIf { it.referenceModel != null && it.savedUsd > 0.0 }?.let { s ->
+            MetricTile(
+                label = "Экономия на локальных моделях",
+                value = Fmt.usd(s.savedUsd),
+                unit = "за месяц",
+                below = {
+                    Text(
+                        text = "${Fmt.compact(s.localTokens)} токенов локально; оценка по цене " +
+                            "самой дешёвой облачной модели (${s.referenceModel})",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+            )
+        }
 
         TrafficCard(ticker = ticker)
 

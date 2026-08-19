@@ -83,6 +83,9 @@ class GatewayService(private val database: AppDatabase) {
      */
     fun start(port: Int = 8889) {
         if (server != null) return
+        // Тихий приёмник держал порт, пока шлюз стоял — освобождаем его.
+        QuietListener.stop()
+        GatewayForegroundService.blockedAttempts.set(0)
 
         // ★★★ 端口占用提前检测：启动前确认端口可用，避免 BindException 崩溃 ★★★
         if (!isPortAvailable(port)) {
@@ -784,6 +787,9 @@ class GatewayService(private val database: AppDatabase) {
             server?.stop(1000, 2000)
         } catch (_: Exception) { }
         server = null
+        // Если включён тихий приёмник, порт остаётся занят: так видно попытки
+        // подключения к остановленному шлюзу.
+        QuietListener.start(GatewayForegroundService.getGatewayPort())
     }
 
     val isRunning: Boolean get() = server != null

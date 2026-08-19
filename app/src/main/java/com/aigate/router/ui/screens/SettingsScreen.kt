@@ -147,6 +147,9 @@ fun SettingsScreen(
     val autoDetectLang by TranslationManager.autoDetectFlow.collectAsState()
 
     var section by rememberSaveable { mutableStateOf<SettingsSection?>(null) }
+    var quietListener by remember {
+        mutableStateOf(com.aigate.router.gateway.QuietListener.isEnabled())
+    }
     var showLanSheet by remember { mutableStateOf(false) }
     var showBackgroundSheet by remember { mutableStateOf(false) }
     var showLanguageSheet by remember { mutableStateOf(false) }
@@ -217,6 +220,22 @@ fun SettingsScreen(
                     icon = Icons.AutoMirrored.Outlined.Rule,
                     valueText = rulesSummary,
                     onClick = { section = SettingsSection.RoutingRules },
+                )
+                HorizontalDivider()
+                // Пока шлюз остановлен, порт никто не слушает, и узнать о
+                // попытках подключения нельзя. Приёмник держит порт и отвечает
+                // 503, поэтому попытки становятся видны — но включается вручную.
+                SettingsToggleRow(
+                    title = "Тихий приёмник",
+                    icon = Icons.Outlined.Dns,
+                    checked = quietListener,
+                    onCheckedChange = { on ->
+                        quietListener = on
+                        com.aigate.router.gateway.QuietListener.setEnabled(
+                            enabled = on,
+                            port = GatewayForegroundService.getGatewayPort(),
+                        )
+                    },
                 )
             }
 
