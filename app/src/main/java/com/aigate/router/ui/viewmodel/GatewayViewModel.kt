@@ -1608,6 +1608,12 @@ fun getDisplayModelName(model: AiModel): String {
      * после простоя иначе упирался бы в просроченный access-токен.
      */
     private suspend fun measureModel(model: AiModel, provider: Provider): SpeedMetrics {
+        // Локальная модель считается в этом же процессе: ни адреса, ни ключа у
+        // неё нет, поэтому замер идёт через движок. Ветка стоит здесь одна на
+        // все три вызова — одиночный замер, обход всех моделей и конвейер.
+        if (com.aigate.router.gateway.local.LocalBackendRegistry.ownsType(provider.type)) {
+            return com.aigate.router.gateway.local.LocalSpeedMeasurer.measure(model.modelId, provider.type)
+        }
         com.aigate.router.auth.AuthRegistry.ensureFreshForProvider(database, provider)
         val key = CredentialStore.apiKeyForProvider(provider)
         val isCodex = com.aigate.router.gateway.CodexUpstream.isCodex(provider)

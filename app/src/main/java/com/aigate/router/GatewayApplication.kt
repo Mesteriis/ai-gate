@@ -56,6 +56,7 @@ class GatewayApplication : Application() {
         )
         // Периодическое обновление квот (каждые 6ч; не поллинг).
         com.aigate.router.quota.QuotaRefreshWorker.schedule(this)
+        registerLocalBackends()
         // ★★ 从 SharedPreferences 恢复上次网关运行状态（进程重建时最可靠的初始化）★★
         if (GatewayForegroundService.getGatewayWasRunning()) {
             GatewayForegroundService.isServiceRunning = true
@@ -65,6 +66,35 @@ class GatewayApplication : Application() {
             val hour = GatewayForegroundService.getGatewayConfig("auto_backup_hour", "3").toIntOrNull() ?: 3
             val minute = GatewayForegroundService.getGatewayConfig("auto_backup_minute", "0").toIntOrNull() ?: 0
             com.aigate.router.data.db.AutoBackupWorker.schedule(this, hour, minute)
+        }
+    }
+
+    /**
+     * Подключение локальных бэкендов ровно в том объёме, который тянет
+     * устройство.
+     *
+     * Неподдержанный движок не регистрируется совсем — тогда шлюз даже не
+     * узнаёт о таком типе провайдера и идёт обычным сетевым путём. Это и есть
+     * мягкое отключение: на телефоне без встроенной модели функции просто нет,
+     * вместо ошибки на каждый запрос.
+     */
+    private fun registerLocalBackends() {
+        runCatching {
+            val support = com.aigate.router.capability.DeviceSupportProbe.report(this)
+            if (com.aigate.router.gateway.local.EchoBackend.isEnabled()) {
+                // Отладочный бэкенд занимает место движка llama.cpp: так путь
+                // обслуживания проверяется целиком, вместе с маршрутизацией.
+                com.aigate.router.gateway.local.LocalBackendRegistry.register(
+                    com.aigate.router.gateway.local.EchoBackend()
+                )
+                GatewayForegroundService.addDebugLog("Локальный отладочный бэкенд подключён")
+                return@runCatching
+            }
+            if (!support.anyLocalSupported) {
+                GatewayForegroundService.addDebugLog("Локальные модели недоступны: ${support.nano.reasonRu}")
+            }
+            // Настоящие движки подключатся здесь по мере готовности:
+            // Gemini Nano, LiteRT-LM и llama.cpp.
         }
     }
 

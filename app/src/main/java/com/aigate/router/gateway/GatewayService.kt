@@ -1678,6 +1678,21 @@ private suspend fun pipeNormalResponse(
     database: AppDatabase,
     useProxy: Boolean = true
 ) {
+    // Модель, которая считается в этом же процессе, никуда не ходит по сети:
+    // уходим до сборки запроса, пока не понадобился ни URL, ни клиент.
+    if (ownsLocalBackend(provider)) {
+        pipeLocalNormal(
+            call = call,
+            provider = provider,
+            rawBody = rawBody,
+            path = path,
+            database = database,
+            modelId = call.proxyModelId ?: "",
+            providerId = call.proxyProviderId ?: provider.id,
+            apiKeyLabel = call.apiKeyLabel,
+        )
+        return
+    }
     try {
         val resolvedUrl = provider.resolvedBaseUrl.trimEnd('/')
         // ★★ 使用服务商自定义 chatPath（如果设置了）★★
@@ -1998,6 +2013,20 @@ private suspend fun pipeStreamResponse(
     database: AppDatabase,
     useProxy: Boolean = true
 ) {
+    // Локальный движок отвечает потоком прямо отсюда, без обращения наружу.
+    if (ownsLocalBackend(provider)) {
+        pipeLocalStream(
+            call = call,
+            provider = provider,
+            rawBody = rawBody,
+            path = path,
+            modelId = modelId,
+            providerId = providerId,
+            database = database,
+            apiKeyLabel = call.apiKeyLabel,
+        )
+        return
+    }
     val pipeStartTime = System.currentTimeMillis()
     // 1. 在 IO 线程执行 HTTP 请求，获取响应流
     val resolvedUrl = provider.resolvedBaseUrl.trimEnd('/')

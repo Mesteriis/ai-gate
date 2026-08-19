@@ -6,6 +6,7 @@ import com.aigate.router.data.model.AiModel
 import com.aigate.router.data.model.ModelRouteKey
 import com.aigate.router.data.model.findByRouteKey
 import com.aigate.router.data.model.routeKey
+import com.aigate.router.gateway.local.LocalBackendRegistry
 import com.aigate.router.service.GatewayForegroundService
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -17,6 +18,13 @@ import okhttp3.RequestBody.Companion.toRequestBody
 object GatewayScheduler {
     private val DEFAULT_CT = "application/json".toMediaType()
     private const val HEALTH_CHECK_TIMEOUT = 5000L
+
+    /**
+     * Задержка, приписываемая локальной модели без единого замера. Значение
+     * умышленно среднее: с нулём непроверенная модель возглавила бы рейтинг и
+     * забрала все `auto`-запросы, а с завышенным — никогда бы не попала в него.
+     */
+    private const val UNMEASURED_LOCAL_LATENCY_MS = 1200L
     private const val CACHE_TTL = 60_000L
     private const val BEST_MODEL_TTL = 300_000L
     private const val MODEL_HISTORY_TTL = 30 * 60 * 1000L
@@ -266,6 +274,14 @@ object GatewayScheduler {
             try {
                 val provider = database.providerDao().getProviderById(model.providerId) ?: continue
                 if (!provider.isEnabled) continue
+                // Локальную модель нельзя «пингануть» дёшево: любой запрос к ней
+                // это загрузка весов и реальный счёт, а проверка идёт по кругу и
+                // сожгла бы батарею. Спрашиваем только готовность, а задержку
+                // берём из последнего замера скорости.
+                if (LocalBackendRegistry.ownsType(provider.type)) {
+                    refreshLocalHealth(database, model, key, now)
+                    continue
+                }
                 val start = System.currentTimeMillis()
                 val resolvedUrl = provider.resolvedBaseUrl.trimEnd('/')
                 val chatBody = """{"model":"${model.modelId}","messages":[{"role":"user","content":"hi"}],"max_tokens":1,"stream":false}"""
@@ -331,5 +347,47 @@ object GatewayScheduler {
             kotlinx.coroutines.delay(500)
         }
         invalidatePreheat()
+    }
+
+    /**
+     * Здоровье локальной модели без единого токена инференса.
+     *
+     * Задержку берём из последнего замера скорости, а когда его нет —
+     * подставляем среднюю оценку. Ставить ноль нельзя: непроверенная локальная
+     * модель встала бы во главе рейтинга и перехватывала все `auto`-запросы.
+     */
+    private suspend fun refreshLocalHealth(
+        database: AppDatabase,
+        model: com.aigate.router.data.model.AiModel,
+        key: String,
+        now: Long,
+    ) {
+        val providerType = database.providerDao().getProviderById(model.providerId)?.type ?: ""
+        val backend = LocalBackendRegistry.forType(providerType)
+        val blockReason = if (backend == null) {
+            com.aigate.router.capability.LocalGuard.unsupportedReason(providerType)
+        } else {
+            com.aigate.router.capability.LocalGuard.blockReason(providerType)
+        }
+        val ready = blockReason == null && backend != null &&
+            backend.readiness() is com.aigate.router.gateway.local.Readiness.Ready
+
+        val latency = if (!ready) {
+            Long.MAX_VALUE
+        } else {
+            val lastTtft = runCatching {
+                database.speedHistoryDao().getHistoryByModelOnce(key)
+                    .lastOrNull { it.success }?.ttftMs
+            }.getOrNull()
+            if (lastTtft != null && lastTtft > 0) lastTtft else UNMEASURED_LOCAL_LATENCY_MS
+        }
+
+        synchronized(healthCache) {
+            healthCache[key] = ModelHealth(model.modelId, model.providerId, latency, now, ready)
+        }
+        if (GatewayForegroundService.getDebugMode()) {
+            val note = blockReason ?: if (ready) "${latency}ms" else "движок не готов"
+            GatewayForegroundService.addDebugLog("· P${model.providerId} · ${model.modelId}: $note")
+        }
     }
 }

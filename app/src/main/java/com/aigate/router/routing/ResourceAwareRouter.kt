@@ -3,6 +3,7 @@ package com.aigate.router.routing
 import com.aigate.router.data.db.AppDatabase
 import com.aigate.router.data.model.AiModel
 import com.aigate.router.data.model.Provider
+import com.aigate.router.gateway.local.LocalBackendRegistry
 import com.aigate.router.pricing.CostCalculator
 import com.aigate.router.quota.QuotaRepository
 import com.aigate.router.quota.ResourcePressure
@@ -101,6 +102,9 @@ object ResourceAwareRouter {
 
     private fun isLocal(provider: Provider?): Boolean {
         if (provider == null) return false
+        // Модель, считающаяся в самом приложении, локальнее любого адреса:
+        // сети ей не нужно вовсе, поэтому в офлайне она и есть ответ.
+        if (LocalBackendRegistry.ownsType(provider.type)) return true
         if (provider.type.equals("ollama", ignoreCase = true)) return true
         val url = provider.baseUrl.lowercase()
         return url.contains("localhost") || url.contains("127.0.0.1") || url.contains("::1") ||
