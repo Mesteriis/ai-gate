@@ -129,17 +129,20 @@ class ModelDownloadWorker(
 
             val client = downloadClient()
             var response = execute(client, url, offset)
-            if (offset > 0L && response.code != HTTP_PARTIAL) {
-                // 200 вместо 206 означает, что сервер диапазон проигнорировал и
-                // прислал файл целиком; 416 — что наш сдвиг ему не подошёл,
-                // то есть файл в реестре сменился. В обоих случаях старый
-                // кусок недействителен, и продолжать с него нельзя.
-                if (response.code == HTTP_RANGE_NOT_SATISFIABLE) {
+            when (DownloadResume.decide(offset, response.code)) {
+                DownloadResume.Decision.Continue -> Unit
+
+                DownloadResume.Decision.RestartWithSameResponse -> {
+                    offset = 0L
+                    digest.reset()
+                }
+
+                DownloadResume.Decision.RestartWithNewRequest -> {
                     response.closeQuietly()
                     response = execute(client, url, 0L)
+                    offset = 0L
+                    digest.reset()
                 }
-                offset = 0L
-                digest.reset()
             }
 
             response.use { active ->
@@ -254,7 +257,7 @@ class ModelDownloadWorker(
     /** Один запрос с необязательным продолжением с байта [offset]. */
     private fun execute(client: OkHttpClient, url: String, offset: Long): Response {
         val builder = Request.Builder().url(url).get()
-        if (offset > 0L) builder.header("Range", "bytes=$offset-")
+        DownloadResume.rangeHeader(offset)?.let { builder.header("Range", it) }
         return client.newCall(builder.build()).execute()
     }
 
