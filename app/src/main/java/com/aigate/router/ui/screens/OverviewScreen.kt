@@ -377,6 +377,9 @@ private fun AddressRow(label: String, value: String, onCopy: (String, String) ->
 }
 
 /** Кольца квот по пулам — вместо тонкой полоски, спрятанной в подразделе. */
+/** Плиток ресурсов в ряду; дальше идёт перенос на новую строку. */
+private const val TILES_PER_ROW = 4
+
 @Composable
 private fun QuotaStrip(
     pools: List<QuotaRepository.PoolQuota>,
@@ -392,21 +395,29 @@ private fun QuotaStrip(
         }
         return
     }
-    // Все пулы, а не первые три: скрывать часть ресурсов на дашборде нельзя,
-    // поэтому ряд горизонтально прокручивается.
+    // Сетка по четыре плитки в ряд с переносом: горизонтальная прокрутка
+    // обрезала четвёртую плитку в портретной ориентации. Ширина берётся от
+    // доступной, поэтому раскладка подходит и портрету, и ландшафту.
     var notifyFor by remember { mutableStateOf<QuotaRepository.PoolQuota?>(null) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(Gateway.spacing.md),
-    ) {
-        pools.forEach { pq ->
-            ResourceTile(
-                pq = pq,
-                providerType = providerTypes[pq.pool.providerId].orEmpty(),
-                onClick = { notifyFor = pq },
-            )
+    Column(verticalArrangement = Arrangement.spacedBy(Gateway.spacing.md)) {
+        pools.chunked(TILES_PER_ROW).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Gateway.spacing.md),
+            ) {
+                row.forEach { pq ->
+                    ResourceTile(
+                        pq = pq,
+                        providerType = providerTypes[pq.pool.providerId].orEmpty(),
+                        onClick = { notifyFor = pq },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                // Пустые места в неполном ряду, чтобы плитки не растягивались.
+                repeat(TILES_PER_ROW - row.size) {
+                    Spacer(Modifier.weight(1f))
+                }
+            }
         }
     }
 
@@ -429,6 +440,7 @@ private fun ResourceTile(
     pq: QuotaRepository.PoolQuota,
     providerType: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val kind = ResourcePoolKind.fromName(pq.pool.kind)
     val snapshot = pq.snapshot
@@ -449,7 +461,8 @@ private fun ResourceTile(
         tone = CardTone.Raised,
         onClick = onClick,
         // Одинаковая высота: плитки не «прыгают» от разного набора данных.
-        modifier = Modifier.width(168.dp).height(190.dp),
+        // Ширину задаёт ряд, поэтому плитка её не навязывает.
+        modifier = modifier.height(190.dp),
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
