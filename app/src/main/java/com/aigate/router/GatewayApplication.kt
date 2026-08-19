@@ -37,6 +37,7 @@ class GatewayApplication : Application() {
             // Засев встроенной таблицы цен + первичный расчёт квот (локальный usage).
             try { com.aigate.router.pricing.PricingTable.seedIfNeeded(database) } catch (_: Exception) { }
             try { com.aigate.router.quota.QuotaRepository.refreshAll(database) } catch (_: Exception) { }
+            restoreLocalModels()
         }
         // Реальные адаптеры квот (документированные публичные endpoint'ы).
         com.aigate.router.quota.QuotaProviderRegistry.register(
@@ -67,6 +68,29 @@ class GatewayApplication : Application() {
             val minute = GatewayForegroundService.getGatewayConfig("auto_backup_minute", "0").toIntOrNull() ?: 0
             com.aigate.router.data.db.AutoBackupWorker.schedule(this, hour, minute)
         }
+    }
+
+    /**
+     * Приведение скачанных моделей в порядок после запуска процесса.
+     *
+     * Процесс могли убить посреди загрузки: WorkManager вернёт задание сам, но
+     * записи в состояниях «в очереди» и «скачивается» надо поставить обратно —
+     * иначе они останутся висеть навсегда. Файлы-сироты появляются по той же
+     * причине, и это гигабайты: без уборки они лежали бы мёртвым грузом,
+     * не числясь ни за одной моделью.
+     */
+    private suspend fun restoreLocalModels() {
+        val dao = database.localModelDao()
+        runCatching { com.aigate.router.download.LocalModelSync.sync(database) }
+        runCatching {
+            val all = dao.getAll()
+            com.aigate.router.download.ModelStorage.cleanupOrphans(
+                context = this,
+                knownPaths = all.filter { it.filePath.isNotBlank() }.map { it.filePath }.toSet(),
+                activeIds = all.map { it.id }.toSet(),
+            )
+        }
+        runCatching { com.aigate.router.download.DownloadQueue.resumeInterruptedOnStartup(this, dao) }
     }
 
     /**

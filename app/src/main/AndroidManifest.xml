@@ -8,6 +8,8 @@
     <!-- 前台服务权限 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Загрузка файлов моделей идёт часами и переживает сворачивание приложения -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- WakeLock权限（防止CPU休眠导致网关掉线） -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- 开机自启 -->
@@ -60,6 +62,16 @@
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
+
+        <!--
+            Передняя служба WorkManager: тип dataSync нужен загрузчику моделей.
+            Свой сервис здесь не объявляется — задание переводит на передний
+            план сам WorkManager, и тип задаётся его службе через merge.
+        -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
 
         <!-- Домашний виджет квот (локальный снимок, без сети) -->
         <receiver
