@@ -2,7 +2,7 @@ package com.aigate.router.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// ── ИИ Врата / AiGate — «морозные врата» (frost-gate) палитра ──
+// ── AiGate / AiGate — «морозные врата» (frost-gate) палитра ──
 // Светлая морозно-голубая эстетика: белые карточки, азурные акценты, ледяное сияние.
 
 // Акценты

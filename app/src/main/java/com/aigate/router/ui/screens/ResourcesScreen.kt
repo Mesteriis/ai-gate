@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -35,6 +36,8 @@ import com.aigate.router.pricing.PricingTable
 import com.aigate.router.quota.QuotaRepository
 import com.aigate.router.quota.QuotaRefreshWorker
 import com.aigate.router.quota.QuotaSource
+import com.aigate.router.quota.ResourcePoolKind
+import com.aigate.router.ui.design.Gateway
 import com.aigate.router.quota.ResourcePressure
 import com.aigate.router.routing.RouteStrategy
 import com.aigate.router.service.GatewayForegroundService
@@ -46,7 +49,7 @@ import com.aigate.router.usage.UsageHistory
 import kotlinx.coroutines.launch
 
 /**
- * Диспетчер ИИ-ресурсов —— квоты, бюджет, прогноз расхода, стратегия маршрутизации.
+ * Диспетчер ресурсов: квоты подписок, балансы, свои бюджеты, прогноз расхода и стратегия маршрутизации.
  * Честные инварианты: null-значения показываются как «нет данных», прогноз всегда
  * помечен как оценка, источник данных подписывается явно.
  */
@@ -77,6 +80,8 @@ fun ResourcesScreen(onBack: () -> Unit) {
 
     // Редактируемый пул (диалог бюджета).
     var editingPool by remember { mutableStateOf<ResourcePool?>(null) }
+    // Пул, у которого правим цену тарифа.
+    var editingPlanPool by remember { mutableStateOf<ResourcePool?>(null) }
 
     // При открытии экрана: одноразовое обновление квот + расчёт прогноза.
     LaunchedEffect(Unit) {
@@ -99,7 +104,7 @@ fun ResourcesScreen(onBack: () -> Unit) {
                     Icon(Icons.Default.ArrowBack, contentDescription = "Назад")
                 }
                 Text(
-                    "Ресурсы и квоты",
+                    "Ресурсы и лимиты",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -134,7 +139,8 @@ fun ResourcesScreen(onBack: () -> Unit) {
                             pool = pq.pool,
                             snapshot = pq.snapshot,
                             pressure = pq.pressure,
-                            onEditBudget = { editingPool = pq.pool }
+                            onEditBudget = { editingPool = pq.pool },
+                            onEditPlanPrice = { editingPlanPool = pq.pool }
                         )
                     }
                 }
@@ -193,6 +199,18 @@ fun ResourcesScreen(onBack: () -> Unit) {
     }
 
     // ==================== Диалог бюджета ====================
+    editingPlanPool?.let { pool ->
+        PlanPriceDialog(
+            pool = pool,
+            onDismiss = { editingPlanPool = null },
+            onSave = { price ->
+                com.aigate.router.auth.CodexAccount.setMonthlyPriceUsd(pool.providerId, price)
+                editingPlanPool = null
+                scope.launch { forecast = UsageHistory.forecast(db) }
+            }
+        )
+    }
+
     editingPool?.let { pool ->
         BudgetDialog(
             pool = pool,
@@ -227,7 +245,7 @@ private fun ForecastCard(forecast: UsageHistory.Forecast?) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "📈 Оценка расхода за месяц",
+                text = "Оценка расхода за месяц",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -240,12 +258,32 @@ private fun ForecastCard(forecast: UsageHistory.Forecast?) {
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                 )
             } else {
+                // Тарифы — фиксированная плата, она известна точно и не прогнозируется.
+                if (forecast.subscriptionsUsd > 0.0) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Тарифы:",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = usd(forecast.subscriptionsUsd),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Потрачено:",
+                        text = if (forecast.subscriptionsUsd > 0.0) "Токены:" else "Потрачено:",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -267,7 +305,7 @@ private fun ForecastCard(forecast: UsageHistory.Forecast?) {
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Text(
-                        text = "~" + usd(forecast.projectedMonthEndUsd),
+                        text = "~" + usd(forecast.projectedTotalUsd),
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -292,7 +330,8 @@ private fun PoolCard(
     pool: ResourcePool,
     snapshot: com.aigate.router.data.model.QuotaSnapshot?,
     pressure: ResourcePressure,
-    onEditBudget: () -> Unit
+    onEditBudget: () -> Unit,
+    onEditPlanPrice: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -320,10 +359,17 @@ private fun PoolCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Чип давления
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val pc = pressureColor(pressure)
-                Chip(text = pressure.label, color = pc)
+            // Тип ресурса и давление. Тип обязателен: квота, баланс и бесплатный
+            // ресурс ведут себя по-разному, и путать их нельзя.
+            val kind = ResourcePoolKind.fromName(pool.kind)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Chip(text = kind.label, color = MaterialTheme.colorScheme.primary)
+                if (kind != ResourcePoolKind.FREE) {
+                    Chip(text = pressure.label, color = pressureColor(pressure))
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -331,58 +377,112 @@ private fun PoolCard(
             val remaining = snapshot?.remaining
             val limit = snapshot?.limit
             val unit = snapshot?.unit ?: pool.unit
-            if (remaining != null && limit != null) {
-                // Есть остаток и лимит → прогресс-бар
-                val progress = if (limit > 0) (remaining / limit).toFloat().coerceIn(0f, 1f) else 0f
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = "Осталось ${quotaPair(remaining, limit, unit)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
-                )
-            } else {
-                // Остаток неизвестен → честно сообщаем
-                Text(
-                    text = "Данные о квоте недоступны",
+            when {
+                // Бесплатный ресурс: ни остатка, ни лимита — и это не «нет данных».
+                kind == ResourcePoolKind.FREE -> Text(
+                    text = "Без лимита: локальные модели",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                val used = snapshot?.used
-                if (used != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
+
+                // Квота и свой бюджет: доля остатка осмысленна → полоса прогресса.
+                kind.hasFraction && remaining != null && limit != null -> {
+                    val progress = if (limit > 0) (remaining / limit).toFloat().coerceIn(0f, 1f) else 0f
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp),
+                        color = pressureColor(pressure),
+                        trackColor = Gateway.colors.surfaceContainerHigh
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Израсходовано: ${quotaValue(used, unit)}",
-                        style = MaterialTheme.typography.bodySmall,
+                        text = "${kind.remainingLabel} ${quotaPair(remaining, limit, unit)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                // Баланс: показываем сумму на счету, без процентов —
+                // изначальное пополнение провайдер не сообщает.
+                kind == ResourcePoolKind.BALANCE && remaining != null -> Text(
+                    text = "${kind.remainingLabel}: ${quotaValue(remaining, unit)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+
+                else -> {
+                    Text(
+                        text = "Провайдер не отдаёт остаток",
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    snapshot?.used?.let { used ->
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Израсходовано: ${quotaValue(used, unit)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
-            // Время до сброса
-            val resetsAt = snapshot?.resetsAt
-            if (resetsAt != null) {
-                val remainingMs = resetsAt - System.currentTimeMillis()
-                if (remainingMs > 0) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "Сброс через ${humanDuration(remainingMs)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+            // Сброс бывает только у периодической квоты.
+            if (kind.hasReset) {
+                snapshot?.resetsAt?.let { resetsAt ->
+                    val remainingMs = resetsAt - System.currentTimeMillis()
+                    if (remainingMs > 0) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Сброс через ${humanDuration(remainingMs)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
             HorizontalDivider()
             Spacer(modifier = Modifier.height(6.dp))
+
+            // Тариф подписки: план приходит из токена сессии, цена —
+            // прейскурантная, пока пользователь не задал свою.
+            val plan = com.aigate.router.auth.CodexAccount.planLabel(
+                com.aigate.router.auth.CodexAccount.storedPlan(pool.providerId)
+            )
+            val subPrice = com.aigate.router.auth.CodexAccount.monthlyPriceUsd(pool.providerId)
+            if (plan != null || subPrice != null) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Тариф" + (plan?.let { ": $it" } ?: ""),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    TextButton(onClick = onEditPlanPrice) {
+                        Text(
+                            text = subPrice?.let { "${usd(it)} / мес" } ?: "указать цену",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+                if (subPrice != null &&
+                    !com.aigate.router.auth.CodexAccount.isPriceUserDefined(pool.providerId)
+                ) {
+                    Text(
+                        text = "цена по прейскуранту, можно изменить",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
             // Управление бюджетом
             Row(
@@ -424,7 +524,12 @@ private fun EmptyPoolsCard() {
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("💳", fontSize = 40.sp)
+            Icon(
+                Icons.Outlined.AccountBalanceWallet,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(40.dp),
+            )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = "Пул ресурсов появится после первого запроса через шлюз.",
@@ -457,17 +562,12 @@ private fun StrategyCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "🧭 Стратегия маршрутизации",
+                text = "Стратегия маршрутизации",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Как выбирать модель для auto-запросов",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -504,16 +604,11 @@ private fun NotificationsCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "🔔 Уведомления о квотах",
+                        text = "Уведомления об исчерпании",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
-                    Text(
-                        text = "Предупреждать, когда ресурс на исходе",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                                    }
                 Switch(checked = enabled, onCheckedChange = onEnabledChange)
             }
             if (enabled) {
@@ -541,6 +636,46 @@ private fun NotificationsCard(
 // ============================================================
 // Диалог редактирования бюджета пула
 // ============================================================
+/**
+ * Цена тарифа за месяц. Значение по умолчанию — прейскурант для плана из
+ * токена; пустое поле означает «не учитывать тариф в расходах».
+ */
+@Composable
+private fun PlanPriceDialog(
+    pool: ResourcePool,
+    onDismiss: () -> Unit,
+    onSave: (Double?) -> Unit
+) {
+    val plan = com.aigate.router.auth.CodexAccount.planLabel(
+        com.aigate.router.auth.CodexAccount.storedPlan(pool.providerId)
+    )
+    var text by remember {
+        mutableStateOf(
+            com.aigate.router.auth.CodexAccount.monthlyPriceUsd(pool.providerId)
+                ?.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() }
+                ?: ""
+        )
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(plan?.let { "Тариф $it" } ?: "Цена тарифа") },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { v -> text = v.filter { it.isDigit() || it == '.' } },
+                label = { Text("Цена в месяц, USD") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(text.toDoubleOrNull()) }) { Text("Сохранить") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+    )
+}
+
 @Composable
 private fun BudgetDialog(
     pool: ResourcePool,
@@ -658,7 +793,7 @@ private fun usd(value: Double): String = "$" + "%.2f".format(value)
 /** Форматирует значение квоты с учётом единицы (USD → «$X.XX»). */
 private fun quotaValue(value: Double, unit: String): String =
     if (unit.equals("USD", ignoreCase = true)) usd(value)
-    else "%.2f".format(value) + " " + unit
+    else trimNumber(value) + unitSuffix(unit)
 
 /** Форматирует пару «остаток из лимита» с единицей один раз. */
 private fun quotaPair(remaining: Double, limit: Double, unit: String): String {
@@ -666,9 +801,28 @@ private fun quotaPair(remaining: Double, limit: Double, unit: String): String {
     return if (isUsd) {
         usd(remaining) + " из " + usd(limit)
     } else {
-        "%.2f".format(remaining) + " из " + "%.2f".format(limit) + " " + unit
+        trimNumber(remaining) + " из " + trimNumber(limit) + unitSuffix(unit)
     }
 }
+
+/**
+ * Человеческая подпись единицы вместо машинного имени: «PERCENT» в интерфейсе
+ * читается как ошибка. Процент прижимается к числу, слова — через пробел.
+ */
+private fun unitSuffix(unit: String): String = when (unit.uppercase()) {
+    "PERCENT" -> "%"
+    "USD" -> " $"
+    "TOKENS" -> " токенов"
+    "REQUESTS" -> " запросов"
+    "CREDITS" -> " кредитов"
+    "COMPUTE_MINUTES" -> " мин"
+    "UNKNOWN", "" -> ""
+    else -> " " + unit.lowercase()
+}
+
+/** Без дробной части, если она нулевая: «3», а не «3,00». */
+private fun trimNumber(value: Double): String =
+    if (value % 1.0 == 0.0) value.toLong().toString() else "%.2f".format(value)
 
 /** Humanized RU-длительность: «2 дн», «5 ч», «30 мин». */
 private fun humanDuration(ms: Long): String {
@@ -706,17 +860,12 @@ private fun ModelPricingCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "💲 Цены моделей",
+                text = "Цены моделей",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Для оценки стоимости запросов. Встроенные цены помечены «встроено», ваши — «ваше».",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
             if (prices.isEmpty()) {
                 Text(
@@ -900,7 +1049,7 @@ private fun UsageHistoryCard(db: com.aigate.router.data.db.AppDatabase) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "📊 История расхода (14 дней)",
+                text = "История расхода за 14 дней",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -1001,24 +1150,9 @@ private fun CliSessionsCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "🔐 CLI-сессии (эксперим.)",
+                text = "CLI-сессии",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Подключение провайдеров через сохранённую сессию их CLI " +
-                    "(Codex, Gemini, Claude) — как в omniroute. Сессия хранится в Keystore " +
-                    "и обновляется автоматически.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = "Использование приватных эндпоинтов провайдера сторонним клиентом " +
-                    "может нарушать их Terms — на ваш риск.",
-                style = MaterialTheme.typography.labelSmall,
-                color = Warning
             )
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -1072,7 +1206,7 @@ private fun CliSessionsCard(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Ожидание входа в браузере…")
                 } else {
-                    Text("🚀 Подключить Codex")
+                    Text("Подключить Codex")
                 }
             }
             error?.let {
@@ -1131,9 +1265,9 @@ private fun CliSessionRow(
                     )
                 }
                 if (status.connected) {
-                    Chip(text = "● Подключён", color = Online)
+                    Chip(text = "Подключён", color = Online)
                 } else {
-                    Chip(text = "○ Нет токена", color = Offline)
+                    Chip(text = "Нет токена", color = Offline)
                 }
             }
 
@@ -1347,7 +1481,7 @@ private fun ConnectCliSessionDialog(
                 }) { Text("Импортировать") }
             } else {
                 Button(enabled = !connecting, onClick = { startBrowserLogin() }) {
-                    Text("🌐 Войти через браузер")
+                    Text("Войти через браузер")
                 }
             }
         },

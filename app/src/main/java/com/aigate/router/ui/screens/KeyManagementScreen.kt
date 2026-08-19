@@ -5,6 +5,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Key
+import com.aigate.router.ui.design.AppScaffold
+import com.aigate.router.ui.design.EmptyState
+import com.aigate.router.ui.design.Gateway
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,16 +35,8 @@ fun KeyManagementScreen(onDismiss: () -> Unit) {
     
     fun refreshKeys() { keys = KeyManager.getAllKeys() }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("🔑 Управление ключами API") },
-                navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Default.ArrowBack, contentDescription = null) } },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary, titleContentColor = MaterialTheme.colorScheme.onPrimary, navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
-            )
-        }
-    ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+    AppScaffold(title = "Ключи API", onBack = onDismiss) { contentModifier ->
+        Column(modifier = contentModifier.padding(horizontal = Gateway.spacing.lg)) {
             // 全局开关
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -49,7 +45,7 @@ fun KeyManagementScreen(onDismiss: () -> Unit) {
                         Spacer(Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Авторизация по API-ключу", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text("Запросы с 127.0.0.1 — без ключа; из локальной сети — только по паролю (LAN-режим)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(if (requireApiKey) "Требуется для запросов из сети" else "Не требуется", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Switch(checked = requireApiKey, onCheckedChange = { e ->
                             requireApiKey = e
@@ -72,9 +68,7 @@ fun KeyManagementScreen(onDismiss: () -> Unit) {
             
             // 密钥列表
             if (keys.isEmpty()) {
-                Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                    Text("Ключей пока нет. Нажмите выше, чтобы добавить", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                EmptyState(icon = Icons.Outlined.Key, text = "Ключей пока нет")
             } else {
                 LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(keys) { entry ->
@@ -165,7 +159,7 @@ private fun AddKeyDialog(onDismiss: () -> Unit, onSave: (String, String, List<St
                     Text("Разрешить доступ к auto", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                     Switch(checked = autoAccess, onCheckedChange = { autoAccess = it })
                 }
-                Text("💡 Пустой список моделей = все модели", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                
             }
         },
         confirmButton = { Button(onClick = { onSave(key, label, emptyList(), autoAccess) }, enabled = key.isNotBlank()) { Text("Добавить") } },

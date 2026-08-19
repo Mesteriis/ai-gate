@@ -26,7 +26,9 @@ data class ImportedSession(
     val refreshToken: String?,
     val expiresAt: Long?,      // epoch ms
     val accountId: String?,
-    val providerHint: String?  // угаданный тип провайдера (codex/gemini/claude), если понятно
+    val providerHint: String?, // угаданный тип провайдера (codex/gemini/claude), если понятно
+    /** E-mail владельца сессии из id_token, если он там есть — для подписи аккаунта. */
+    val email: String? = null
 )
 
 /**
@@ -193,14 +195,11 @@ object CodexAuth {
     const val CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
     const val DEFAULT_BASE_URL = "https://chatgpt.com/backend-api/codex"
 
-    /** Известные модели Codex (ChatGPT). Засеваются при подключении, чтобы «читались». */
-    val MODELS = listOf(
-        "gpt-5-codex" to "GPT-5 Codex",
-        "gpt-5" to "GPT-5",
-        "o3" to "o3",
-        "o4-mini" to "o4-mini",
-        "codex-mini-latest" to "Codex mini"
-    )
+    /**
+     * Списка моделей здесь НЕТ намеренно: он приходит с сервера
+     * ([CodexModelsApi]). Захардкоженный перечень быстро расходится с реальными
+     * слагами, и запросы к несуществующим моделям падают.
+     */
 
     val config = OAuthFlowConfig(
         providerType = PROVIDER_TYPE,
@@ -223,51 +222,146 @@ object CodexAuth {
  */
 object CliSessionManager {
 
-    /** Один тап: браузерный вход в Codex и сохранение сессии. Возвращает providerId или ошибку. */
+    /**
+     * Один тап: браузерный вход в Codex и сохранение сессии.
+     *
+     * Codex — такой же провайдер, как Ollama, и аккаунтов может быть несколько:
+     * каждый вход создаёт отдельного провайдера со своими моделями и квотой.
+     * Повторный вход в ТОТ ЖЕ аккаунт обновляет существующего провайдера, а не
+     * плодит дубли — сопоставление идёт по `account_id` сессии.
+     */
     suspend fun connectCodex(context: android.content.Context, db: AppDatabase): Result<Long> {
         val res = OAuthBrowserFlow.authorize(context, CodexAuth.config)
         return res.mapCatching { session ->
             val providerId = connect(
                 db = db,
                 providerType = CodexAuth.PROVIDER_TYPE,
-                name = CodexAuth.DISPLAY_NAME,
+                name = codexAccountName(db, session),
                 baseUrl = CodexAuth.DEFAULT_BASE_URL,
                 session = session,
                 refreshTokenUrl = CodexAuth.config.tokenUrl,
                 clientId = CodexAuth.CLIENT_ID,
-                clientSecret = null
+                clientSecret = null,
+                matchAccountId = session.accountId
             )
-            seedCodexModels(db, providerId)
+            // Тариф подписки известен из токена — запоминаем для расходов.
+            CodexAccount.savePlan(providerId, CodexAccount.fromJwt(session.accessToken)?.planType)
+            // Список моделей запрашиваем у сервера сразу после входа.
+            syncCodexModels(db, providerId)
             // Сразу пересчитать пулы/квоты, чтобы Codex появился на экране ресурсов.
             runCatching { com.aigate.router.quota.QuotaRepository.refreshAll(db) }
             providerId
         }
     }
 
-    /** Досеять модели Codex для уже подключённых провайдеров (вызывать на старте). */
-    suspend fun ensureCodexModels(db: AppDatabase) {
-        val codex = db.providerDao().getAllProvidersOnce().filter { it.type.equals("codex", true) }
-        for (p in codex) seedCodexModels(db, p.id)
+    /**
+     * Имя нового Codex-провайдера. Аккаунт подписываем e-mail из id_token, если он
+     * там есть, иначе нумеруем — чтобы в списке было видно, какой аккаунт какой.
+     */
+    private suspend fun codexAccountName(db: AppDatabase, session: ImportedSession): String {
+        val email = session.email
+        if (!email.isNullOrBlank()) return "${CodexAuth.DISPLAY_NAME} · $email"
+        val taken = db.providerDao().getAllProvidersOnce()
+            .count { it.type.equals(CodexAuth.PROVIDER_TYPE, true) }
+        return if (taken == 0) CodexAuth.DISPLAY_NAME else "${CodexAuth.DISPLAY_NAME} ${taken + 1}"
     }
 
-    /** Засеять известные модели Codex, если у провайдера их ещё нет. */
-    private suspend fun seedCodexModels(db: AppDatabase, providerId: Long) {
-        val dao = db.aiModelDao()
-        val existing = dao.getModelsByProvider(providerId).map { it.modelId }.toSet()
-        val toAdd = CodexAuth.MODELS.filter { it.first !in existing }.mapIndexed { i, (id, name) ->
-            com.aigate.router.data.model.AiModel(
-                providerId = providerId,
-                modelId = id,
-                displayName = name,
-                isDefault = i == 0,
-                syncStatus = "Synced",
-                isEnabled = true,
-                customAlias = "",
-                useProxy = false,
-                contextWindow = 128000
+    /** Обновить модели всех подключённых Codex-провайдеров (вызывать на старте). */
+    suspend fun ensureCodexModels(db: AppDatabase) {
+        val codex = db.providerDao().getAllProvidersOnce().filter { it.type.equals("codex", true) }
+        for (p in codex) runCatching { syncCodexModels(db, p.id) }
+    }
+
+    /**
+     * Синхронизировать модели Codex со СЕРВЕРОМ. Возвращает число моделей в списке
+     * или null, если сервер список не отдал (тогда прежние модели остаются).
+     */
+    suspend fun syncCodexModels(db: AppDatabase, providerId: Long): Int? {
+        val provider = db.providerDao().getProviderById(providerId) ?: return null
+        val token = CredentialStore.apiKeyForProvider(provider)?.takeIf { it.isNotBlank() } ?: return null
+        // Тариф подписки лежит в клеймах токена — заодно запоминаем его,
+        // чтобы показать в информации о провайдере и учесть в расходах.
+        CodexAccount.fromJwt(token)?.planType?.let { CodexAccount.savePlan(providerId, it) }
+        val accountId = CodexAccount.headerAccountId(
+            db.credentialDao().getByProvider(providerId)?.accountId,
+            token
+        )
+        val cacheKey = "codex_models_cache_$providerId"
+        val cached = runCatching {
+            JSONObject(
+                com.aigate.router.service.GatewayForegroundService.getGatewayConfig(cacheKey, "{}")
             )
+        }.getOrNull() ?: JSONObject()
+
+        val result = CodexModelsApi.fetch(
+            baseUrl = provider.resolvedBaseUrl.ifBlank { CodexAuth.DEFAULT_BASE_URL },
+            token = token,
+            accountId = accountId,
+            knownEtag = cached.optString("etag").takeIf { it.isNotBlank() },
+            knownEndpoint = cached.optString("endpoint").takeIf { it.isNotBlank() },
+        ) ?: return null
+
+        // 304: список у сервера не менялся — ничего не переписываем.
+        if (result.notModified) return db.aiModelDao().getModelsByProvider(providerId).size
+
+        applyRemoteModels(db, providerId, result.models)
+        com.aigate.router.service.GatewayForegroundService.saveGatewayConfig(
+            cacheKey,
+            JSONObject().apply {
+                put("etag", result.etag ?: "")
+                put("endpoint", result.endpoint)
+            }.toString()
+        )
+        return result.models.size
+    }
+
+    /**
+     * Привести локальный список моделей к серверному: добавить новые, обновить
+     * имена и контекст, выключить исчезнувшие. Исчезнувшие НЕ удаляем — на них
+     * могут ссылаться правила маршрутизации и история расхода.
+     */
+    private suspend fun applyRemoteModels(
+        db: AppDatabase,
+        providerId: Long,
+        remote: List<CodexModelsApi.RemoteModel>
+    ) {
+        if (remote.isEmpty()) return
+        val dao = db.aiModelDao()
+        val existing = dao.getModelsByProvider(providerId)
+        val bySlug = existing.associateBy { it.modelId }
+        val remoteSlugs = remote.map { it.slug }.toSet()
+
+        val toAdd = mutableListOf<com.aigate.router.data.model.AiModel>()
+        remote.forEachIndexed { index, m ->
+            val current = bySlug[m.slug]
+            if (current == null) {
+                toAdd += com.aigate.router.data.model.AiModel(
+                    providerId = providerId,
+                    modelId = m.slug,
+                    displayName = m.displayName,
+                    isDefault = index == 0 && existing.none { it.isDefault },
+                    syncStatus = "Synced",
+                    isEnabled = true,
+                    customAlias = "",
+                    useProxy = false,
+                    contextWindow = m.contextWindow ?: 128000
+                )
+            } else {
+                val updated = current.copy(
+                    displayName = m.displayName,
+                    contextWindow = m.contextWindow ?: current.contextWindow,
+                    syncStatus = "Synced",
+                    isEnabled = true
+                )
+                if (updated != current) dao.update(updated)
+            }
         }
         if (toAdd.isNotEmpty()) dao.insertAll(toAdd)
+
+        // Модель пропала из серверного списка — выключаем, но сохраняем.
+        existing.filter { it.modelId !in remoteSlugs && it.isEnabled }.forEach {
+            dao.update(it.copy(isEnabled = false, syncStatus = "Removed"))
+        }
     }
 
     /** Подключить сессию: вернуть providerId. Сессия сохраняется в Keystore и переживает рестарт. */
@@ -279,12 +373,23 @@ object CliSessionManager {
         session: ImportedSession,
         refreshTokenUrl: String? = null,
         clientId: String? = null,
-        clientSecret: String? = null
+        clientSecret: String? = null,
+        /**
+         * Идентификатор аккаунта. Если задан, провайдер ищется по нему: это
+         * позволяет держать НЕСКОЛЬКО аккаунтов одного типа (несколько Codex),
+         * при этом повторный вход в тот же аккаунт не создаёт дубль.
+         */
+        matchAccountId: String? = null
     ): Long {
         // 1) Provider (без секрета).
         val providerDao = db.providerDao()
-        val existing = providerDao.getAllProvidersOnce().firstOrNull {
-            it.name == name && it.type == providerType
+        val sameType = providerDao.getAllProvidersOnce().filter { it.type == providerType }
+        val existing = if (!matchAccountId.isNullOrBlank()) {
+            sameType.firstOrNull { p ->
+                db.credentialDao().getByProvider(p.id)?.accountId == matchAccountId
+            }
+        } else {
+            sameType.firstOrNull { it.name == name }
         }
         val providerId: Long = if (existing != null) {
             providerDao.update(existing.copy(baseUrl = baseUrl.trimEnd('/')))

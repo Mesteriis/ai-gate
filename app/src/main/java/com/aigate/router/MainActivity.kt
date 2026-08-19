@@ -21,7 +21,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
-import com.aigate.router.ui.screens.MainScreen
+import com.aigate.router.ui.navigation.AppNavHost
 import com.aigate.router.ui.theme.GatewayTheme
 import com.aigate.router.utils.localizedText
 
@@ -57,14 +57,15 @@ class MainActivity : AppCompatActivity() {
         setContent {
             GatewayTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    MainScreen()
+                    AppNavHost()
                 }
 
-                // ★★ 权限缺失弹窗 ★★
+                // Диалог о недостающих разрешениях: показываем ОДИН раз, а не при
+                // каждом запуске — иначе он перекрывает дашборд на старте.
                 if (showPermDialog) {
                     AlertDialog(
                         onDismissRequest = { showPermDialog = false },
-                        title = { Text("⚙️ Рекомендация") },
+                        title = { Text("Работа в фоне") },
                         text = { Text(permMessage) },
                         confirmButton = {
                             Button(onClick = {
@@ -133,13 +134,19 @@ class MainActivity : AppCompatActivity() {
                 .getBoolean("wake_enabled", false)
         }
         if (!wakeEnabled) {
-            missingPerms.add("🔌 Поддержание активности (включить в уведомлении)")
+            missingPerms.add("Поддержание активности (включить в уведомлении)")
         }
 
-        // 如果有缺失，生成提示消息
-        if (missingPerms.isNotEmpty()) {
-            permMessage = "Следующие функции не включены и могут повлиять на работу в фоне:\n\n• " + missingPerms.joinToString("\n• ") + "\n\nВключите их для стабильной работы шлюза."
+        // Подсказку о фоновых разрешениях показываем один раз за установку:
+        // повторный показ при каждом запуске только мешает.
+        val alreadyShown = com.aigate.router.service.GatewayForegroundService
+            .getGatewayConfig("perm_hint_shown", "false").toBoolean()
+        if (missingPerms.isNotEmpty() && !alreadyShown) {
+            permMessage = "Чтобы шлюз стабильно работал в фоне, включите:\n\n• " +
+                missingPerms.joinToString("\n• ")
             showPermDialog = true
+            com.aigate.router.service.GatewayForegroundService
+                .saveGatewayConfig("perm_hint_shown", "true")
         }
     }
 }

@@ -21,3 +21,16 @@ License at:
     http://www.apache.org/licenses/LICENSE-2.0
 
 See the LICENSE file for the full text.
+
+--------------------------------------------------------------------------------
+Third-party assets
+--------------------------------------------------------------------------------
+
+Provider logos in app/src/main/res/drawable/logo_*.xml are converted from
+Simple Icons (https://simpleicons.org), released under CC0 1.0 Universal:
+
+    https://creativecommons.org/publicdomain/zero/1.0/
+
+The marks themselves remain trademarks of their respective owners. They are used
+solely to identify the corresponding services inside the app, and neither the
+owners' endorsement nor any affiliation is implied.

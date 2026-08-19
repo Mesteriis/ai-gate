@@ -41,19 +41,49 @@ enum class QuotaSource {
 }
 
 /**
- * Тип пула ресурсов.
- *  - SUBSCRIPTION — подписочная квота (напр. Codex/Claude по подписке), обычно с reset.
- *  - API_BALANCE — денежный баланс API-ключа у провайдера.
- *  - LOCAL_BUDGET — локальный бюджет, заданный пользователем (не данные провайдера).
+ * Тип ресурса провайдера. Это ТРИ РАЗНЫЕ СУЩНОСТИ, и смешивать их под одним
+ * словом «квота» нельзя — ни в коде, ни в интерфейсе:
+ *
+ *  - [QUOTA] — периодическая квота подписки: расходуется и СБРАСЫВАЕТСЯ
+ *    (Codex, Claude по подписке). Осмысленны «осталось %», «сброс через …».
+ *  - [BALANCE] — денежный баланс, оплаченный заранее: уменьшается и сам НЕ
+ *    восстанавливается (DeepSeek и другие pay-as-you-go). Сброса нет,
+ *    проценты бессмысленны — показываем сумму остатка.
+ *  - [FREE] — бесплатный ресурс без лимита: локальные модели (Ollama,
+ *    встроенный в устройство ИИ). Ни остатка, ни сброса, ни стоимости;
+ *    показывать «нет данных о квоте» здесь неверно.
+ *  - [BUDGET] — не ресурс провайдера, а СОБСТВЕННЫЙ лимит пользователя
+ *    поверх любого из типов выше (самоконтроль расхода).
  */
-enum class ResourcePoolKind {
-    SUBSCRIPTION,
-    API_BALANCE,
-    LOCAL_BUDGET;
+enum class ResourcePoolKind(
+    /** Название типа в интерфейсе. */
+    val label: String,
+    /** Как называется остаток для этого типа. */
+    val remainingLabel: String,
+) {
+    QUOTA("Квота", "Осталось"),
+    BALANCE("Баланс", "На счету"),
+    FREE("Бесплатно", "Без лимита"),
+    BUDGET("Бюджет", "Осталось из лимита");
+
+    /** Сброс по расписанию бывает только у периодической квоты. */
+    val hasReset: Boolean get() = this == QUOTA
+
+    /** Доля «израсходовано/лимит» осмысленна не для всех типов. */
+    val hasFraction: Boolean get() = this == QUOTA || this == BUDGET
 
     companion object {
-        fun fromName(name: String?): ResourcePoolKind =
-            entries.firstOrNull { it.name.equals(name, ignoreCase = true) } ?: LOCAL_BUDGET
+        /**
+         * Разбор значения из БД. Понимает прежние имена (SUBSCRIPTION,
+         * API_BALANCE, LOCAL_BUDGET), чтобы уже сохранённые пулы не потерялись.
+         */
+        fun fromName(name: String?): ResourcePoolKind = when (name?.uppercase()) {
+            "QUOTA", "SUBSCRIPTION" -> QUOTA
+            "BALANCE", "API_BALANCE" -> BALANCE
+            "FREE", "FREE_LOCAL", "LOCAL" -> FREE
+            "BUDGET", "LOCAL_BUDGET" -> BUDGET
+            else -> BUDGET
+        }
     }
 }
 

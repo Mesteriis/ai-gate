@@ -53,7 +53,7 @@ class GatewayForegroundService : Service() {
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val immediateNotification = NotificationCompat.Builder(this, GatewayApplication.CHANNEL_ID)
-            .setContentTitle("ИИ Врата запускается…")
+            .setContentTitle("AiGate запускается…")
             .setContentText("Инициализация…")
             .setSmallIcon(android.R.drawable.ic_menu_share)
             .setContentIntent(immediatePi)
@@ -195,7 +195,7 @@ class GatewayForegroundService : Service() {
         }
 
         val title = buildString {
-            append(if (wakeEnabled) "ИИ Врата (защита от сна)" else "ИИ Врата")
+            append(if (wakeEnabled) "AiGate (защита от сна)" else "AiGate")
             if (nodeName.isNotBlank()) {
                 val light = if (hasTraffic && isActive) " 🟢" else if (hasTraffic) " ⚪" else ""
                 append(" ·$light $nodeName")
@@ -348,6 +348,13 @@ val trafficDownloadBytes = java.util.concurrent.atomic.AtomicLong(0L) // ★ 通
 val totalUploadBytes = java.util.concurrent.atomic.AtomicLong(0L)     // ★ APP内总统计（持久化不重置）
 val totalDownloadBytes = java.util.concurrent.atomic.AtomicLong(0L)   // ★ APP内总统计（持久化不重置）
         @Volatile var isServiceRunning: Boolean = false  // 由 start/stop 同步更新
+
+        /**
+         * Попытки подключиться к остановленному шлюзу. Считаются только при
+         * включённом «тихом приёмнике»: без открытого сокета узнать о попытке
+         * технически нельзя, и счётчик остаётся нулевым.
+         */
+        val blockedAttempts = java.util.concurrent.atomic.AtomicInteger(0)
 
         @Volatile var activeNodeName: String = ""
         @Volatile var lastUploadBytes: Long = 0L

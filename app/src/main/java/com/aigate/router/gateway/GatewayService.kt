@@ -83,6 +83,9 @@ class GatewayService(private val database: AppDatabase) {
      */
     fun start(port: Int = 8889) {
         if (server != null) return
+        // Тихий приёмник держал порт, пока шлюз стоял — освобождаем его.
+        QuietListener.stop()
+        GatewayForegroundService.blockedAttempts.set(0)
 
         // ★★★ 端口占用提前检测：启动前确认端口可用，避免 BindException 崩溃 ★★★
         if (!isPortAvailable(port)) {
@@ -784,6 +787,9 @@ class GatewayService(private val database: AppDatabase) {
             server?.stop(1000, 2000)
         } catch (_: Exception) { }
         server = null
+        // Если включён тихий приёмник, порт остаётся занят: так видно попытки
+        // подключения к остановленному шлюзу.
+        QuietListener.start(GatewayForegroundService.getGatewayPort())
     }
 
     val isRunning: Boolean get() = server != null
@@ -1651,18 +1657,30 @@ private suspend fun pipeNormalResponse(
         val upstreamPath = if (path.contains("chat/completions") || path.contains("completions")) {
             provider.chatPath?.let { if (it.startsWith("/")) it else "/$it" } ?: path
         } else path
-        val url = resolvedUrl + upstreamPath
+        // Codex говорит на Responses API: другой путь, другое тело, другие заголовки.
+        val isCodex = CodexUpstream.isCodex(provider)
+        val url = if (isCodex) CodexUpstream.responsesUrl(provider) else resolvedUrl + upstreamPath
         val pipeStartTime = System.currentTimeMillis()
 
         // OAuth pre-flight: обновить истекающий токен (single-flight) до чтения из кэша.
         com.aigate.router.auth.AuthRegistry.ensureFreshForProvider(database, provider)
 
-        val reqBody = rawBody.toRequestBody(DEFAULT_CT)
+        val outBytes = if (isCodex) {
+            CodexUpstream.translateRequest(rawBody.decodeToString()).toByteArray(Charsets.UTF_8)
+        } else rawBody
+        val reqBody = outBytes.toRequestBody(DEFAULT_CT)
         val request = okhttp3.Request.Builder()
             .url(url)
             .post(reqBody)
             .apply {
-                val k = CredentialStore.apiKeyForProvider(provider); if (!k.isNullOrBlank()) header("Authorization", "Bearer $k")
+                val k = CredentialStore.apiKeyForProvider(provider)
+                if (isCodex) {
+                    CodexUpstream.applyHeaders(
+                        this, k,
+                        com.aigate.router.auth.CodexAccount.headerAccountId(database.credentialDao().getByProvider(provider.id)?.accountId, CredentialStore.apiKeyForProvider(provider)),
+                        java.util.UUID.randomUUID().toString()
+                    )
+                } else if (!k.isNullOrBlank()) header("Authorization", "Bearer $k")
             }
             .build()
 
@@ -1687,9 +1705,24 @@ private suspend fun pipeNormalResponse(
             val response = executeWithRetry(httpClient, request)
             response.use { resp ->
                 respBytes = resp.body?.bytes() ?: byteArrayOf()
+                // Ответ Codex приходит в формате Responses — переводим в chat.completion
+                // до дальнейших проверок, иначе они увидят «пустые choices».
+                if (isCodex && resp.isSuccessful && respBytes.isNotEmpty()) {
+                    val raw = respBytes.decodeToString()
+                    val model = call.proxyModelId ?: "codex"
+                    // Codex отвечает только потоком, поэтому собираем его в
+                    // единый chat.completion; на случай JSON-ответа оставлен
+                    // прямой перевод.
+                    respBytes = if (raw.contains("data:")) {
+                        CodexUpstream.aggregateSseToCompletion(raw, model)
+                    } else {
+                        CodexUpstream.translateResponse(raw, model)
+                    }.toByteArray(Charsets.UTF_8)
+                }
                 GatewayForegroundService.trafficDownloadBytes.addAndGet(respBytes.size.toLong())
                 GatewayForegroundService.totalDownloadBytes.addAndGet(respBytes.size.toLong())
-                contentType = resp.header("Content-Type") ?: "application/json"
+                contentType = if (isCodex) "application/json"
+                    else resp.header("Content-Type") ?: "application/json"
                 statusCode = HttpStatusCode.fromValue(resp.code)
                 respCode = resp.code
 
@@ -1797,6 +1830,99 @@ private suspend fun pipeNormalResponse(
  * ★★ 核心修复：边读边写，不再全量缓冲，消除卡顿！
  * 读流在 IO 线程，写响应在 CIO 线程，互不阻塞
  */
+/**
+ * Перевод потока Codex (Responses API) в SSE формата OpenAI chat.
+ *
+ * Читаем построчно, каждое событие `data:` превращаем в ноль или несколько
+ * чанков `chat.completion.chunk`, в конце дописываем `[DONE]`. Расход токенов
+ * берём из события `response.completed`.
+ */
+private suspend fun pipeCodexStream(
+    call: ApplicationCall,
+    response: okhttp3.Response,
+    bodyStream: java.io.InputStream,
+    modelId: String,
+    providerId: Long,
+    database: AppDatabase,
+    apiKeyLabel: String?,
+    pipeStartTime: Long,
+) {
+    val streamId = "chatcmpl-${java.util.UUID.randomUUID().toString().take(12)}"
+    var promptTokens = 0
+    var completionTokens = 0
+    var totalTokens = 0
+    var sawText = false
+
+    call.respondBytesWriter(contentType = ContentType.Text.EventStream, status = HttpStatusCode.OK) {
+        val reader = bodyStream.bufferedReader(Charsets.UTF_8)
+        try {
+            while (true) {
+                val line = withContext(Dispatchers.IO) {
+                    try { reader.readLine() } catch (_: Exception) { null }
+                } ?: break
+                if (!line.startsWith("data:")) continue
+                val payload = line.removePrefix("data:").trim()
+                if (payload.isEmpty() || payload == "[DONE]") continue
+
+                for (chunk in CodexUpstream.translateStreamEvent(payload, modelId, streamId)) {
+                    val frame = "data: $chunk\n\n".toByteArray(Charsets.UTF_8)
+                    writeFully(frame)
+                    flush()
+                    GatewayForegroundService.trafficDownloadBytes.addAndGet(frame.size.toLong())
+                    GatewayForegroundService.totalDownloadBytes.addAndGet(frame.size.toLong())
+                    sawText = true
+                    // Расход берём из финального чанка.
+                    runCatching {
+                        val usage = org.json.JSONObject(chunk).optJSONObject("usage") ?: return@runCatching
+                        promptTokens = usage.optInt("prompt_tokens", promptTokens)
+                        completionTokens = usage.optInt("completion_tokens", completionTokens)
+                        totalTokens = usage.optInt("total_tokens", totalTokens)
+                    }
+                }
+            }
+
+            if (!sawText) {
+                val errorFrame = OpenAiStreamCompat.emptyStreamErrorFrame()
+                writeFully(errorFrame)
+                flush()
+            }
+            val done = OpenAiStreamCompat.doneFrame()
+            writeFully(done)
+            flush()
+            GatewayForegroundService.trafficDownloadBytes.addAndGet(done.size.toLong())
+            GatewayForegroundService.totalDownloadBytes.addAndGet(done.size.toLong())
+        } catch (e: Exception) {
+            if (GatewayForegroundService.getDebugMode()) {
+                GatewayForegroundService.addDebugLog("STREAM CODEX ERR: ${e.message?.take(80)}")
+            }
+        } finally {
+            withContext(Dispatchers.IO) {
+                try { reader.close(); bodyStream.close(); response.close() } catch (_: Exception) { }
+            }
+        }
+    }
+
+    if (totalTokens > 0) {
+        withContext(Dispatchers.IO) {
+            runCatching {
+                database.tokenUsageDao().insert(
+                    TokenUsage(
+                        providerId = providerId,
+                        modelId = modelId,
+                        promptTokens = promptTokens,
+                        completionTokens = completionTokens,
+                        totalTokens = totalTokens,
+                        apiKeyLabel = apiKeyLabel ?: ""
+                    )
+                )
+            }
+        }
+    }
+    if (sawText) {
+        GatewayScheduler.markModelSuccess(modelId, providerId, System.currentTimeMillis() - pipeStartTime)
+    }
+}
+
 private suspend fun pipeStreamResponse(
     call: ApplicationCall,
     provider: Provider,
@@ -1814,19 +1940,33 @@ private suspend fun pipeStreamResponse(
     val upstreamPath = if (path.contains("chat/completions") || path.contains("completions")) {
         provider.chatPath?.let { if (it.startsWith("/")) it else "/$it" } ?: path
     } else path
-    val url = resolvedUrl + upstreamPath
+    // Codex: Responses API вместо chat/completions.
+    val isCodex = CodexUpstream.isCodex(provider)
+    val url = if (isCodex) CodexUpstream.responsesUrl(provider) else resolvedUrl + upstreamPath
     val httpClient = if (useProxy) UpstreamClient.getOkHttpClient() else UpstreamClient.getDirectClient()
 
     // OAuth pre-flight: обновить истекающий токен (single-flight) до чтения из кэша.
     com.aigate.router.auth.AuthRegistry.ensureFreshForProvider(database, provider)
+    val codexAccountId =
+        if (isCodex) com.aigate.router.auth.CodexAccount.headerAccountId(database.credentialDao().getByProvider(provider.id)?.accountId, CredentialStore.apiKeyForProvider(provider)) else null
 
     // 在 IO 线程发起请求，拿到 response 对象（不读 body）
     val response = withContext(Dispatchers.IO) {
         try {
-            val reqBody = rawBody.toRequestBody(DEFAULT_CT)
+            val outBytes = if (isCodex) {
+                CodexUpstream.translateRequest(rawBody.decodeToString()).toByteArray(Charsets.UTF_8)
+            } else rawBody
+            val reqBody = outBytes.toRequestBody(DEFAULT_CT)
             val request = okhttp3.Request.Builder()
                 .url(url).post(reqBody)
-                .apply { val k = CredentialStore.apiKeyForProvider(provider); if (!k.isNullOrBlank()) header("Authorization", "Bearer $k") }
+                .apply {
+                    val k = CredentialStore.apiKeyForProvider(provider)
+                    if (isCodex) {
+                        CodexUpstream.applyHeaders(
+                            this, k, codexAccountId, java.util.UUID.randomUUID().toString()
+                        )
+                    } else if (!k.isNullOrBlank()) header("Authorization", "Bearer $k")
+                }
                 .build()
             val resp = executeWithRetry(httpClient, request)
             resp
@@ -1848,7 +1988,7 @@ private suspend fun pipeStreamResponse(
     // Some OpenAI-compatible upstreams ignore stream=true and return a normal
     // JSON chat.completion.  Passing that body through with application/json
     // leaves SSE-only clients (including Hermes Agent) waiting with no text.
-    if (path.contains("chat/completions") && !OpenAiStreamCompat.isEventStream(ct)) {
+    if (!isCodex && path.contains("chat/completions") && !OpenAiStreamCompat.isEventStream(ct)) {
         val responseBytes = withContext(Dispatchers.IO) {
             response.use { it.body?.bytes() ?: byteArrayOf() }
         }
@@ -1873,6 +2013,22 @@ private suspend fun pipeStreamResponse(
     val bodyStream = response.body?.byteStream() ?: run {
         response.close()
         throw Exception("Upstream stream ${response.code}: empty response body")
+    }
+
+    // Codex отдаёт события Responses API — переводим их в чанки chat.completion
+    // построчно, чтобы клиент получал текст по мере генерации.
+    if (isCodex) {
+        pipeCodexStream(
+            call = call,
+            response = response,
+            bodyStream = bodyStream,
+            modelId = modelId,
+            providerId = providerId,
+            database = database,
+            apiKeyLabel = call.apiKeyLabel,
+            pipeStartTime = pipeStartTime,
+        )
+        return
     }
 
     // 2. 在 CIO 线程上启动流式写，从 IO 流读取并逐块转发

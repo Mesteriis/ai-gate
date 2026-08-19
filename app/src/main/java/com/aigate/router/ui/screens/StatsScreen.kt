@@ -1,1082 +1,577 @@
 package com.aigate.router.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.Hub
+import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.VpnKey
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.clickable
-import com.aigate.router.data.model.TokenUsage
+import com.aigate.router.GatewayApplication
 import com.aigate.router.data.model.SpeedHistory
-import com.aigate.router.data.model.ApiKeyUsageRow
-import com.aigate.router.data.model.routeKey
 import com.aigate.router.service.GatewayForegroundService
-import com.aigate.router.ui.theme.Error
-import com.aigate.router.ui.theme.Online
-import com.aigate.router.ui.theme.Warning
+import com.aigate.router.ui.design.AppCard
+import com.aigate.router.ui.design.CardTone
+import com.aigate.router.ui.design.ConfirmDialog
+import com.aigate.router.ui.design.EmptyState
+import com.aigate.router.ui.design.Fmt
+import com.aigate.router.ui.design.Gateway
+import com.aigate.router.ui.design.MetricTile
+import com.aigate.router.ui.design.SectionHeader
+import com.aigate.router.ui.design.StatusChip
+import com.aigate.router.ui.design.StatusTone
+import com.aigate.router.ui.design.charts.BarDatum
+import com.aigate.router.ui.design.charts.ChartLegend
+import com.aigate.router.ui.design.charts.ChartPoint
+import com.aigate.router.ui.design.charts.DonutChart
+import com.aigate.router.ui.design.charts.HorizontalBarChart
+import com.aigate.router.ui.design.charts.LineChart
+import com.aigate.router.ui.design.charts.LineSeries
+import com.aigate.router.ui.design.charts.StackSegment
+import com.aigate.router.ui.design.charts.StackedBar100
+import com.aigate.router.ui.design.charts.StackedBarChart
+import com.aigate.router.ui.design.charts.StackedColumn
+import com.aigate.router.ui.util.rememberTicker
 import com.aigate.router.ui.viewmodel.GatewayViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import com.aigate.router.utils.localizedText
-import com.aigate.router.utils.localizeRuntimeText
-import kotlinx.coroutines.delay
+import com.aigate.router.usage.UsageHistory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.withContext
 
 /**
- * 用量统计屏幕 —— Token消耗监控面板
- * 对标 One-API 的额度统计功能
+ * Тонкая обёртка над сегментом «Графики»: раздел «Статистика» из настроек
+ * показывает тот же контент, что и таб «Активность».
  */
 @Composable
-fun StatsScreen(viewModel: GatewayViewModel) {
-    val languageTick = com.aigate.router.utils.TranslationManager.currentLanguageFlow.collectAsState().value
+fun StatsScreen(viewModel: GatewayViewModel, modifier: Modifier = Modifier) {
+    StatsSegment(viewModel = viewModel, modifier = modifier.fillMaxSize())
+}
+
+/** Что именно очищаем — один диалог на оба необратимых действия. */
+private enum class ClearTarget { Usage, Traffic }
+
+/**
+ * Сегмент «Графики»: расход токенов и трафик в виде дашборда. Раньше здесь были
+ * списки карточек и два несравнимых прогресс-бара; теперь — доли, тренды и
+ * рейтинги на общих чартах дизайн-системы.
+ */
+@Composable
+internal fun StatsSegment(viewModel: GatewayViewModel, modifier: Modifier = Modifier) {
+    val db = remember { GatewayApplication.getInstance().database }
     val allTokenUsage by viewModel.allTokenUsage.collectAsState()
     val totalPromptTokens by viewModel.totalPromptTokens.collectAsState()
     val totalCompletionTokens by viewModel.totalCompletionTokens.collectAsState()
     val totalTokensAll by viewModel.totalTokensAll.collectAsState()
     val providers by viewModel.providers.collectAsState()
-    val snackbarMessage by viewModel.snackbarMessage.collectAsState()
-// 网关流量统计
-    val gwUpload = com.aigate.router.service.GatewayForegroundService.trafficUploadBytes.get()
-    val gwDownload = com.aigate.router.service.GatewayForegroundService.trafficDownloadBytes.get()
-    val gwTotalUpload = com.aigate.router.service.GatewayForegroundService.totalUploadBytes.get()
-    val gwTotalDownload = com.aigate.router.service.GatewayForegroundService.totalDownloadBytes.get()
-    // 当前活跃模型（轮询方式）
-    var activeModel by remember { mutableStateOf("") }
-    LaunchedEffect(Unit) {
-        while (true) {
-            activeModel = com.aigate.router.service.GatewayForegroundService.activeNodeName
-            delay(2000)
+    val apiKeyUsageRows by viewModel.apiKeyUsageRows.collectAsState()
+
+    // Счётчики трафика — AtomicLong, не реактивны: читаем по тику.
+    val ticker by rememberTicker(2_000L)
+    val slowTick = ticker / 15
+    val uploadBytes = remember(ticker) { GatewayForegroundService.totalUploadBytes.get() }
+    val downloadBytes = remember(ticker) { GatewayForegroundService.totalDownloadBytes.get() }
+
+    LaunchedEffect(slowTick) {
+        viewModel.refreshTokenStats()
+        viewModel.loadApiKeyUsage()
+    }
+
+    // Тяжёлые агрегаты считаем в IO и пересчитываем раз в ~30 секунд.
+    val daily by produceState(initialValue = emptyList<UsageHistory.DayUsage>(), slowTick) {
+        value = withContext(Dispatchers.IO) { UsageHistory.daily(db, days = 14) }
+    }
+    val providerShares by produceState(initialValue = emptyList<BarDatum>(), providers, slowTick) {
+        value = withContext(Dispatchers.IO) {
+            providers
+                .mapIndexed { index, provider ->
+                    BarDatum(
+                        label = provider.name,
+                        value = viewModel.getTotalTokensByProvider(provider.id).toFloat(),
+                        colorIndex = index,
+                    )
+                }
+                .filter { it.value > 0f }
+                .sortedByDescending { it.value }
         }
     }
 
-    val snackbarHostState = remember { SnackbarHostState() }
+    val modelBars = remember(allTokenUsage) {
+        allTokenUsage
+            .groupBy { it.modelId }
+            .map { (modelId, rows) -> BarDatum(modelId, rows.sumOf { it.totalTokens }.toFloat()) }
+            .filter { it.value > 0f }
+    }
+    val apiKeyBars = remember(apiKeyUsageRows) {
+        apiKeyUsageRows
+            .map { BarDatum(it.apiKeyLabel.ifBlank { "Без ключа" }, it.total.toFloat()) }
+            .filter { it.value > 0f }
+    }
 
-    // 处理 Snackbar
-    LaunchedEffect(snackbarMessage) {
-        snackbarMessage?.let {
-            snackbarHostState.showSnackbar(localizeRuntimeText(it))
-            viewModel.clearSnackbar()
+    var pendingClear by remember { mutableStateOf<ClearTarget?>(null) }
+
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = Gateway.spacing.lg)
+            .padding(bottom = Gateway.spacing.xxl),
+        verticalArrangement = Arrangement.spacedBy(Gateway.spacing.md),
+    ) {
+        // ==================== KPI ====================
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Gateway.spacing.md),
+        ) {
+            MetricTile(
+                label = "Токены",
+                value = Fmt.compact(totalTokensAll),
+                unit = "всего",
+                modifier = Modifier.weight(1f),
+                below = {
+                    StatLine("вызовов", allTokenUsage.size.toString())
+                    StatLine(
+                        label = "в среднем",
+                        value = Fmt.compact(
+                            if (allTokenUsage.isEmpty()) 0L
+                            else totalTokensAll / allTokenUsage.size,
+                        ),
+                    )
+                },
+            )
+            MetricTile(
+                label = "Трафик",
+                value = Fmt.bytes(uploadBytes + downloadBytes),
+                modifier = Modifier.weight(1f),
+                below = {
+                    TrafficLine(Icons.Outlined.ArrowUpward, Fmt.bytes(uploadBytes))
+                    TrafficLine(Icons.Outlined.ArrowDownward, Fmt.bytes(downloadBytes))
+                },
+            )
+        }
+
+        // ==================== Структура расхода ====================
+        SectionHeader("Структура расхода")
+        AppCard(tone = CardTone.Raised) {
+            if (totalTokensAll > 0) {
+                StackedBar100(
+                    segments = listOf(
+                        StackSegment(totalPromptTokens.toFloat(), 0),
+                        StackSegment(totalCompletionTokens.toFloat(), 1),
+                    ),
+                )
+                Spacer(Modifier.height(Gateway.spacing.md))
+                ChartLegend(
+                    data = listOf(
+                        BarDatum("Входные токены", totalPromptTokens.toFloat(), 0),
+                        BarDatum("Выходные токены", totalCompletionTokens.toFloat(), 1),
+                    ),
+                    valueLabel = { Fmt.compact(it.toLong()) },
+                )
+            } else {
+                EmptyState(Icons.Outlined.BarChart, "Расхода токенов пока нет")
+            }
+        }
+
+        // ==================== Расход по дням ====================
+        SectionHeader("Расход по дням")
+        AppCard {
+            val dayColumns = daily.map { day ->
+                StackedColumn(
+                    label = Fmt.day(day.dayStartMs),
+                    segments = listOf(
+                        StackSegment(day.promptTokens.toFloat(), 0),
+                        StackSegment(day.completionTokens.toFloat(), 1),
+                    ),
+                )
+            }
+            val hasDays = daily.any { it.promptTokens + it.completionTokens > 0 }
+            if (hasDays) {
+                StackedBarChart(
+                    columns = dayColumns,
+                    height = 190.dp,
+                    valueLabel = { Fmt.compact(it.toLong()) },
+                    xLabelEvery = 3,
+                )
+                Spacer(Modifier.height(Gateway.spacing.md))
+                ChartLegend(
+                    data = listOf(
+                        BarDatum("Входные", daily.sumOf { it.promptTokens }.toFloat(), 0),
+                        BarDatum("Выходные", daily.sumOf { it.completionTokens }.toFloat(), 1),
+                    ),
+                    valueLabel = { Fmt.compact(it.toLong()) },
+                )
+            } else {
+                EmptyState(Icons.Outlined.BarChart, "За две недели расхода не было")
+            }
+        }
+
+        // ==================== Доли провайдеров ====================
+        SectionHeader("Доли провайдеров")
+        AppCard {
+            if (providerShares.isEmpty()) {
+                EmptyState(Icons.Outlined.Hub, "Расход по провайдерам не записан")
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    DonutChart(
+                        data = providerShares,
+                        diameter = 124.dp,
+                        centerPrimary = Fmt.compact(providerShares.sumOf { it.value.toLong() }),
+                        centerSecondary = "токенов",
+                    )
+                    Spacer(Modifier.width(Gateway.spacing.md))
+                    ChartLegend(
+                        data = providerShares,
+                        modifier = Modifier.weight(1f),
+                        valueLabel = { Fmt.compact(it.toLong()) },
+                    )
+                }
+            }
+        }
+
+        // ==================== Топ моделей ====================
+        SectionHeader("Топ моделей")
+        AppCard {
+            if (modelBars.isEmpty()) {
+                EmptyState(Icons.Outlined.BarChart, "Расход по моделям не записан")
+            } else {
+                HorizontalBarChart(
+                    data = modelBars,
+                    valueLabel = { Fmt.compact(it.toLong()) },
+                    maxBars = 10,
+                )
+            }
+        }
+
+        // ==================== Тренд скорости ====================
+        SpeedTrendSection(viewModel = viewModel)
+
+        // ==================== Расход по API-ключам ====================
+        SectionHeader("Расход по API-ключам")
+        AppCard {
+            if (apiKeyBars.isEmpty()) {
+                EmptyState(Icons.Outlined.VpnKey, "Запросов с API-ключом не было")
+            } else {
+                HorizontalBarChart(
+                    data = apiKeyBars,
+                    valueLabel = { Fmt.compact(it.toLong()) },
+                    maxBars = 10,
+                )
+            }
+        }
+
+        // ==================== Последние вызовы ====================
+        if (allTokenUsage.isNotEmpty()) {
+            SectionHeader("Последние вызовы")
+            AppCard {
+                val providerNames = remember(providers) { providers.associate { it.id to it.name } }
+                allTokenUsage.take(6).forEachIndexed { index, usage ->
+                    if (index > 0) {
+                        HorizontalDivider(Modifier.padding(vertical = Gateway.spacing.sm))
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                text = usage.modelId,
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = "${providerNames[usage.providerId] ?: "—"} · " +
+                                    Fmt.dateTime(usage.timestamp),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        Spacer(Modifier.width(Gateway.spacing.sm))
+                        Text(
+                            text = Fmt.compact(usage.totalTokens.toLong()),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+        }
+
+        // ==================== Очистка ====================
+        SectionHeader("Очистка данных")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Gateway.spacing.md),
+        ) {
+            ClearButton(
+                text = "Расход",
+                modifier = Modifier.weight(1f),
+                onClick = { pendingClear = ClearTarget.Usage },
+            )
+            ClearButton(
+                text = "Трафик",
+                modifier = Modifier.weight(1f),
+                onClick = { pendingClear = ClearTarget.Traffic },
+            )
         }
     }
 
-    // ★★ 测速历史趋势图 ★★
+    pendingClear?.let { target ->
+        ConfirmDialog(
+            title = when (target) {
+                ClearTarget.Usage -> "Очистить расход"
+                ClearTarget.Traffic -> "Очистить трафик"
+            },
+            message = when (target) {
+                ClearTarget.Usage ->
+                    "Все записи о расходе токенов будут удалены. Действие необратимо."
+                ClearTarget.Traffic ->
+                    "Счётчики отправленных и полученных байт будут обнулены. Действие необратимо."
+            },
+            confirmText = "Очистить",
+            onConfirm = {
+                when (target) {
+                    ClearTarget.Usage -> viewModel.clearAllUsage()
+                    ClearTarget.Traffic -> {
+                        GatewayForegroundService.clearTotalTraffic()
+                        viewModel.refreshTokenStats()
+                    }
+                }
+            },
+            onDismiss = { pendingClear = null },
+        )
+    }
+}
+
+/**
+ * Тренд скорости: линейный график с осями и подписями (прежний график рисовал
+ * подписи «в никуда»), выбор модели чипами вместо модального списка.
+ */
+@Composable
+private fun SpeedTrendSection(viewModel: GatewayViewModel) {
     val latestSpeedHistory by viewModel.latestSpeedHistory.collectAsState()
     val selectedModelHistory by viewModel.selectedModelHistory.collectAsState()
     val selectedHistoryModelKey by viewModel.selectedHistoryModelKey.collectAsState()
-    // 模型选择器状态
-    var showModelSelector by remember { mutableStateOf(false) }
-    val enabledModels by viewModel.enabledModels.collectAsState()
-    // 图表类型切换：0=TTFT, 1=TPS, 2=总耗时
-    var chartMetricIndex by remember { mutableIntStateOf(0) }
-    val chartMetrics = listOf(
-        "TTFT (мс)",
-        "TPS",
-        "Всего (мс)"
+
+    // Живая история выбранной модели; пока Flow не отдал первое значение,
+    // показываем то, что уже загрузил loadModelHistory().
+    val liveHistory by remember(selectedHistoryModelKey) {
+        selectedHistoryModelKey
+            ?.let { viewModel.speedHistoryDao.getHistoryByModel(it, 60) }
+            ?: flowOf(emptyList())
+    }.collectAsState(initial = emptyList())
+
+    var metricIndex by remember { mutableIntStateOf(0) }
+    val metrics = listOf("TTFT", "TPS", "Всего")
+
+    val rawHistory: List<SpeedHistory> = when {
+        selectedHistoryModelKey == null -> latestSpeedHistory
+        liveHistory.isNotEmpty() -> liveHistory
+        else -> selectedModelHistory
+    }
+    val points = rawHistory.filter { it.success }.sortedBy { it.measuredAt }
+    val failed = rawHistory.count { !it.success }
+
+    SectionHeader(
+        title = "Тренд скорости",
+        action = if (failed > 0) {
+            { StatusChip(text = "$failed неудачных", tone = StatusTone.Warning) }
+        } else {
+            null
+        },
     )
 
-    // ★★ 按API密钥分组的用量统计 ★★
-    val apiKeyUsageRows by viewModel.apiKeyUsageRows.collectAsState()
-    LaunchedEffect(Unit) { viewModel.loadApiKeyUsage() }
-
-    // 按服务商/模型分组的用量汇总
-    val statsByProvider = remember(allTokenUsage, providers, languageTick) {
-        val providerMap = providers.associateBy { it.id }
-        allTokenUsage
-            .groupBy { it.providerId }
-            .mapValues { (providerId, usages) ->
-                val providerName = providerMap[providerId]?.name ?: "Неизвестно (ID:" + providerId + ")"
-                val totalPrompt = usages.sumOf { it.promptTokens }
-                val totalCompletion = usages.sumOf { it.completionTokens }
-                val total = usages.sumOf { it.totalTokens }
-                val count = usages.size
-                ProviderTokenSummary(providerName, totalPrompt, totalCompletion, total, count)
-            }
-            .entries
-            .sortedByDescending { it.value.totalTokens }
-    }
-
-    // 按模型分组的用量
-    val statsByModel = remember(allTokenUsage) {
-        allTokenUsage
-            .groupBy { it.modelId }
-            .mapValues { (_, usages) ->
-                val total = usages.sumOf { it.totalTokens }
-                val count = usages.size
-                total to count
-            }
-            .entries
-            .sortedByDescending { it.value.first }
-    }
-
-    var showClearConfirm by remember { mutableStateOf(false) }
-
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
-        LazyColumn(
+    AppCard {
+        // Выбор модели — плоский ряд чипов вместо модального диалога.
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(vertical = 16.dp)
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(Gateway.spacing.sm),
         ) {
-            // ==================== 总览卡片 ====================
-            item {
-                Text(
-                    text = "📊 Обзор расхода токенов",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "Общий расход",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = formatTokenCount(totalTokensAll),
-                            style = MaterialTheme.typography.displaySmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "tokens",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-            }
-
-            // ==================== 测速历史趋势图 ====================
-            item {
-                SpeedTrendChartCard(
-                    viewModel = viewModel,
-                    latestSpeedHistory = latestSpeedHistory,
-                    selectedModelHistory = selectedModelHistory,
-                    selectedHistoryModelKey = selectedHistoryModelKey,
-                    enabledModels = enabledModels,
-                    chartMetricIndex = chartMetricIndex,
-                    chartMetrics = chartMetrics,
-                    onChartMetricChange = { chartMetricIndex = it },
-                    onShowModelSelector = { showModelSelector = true }
-                )
-            }
-
-            // ==================== 网关流量卡片 ====================
-            item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("🌐 Статистика трафика шлюза", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(8.dp))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("⬆ Отправлено", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(formatBytes(gwUpload), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("⬇ Получено", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(formatBytes(gwDownload), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                        }
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("📈 Всего отправлено", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(formatBytes(gwTotalUpload), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("📈 Всего получено", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(formatBytes(gwTotalDownload), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                        }
-                        if (activeModel.isNotBlank()) {
-                            Spacer(Modifier.height(4.dp))
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("🧠 Текущая модель", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(activeModel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ==================== 明细统计卡片 ====================
-            item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Подробная статистика",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        StatRow("Входные токены (prompt)", formatTokenCount(totalPromptTokens), Online)
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        StatRow("Выходные токены (completion)", formatTokenCount(totalCompletionTokens), MaterialTheme.colorScheme.primary)
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        StatRow("Количество вызовов API", "${allTokenUsage.size}", MaterialTheme.colorScheme.onSurface)
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        StatRow("В среднем за вызов", formatAverage(totalTokensAll, allTokenUsage.size), Warning)
-                    }
-                }
-            }
-
-            // ==================== 按服务商统计 ====================
-            if (statsByProvider.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "🏢 По провайдерам",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-
-                statsByProvider.forEach { (_, summary) ->
-                    item {
-                        ProviderStatCard(summary = summary)
-                    }
-                }
-            }
-
-            // ==================== 按API密钥统计 ====================
-            if (apiKeyUsageRows.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "🔑 По API-ключам",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-
-                apiKeyUsageRows.forEach { row ->
-                    item {
-                        ApiKeyStatCard(row = row)
-                    }
-                }
-            }
-
-            // ==================== 按模型统计 ====================
-            if (statsByModel.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "🤖 По моделям (Топ-10)",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-
-                statsByModel.take(10).forEach { (modelId, stats) ->
-                    item {
-                        ModelStatCard(
-                            modelId = modelId,
-                            totalTokens = stats.first,
-                            callCount = stats.second
-                        )
-                    }
-                }
-            }
-
-            // ==================== 最近记录 ====================
-            if (allTokenUsage.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "📋 Последние записи расхода",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-
-                items(allTokenUsage.take(20), key = { it.id }) { usage ->
-                    UsageRecordCard(
-                        usage = usage,
-                        providerName = providers.firstOrNull { it.id == usage.providerId }?.name
-                            ?: "Неизвестно"
-                    )
-                }
-            } else {
-                // 空状态
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("📊", fontSize = 48.sp)
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = "Пока нет данных о расходе",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Расход токенов записывается автоматически после отправки сообщений",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                }
-            }
-
-            // ==================== 操作按钮 ====================
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = { viewModel.refreshTokenStats() },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            Icons.Default.Refresh,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Обновить")
-                    }
-                    Button(
-                        onClick = { showClearConfirm = true },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Error
-                        )
-                    ) {
-                        Icon(
-                            Icons.Default.DeleteSweep,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Очистить данные")
-                    }
-                    // ★★ 新增：清除总流量统计按钮 ★★
-                    OutlinedButton(
-                        onClick = {
-                            com.aigate.router.service.GatewayForegroundService.clearTotalTraffic()
-                            viewModel.refreshTokenStats()
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Error
-                        )
-                    ) {
-                        Icon(
-                            Icons.Default.DeleteSweep,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Очистить трафик")
-                    }
-                }
-                Spacer(modifier = Modifier.height(80.dp))
-            }
-        }
-    }
-
-    // ==================== 清除确认对话框 ====================
-    if (showClearConfirm) {
-        AlertDialog(
-            onDismissRequest = { showClearConfirm = false },
-            title = {
-                Text("Подтвердить очистку", fontWeight = FontWeight.Bold)
-            },
-            text = {
-                Text("Будут удалены все записи расхода токенов. Действие необратимо. Продолжить?")
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.clearAllUsage()
-                        showClearConfirm = false
+            FilterChip(
+                selected = selectedHistoryModelKey == null,
+                onClick = { viewModel.loadModelHistory("") },
+                label = { Text("Все модели") },
+            )
+            latestSpeedHistory.forEach { entry ->
+                FilterChip(
+                    selected = selectedHistoryModelKey == entry.modelKey,
+                    onClick = { viewModel.loadModelHistory(entry.modelKey) },
+                    label = {
+                        Text(entry.modelName, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Error)
-                ) {
-                    Text("Подтвердить очистку")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearConfirm = false }) {
-                    Text("Отмена")
-                }
-            }
-        )
-    }
-    // ==================== 模型选择器对话框 ====================
-    if (showModelSelector) {
-        AlertDialog(
-            onDismissRequest = { showModelSelector = false },
-            title = { Text("Выберите модель для графика", fontWeight = FontWeight.Bold) },
-            text = {
-                LazyColumn {
-                    // "所有模型"选项
-                    item {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                viewModel.loadModelHistory("")
-                                showModelSelector = false
-                            },
-                            color = if (selectedHistoryModelKey == null)
-                                MaterialTheme.colorScheme.primaryContainer
-                            else MaterialTheme.colorScheme.surface
-                        ) {
-                            Text(
-                                text = "📊 Все модели",
-                                modifier = Modifier.padding(12.dp),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                    items(enabledModels) { model ->
-                        Surface(
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                viewModel.loadModelHistory(model.routeKey)
-                                showModelSelector = false
-                            },
-                            color = if (selectedHistoryModelKey == model.routeKey)
-                                MaterialTheme.colorScheme.primaryContainer
-                            else MaterialTheme.colorScheme.surface
-                        ) {
-                            Text(
-                                text = "P${model.providerId}·${model.modelId}",
-                                modifier = Modifier.padding(12.dp),
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showModelSelector = false }) {
-                    Text("Отмена")
-                }
-            }
-        )
-    }
-}
-
-// ============================================================
-// 测速历史趋势图卡片
-// ============================================================
-@Composable
-private fun SpeedTrendChartCard(
-    viewModel: GatewayViewModel,
-    latestSpeedHistory: List<SpeedHistory>,
-    selectedModelHistory: List<SpeedHistory>,
-    selectedHistoryModelKey: String?,
-    enabledModels: List<com.aigate.router.data.model.AiModel>,
-    chartMetricIndex: Int,
-    chartMetrics: List<String>,
-    onChartMetricChange: (Int) -> Unit,
-    onShowModelSelector: () -> Unit
-) {
-    val history = if (selectedHistoryModelKey != null) selectedModelHistory else latestSpeedHistory
-    val hasData = history.isNotEmpty()
-
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "📈 Тренд задержки моделей",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
-                // 选择模型按钮
-                TextButton(onClick = onShowModelSelector) {
-                    val selectedName = if (selectedHistoryModelKey != null) {
-                        enabledModels.firstOrNull { it.routeKey == selectedHistoryModelKey }
-                            ?.let { "P${it.providerId}·${it.modelId}" } ?: selectedHistoryModelKey
-                    } else {
-                        "Все модели"
-                    }
-                    Text(selectedName, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-
-            // 指标切换按钮组
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                chartMetrics.forEachIndexed { index, label ->
-                    FilterChip(
-                        selected = chartMetricIndex == index,
-                        onClick = { onChartMetricChange(index) },
-                        label = { Text(label, style = MaterialTheme.typography.labelSmall) }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            if (hasData) {
-                // Canvas 折线图
-                val lineColor = when (chartMetricIndex) {
-                    0 -> Color(0xFFFF6B35)  // TTFT - 橙色
-                    1 -> Color(0xFF2196F3)  // TPS - 蓝色
-                    else -> Color(0xFF4CAF50) // 总耗时 - 绿色
-                }
-
-                // 获取指标值
-                val values = history.map { h ->
-                    when (chartMetricIndex) {
-                        0 -> h.ttftMs.toFloat()
-                        1 -> h.tps.toFloat()
-                        else -> h.totalMs.toFloat()
-                    }
-                }
-                val maxVal = values.maxOrNull()?.coerceAtLeast(1f) ?: 1f
-                val minVal = values.minOrNull()?.coerceAtMost(maxVal - 1f) ?: 0f
-                val range = (maxVal - minVal).coerceAtLeast(1f)
-
-                // 时间标签
-                val timeLabels = history.map { h ->
-                    val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
-                    sdf.format(java.util.Date(h.measuredAt))
-                }
-
-                Card(
-                    modifier = Modifier.fillMaxWidth().height(200.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                    )
-                ) {
-                    Canvas(
-                        modifier = Modifier.fillMaxSize().padding(8.dp)
-                    ) {
-                        val w = size.width
-                        val h = size.height
-                        if (values.size < 2) {
-                            // 数据点太少，画一条水平线
-                            drawLine(
-                                color = lineColor,
-                                start = Offset(0f, h / 2),
-                                end = Offset(w, h / 2),
-                                strokeWidth = 2f
-                            )
-                            return@Canvas
-                        }
-                        val step = w / (values.size - 1).coerceAtLeast(1)
-
-                        // 绘制网格线（3条水平参考线）
-                        val gridColor = Color.Gray.copy(alpha = 0.2f)
-                        for (i in 0..3) {
-                            val y = h * i / 3
-                            drawLine(gridColor, Offset(0f, y), Offset(w, y), strokeWidth = 1f)
-                        }
-
-                        // 绘制折线路径
-                        val path = Path()
-                        values.forEachIndexed { i, v ->
-                            val x = i * step
-                            val y = h - ((v - minVal) / range) * (h - 16f) - 8f
-                            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                        }
-
-                        drawPath(
-                            path,
-                            color = lineColor,
-                            style = Stroke(
-                                width = 2.5f,
-                                cap = StrokeCap.Round,
-                                join = StrokeJoin.Round
-                            )
-                        )
-
-                        // 绘制数据点
-                        values.forEachIndexed { i, v ->
-                            val x = i * step
-                            val y = h - ((v - minVal) / range) * (h - 16f) - 8f
-                            drawCircle(lineColor, radius = 3f, center = Offset(x, y))
-                        }
-                    }
-                }
-
-                // 统计摘要
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    val metricValues = history.map { h ->
-                        when (chartMetricIndex) {
-                            0 -> h.ttftMs.toDouble()
-                            1 -> h.tps
-                            else -> h.totalMs.toDouble()
-                        }
-                    }
-                    val avg = metricValues.average()
-                    val last = metricValues.lastOrNull() ?: 0.0
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Последнее", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        val lastStr = if (chartMetricIndex == 1) "%.1f".format(last) else "%.0f".format(last)
-                        Text(lastStr, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = lineColor)
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Среднее", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        val avgStr = if (chartMetricIndex == 1) "%.1f".format(avg) else "%.0f".format(avg)
-                        Text(avgStr, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Точки", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("${history.size}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                    }
-                }
-            } else {
-                // 空状态
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(120.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Пока нет данных о скорости\nЗапустите тест скорости для построения графика",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-        }
-    }
-}
-// ============================================================
-// 服务商用量汇总卡片
-// ============================================================
-@Composable
-private fun ProviderStatCard(summary: ProviderTokenSummary) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "🔌",
-                    fontSize = 20.sp
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = summary.providerName,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = summary.callCount.toString() + " вызовов",
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 进度条
-            val maxTokens = summary.totalTokens.coerceAtLeast(1)
-            val promptRatio = summary.promptTokens.toFloat() / maxTokens
-            val completionRatio = summary.completionTokens.toFloat() / maxTokens
-
-            // Prompt 条
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "Prompt",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Online,
-                    modifier = Modifier.width(56.dp)
-                )
-                LinearProgressIndicator(
-                    progress = { promptRatio.coerceIn(0f, 1f) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(8.dp),
-                    color = Online,
-                    trackColor = Online.copy(alpha = 0.12f),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = formatTokenCount(summary.promptTokens.toLong()),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Online
-                )
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Completion 条
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "Completion",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.width(56.dp)
-                )
-                LinearProgressIndicator(
-                    progress = { completionRatio.coerceIn(0f, 1f) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(8.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = formatTokenCount(summary.completionTokens.toLong()),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-            HorizontalDivider()
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Общий расход",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = formatTokenCount(summary.totalTokens.toLong()),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }
-    }
-}
 
-// ============================================================
-// 模型用量卡片
-// ============================================================
-@Composable
-private fun ModelStatCard(
-    modelId: String,
-    totalTokens: Int,
-    callCount: Int
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    ) {
+        Spacer(Modifier.height(Gateway.spacing.sm))
+
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Gateway.spacing.sm),
         ) {
-            Text("🤖", fontSize = 18.sp)
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = modelId,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = callCount.toString() + " вызовов",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            metrics.forEachIndexed { index, label ->
+                FilterChip(
+                    selected = metricIndex == index,
+                    onClick = { metricIndex = index },
+                    label = { Text(label) },
                 )
             }
-            Text(
-                text = formatTokenCount(totalTokens.toLong()),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
         }
-    }
-}
 
-// ============================================================
-// 单条用量记录卡片
-// ============================================================
-@Composable
-private fun UsageRecordCard(
-    usage: TokenUsage,
-    providerName: String
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        Spacer(Modifier.height(Gateway.spacing.md))
+
+        if (points.isEmpty()) {
+            EmptyState(Icons.Outlined.Speed, "Замеров скорости пока нет")
+            return@AppCard
+        }
+
+        val metricValue: (SpeedHistory) -> Float = { history ->
+            when (metricIndex) {
+                0 -> history.ttftMs.toFloat()
+                1 -> history.tps.toFloat()
+                else -> history.totalMs.toFloat()
+            }
+        }
+        LineChart(
+            series = listOf(
+                LineSeries(
+                    label = metrics[metricIndex],
+                    points = points.map {
+                        ChartPoint(it.measuredAt.toFloat(), metricValue(it))
+                    },
+                    colorIndex = metricIndex,
+                    filled = true,
+                ),
+            ),
+            height = 190.dp,
+            xLabelAt = { Fmt.time(it.toLong()) },
+            yLabelAt = { value ->
+                if (metricIndex == 1) "%.0f".format(value) else Fmt.latency(value.toLong())
+            },
         )
-    ) {
+
+        Spacer(Modifier.height(Gateway.spacing.md))
+
+        val values = points.map { metricValue(it).toDouble() }
+        val formatValue: (Double) -> String = { value ->
+            if (metricIndex == 1) "%.1f".format(value) else Fmt.latency(value.toLong())
+        }
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = providerName,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "·",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = usage.modelId,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Row {
-                    Text(
-                        text = "⬆ ${usage.promptTokens}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Online
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "⬇ ${usage.completionTokens}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Всего " + usage.totalTokens,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-            Text(
-                text = formatTimestamp(usage.timestamp),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-            )
+            SummaryValue("Последнее", formatValue(values.last()))
+            SummaryValue("Среднее", formatValue(values.average()))
+            SummaryValue("Замеров", points.size.toString())
         }
     }
 }
 
-// ============================================================
-// API密钥用量卡片
-// ============================================================
+/** Строка счётчика трафика: направление — иконкой, не текстовой стрелкой. */
 @Composable
-private fun ApiKeyStatCard(row: ApiKeyUsageRow) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+private fun TrafficLine(icon: ImageVector, value: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp),
         )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "🔑",
-                    fontSize = 20.sp
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = row.apiKeyLabel.ifBlank { "Локально/без ключа" },
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = "${row.calls}" + " вызовов",
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            StatRow("Входные токены", formatTokenCount(row.prompt), Online)
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-            StatRow("Выходные токены", formatTokenCount(row.completion), MaterialTheme.colorScheme.primary)
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-            StatRow("Всего токенов", formatTokenCount(row.total), Warning)
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "⬆ Отправлено",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = formatBytes(row.upload),
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "⬇ Получено",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = formatBytes(row.download),
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
+        Spacer(Modifier.width(Gateway.spacing.xs))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
-// 统计行组件
-// ============================================================
+/** Пара «подпись — значение» внутри карточки. */
 @Composable
-private fun StatRow(
-    label: String,
-    value: String,
-    valueColor: Color
-) {
+private fun StatLine(label: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
             text = value,
             style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            color = valueColor
+            fontWeight = FontWeight.SemiBold,
         )
     }
 }
 
-// ============================================================
-// 数据模型
-// ============================================================
-private data class ProviderTokenSummary(
-    val providerName: String,
-    val promptTokens: Int,
-    val completionTokens: Int,
-    val totalTokens: Int,
-    val callCount: Int
-)
-
-// ============================================================
-// 工具函数
-// ============================================================
-
-private fun formatTokenCount(count: Long): String {
-    return when {
-        count >= 1_000_000 -> String.format(Locale.US, "%.1fM", count / 1_000_000.0)
-        count >= 1_000 -> String.format(Locale.US, "%.1fK", count / 1_000.0)
-        else -> count.toString()
+/** Итог под графиком скорости. */
+@Composable
+private fun SummaryValue(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 
-private fun formatBytes(bytes: Long): String = when {
-    bytes < 1024 -> "${bytes}B"
-    bytes < 1024 * 1024 -> "${bytes / 1024}KB"
-    else -> "%.1fMB".format(bytes.toDouble() / (1024 * 1024))
-}
-
-private fun formatAverage(total: Long, count: Int): String {
-    if (count == 0) return "0"
-    val avg = total / count
-    return formatTokenCount(avg)
-}
-
-private fun formatTimestamp(timestamp: Long): String {
-    val sdf = SimpleDateFormat("MM/dd HH:mm", Locale.getDefault())
-    return sdf.format(Date(timestamp))
+/** Обе кнопки очистки оформлены одинаково; предупреждение — в ConfirmDialog. */
+@Composable
+private fun ClearButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    OutlinedButton(onClick = onClick, modifier = modifier) {
+        Icon(
+            Icons.Outlined.DeleteSweep,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(Gateway.spacing.sm))
+        Text(text, maxLines = 1)
+    }
 }

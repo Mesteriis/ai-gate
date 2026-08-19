@@ -25,9 +25,9 @@ data class ResourcePool(
     val providerId: Long = 0,
     @ColumnInfo(name = "name")
     val name: String,
-    /** ResourcePoolKind как строка: SUBSCRIPTION | API_BALANCE | LOCAL_BUDGET */
+    /** ResourcePoolKind как строка: QUOTA | BALANCE | FREE | BUDGET */
     @ColumnInfo(name = "kind")
-    val kind: String = "LOCAL_BUDGET",
+    val kind: String = "BUDGET",
     /** QuotaUnit как строка. */
     @ColumnInfo(name = "unit")
     val unit: String = "USD",

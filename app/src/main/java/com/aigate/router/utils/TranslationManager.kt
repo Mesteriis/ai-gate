@@ -175,7 +175,7 @@ object TranslationManager {
         put("app_name", mapOf(
             AppLanguage.ZH_CN to "AiGate", AppLanguage.ZH_TW to "AiGate", AppLanguage.EN to "AiGate",
             AppLanguage.JA to "AiGate", AppLanguage.KO to "AiGate", AppLanguage.ES to "AiGate",
-            AppLanguage.FR to "AiGate", AppLanguage.DE to "AiGate", AppLanguage.RU to "ИИ Врата",
+            AppLanguage.FR to "AiGate", AppLanguage.DE to "AiGate", AppLanguage.RU to "AiGate",
             AppLanguage.PT to "AiGate", AppLanguage.VI to "AiGate", AppLanguage.TH to "AiGate",
             AppLanguage.AR to "AiGate", AppLanguage.HI to "AiGate", AppLanguage.ID to "AiGate"
         ))
