@@ -13,6 +13,36 @@ import org.junit.Test
 class AnthropicUpstreamTest {
 
     @Test
+    fun `первый системный блок подписки идёт до системы клиента`() {
+        // Подписка отдаёт крупные модели только с этим блоком, а система от
+        // клиента при этом не должна пропадать — она идёт вторым блоком.
+        val out = JSONObject(
+            AnthropicUpstream.translateRequest(
+                """{"model":"m","messages":[
+                    {"role":"system","content":"будь краток"},
+                    {"role":"user","content":"привет"}]}""",
+                systemPrefix = "Я клиент",
+            )
+        )
+        val system = out.getJSONArray("system")
+        assertEquals(2, system.length())
+        assertEquals("text", system.getJSONObject(0).getString("type"))
+        assertEquals("Я клиент", system.getJSONObject(0).getString("text"))
+        assertEquals("будь краток", system.getJSONObject(1).getString("text"))
+    }
+
+    @Test
+    fun `без системы клиента блок подписки идёт один`() {
+        val out = JSONObject(
+            AnthropicUpstream.translateRequest(
+                """{"model":"m","messages":[{"role":"user","content":"привет"}]}""",
+                systemPrefix = "Я клиент",
+            )
+        )
+        assertEquals(1, out.getJSONArray("system").length())
+    }
+
+    @Test
     fun `системная роль уходит в поле system, а не в messages`() {
         val out = JSONObject(
             AnthropicUpstream.translateRequest(

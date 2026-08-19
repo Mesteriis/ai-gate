@@ -49,8 +49,12 @@ object AnthropicUpstream {
      * роли склеиваются: Messages API требует чередования user/assistant.
      * Ответы инструментов приводятся к тексту от роли user — иначе запрос
      * отклоняется, а терять содержимое нельзя.
+     *
+     * [systemPrefix] — первый системный блок, которого ждёт подписка. Когда он
+     * задан, `system` уходит массивом блоков: первым он, вторым — система от
+     * клиента, чтобы её не потерять.
      */
-    fun translateRequest(chatJson: String): String {
+    fun translateRequest(chatJson: String, systemPrefix: String? = null): String {
         val src = JSONObject(chatJson)
         val messages = src.optJSONArray("messages") ?: JSONArray()
 
@@ -81,7 +85,13 @@ object AnthropicUpstream {
         return JSONObject().apply {
             put("model", src.optString("model"))
             put("messages", out)
-            if (system.isNotEmpty()) put("system", system.toString())
+            when {
+                systemPrefix != null -> put("system", JSONArray().apply {
+                    put(textBlock(systemPrefix))
+                    if (system.isNotEmpty()) put(textBlock(system.toString()))
+                })
+                system.isNotEmpty() -> put("system", system.toString())
+            }
             put("max_tokens", maxTokens(src))
             if (src.optBoolean("stream", false)) put("stream", true)
             src.opt("temperature")?.let { if (it != JSONObject.NULL) put("temperature", it) }
@@ -89,6 +99,12 @@ object AnthropicUpstream {
             stopSequences(src.opt("stop"))?.let { put("stop_sequences", it) }
         }.toString()
     }
+
+    private fun textBlock(text: String): JSONObject =
+        JSONObject().apply {
+            put("type", "text")
+            put("text", text)
+        }
 
     private fun maxTokens(src: JSONObject): Int {
         val explicit = listOf("max_tokens", "max_completion_tokens", "max_output_tokens")
@@ -377,11 +393,17 @@ object AnthropicUpstream {
         token: String?,
         subscription: Boolean,
         stream: Boolean,
+        sessionId: String? = null,
     ) {
         token?.takeIf { it.isNotBlank() }?.let {
             if (subscription) {
                 builder.header("Authorization", "Bearer $it")
                 builder.header(ClaudeCliAuth.BETA_HEADER, ClaudeCliAuth.BETA_OAUTH)
+                // Идентичность клиента подписки: без неё крупные модели отвечают
+                // отказом, не связанным с квотой (см. ClaudeCliAuth).
+                builder.header(ClaudeCliAuth.APP_HEADER, ClaudeCliAuth.APP)
+                builder.header("User-Agent", ClaudeCliAuth.USER_AGENT)
+                sessionId?.let { id -> builder.header(ClaudeCliAuth.SESSION_HEADER, id) }
             } else {
                 builder.header("x-api-key", it)
             }

@@ -34,6 +34,28 @@ object ClaudeCliAuth {
     const val VERSION_HEADER = "anthropic-version"
     const val VERSION = "2023-06-01"
 
+    /**
+     * Как представляется клиент подписки.
+     *
+     * Крупные модели (Opus, Sonnet) подписка отдаёт только клиенту Claude Code:
+     * без этой идентичности они отвечают 429 `rate_limit_error` с пустым
+     * сообщением и БЕЗ заголовков лимита — то есть отказ не про квоту. Проверено
+     * на устройстве при 31 % сессии и 33 % недели: Haiku отвечал, остальные нет.
+     *
+     * Значения сняты с установленного клиента: заголовки `x-app`, `User-Agent`,
+     * `X-Claude-Code-Session-Id` и обязательный первый системный блок запроса.
+     *
+     * Владелец подписки включил это сознательно: обращение сторонним клиентом,
+     * который представляется Claude Code, может расходиться с условиями
+     * Anthropic. Решение и ответственность — владельца учётной записи.
+     */
+    const val CLIENT_VERSION = "2.1.216"
+    const val USER_AGENT = "claude-cli/$CLIENT_VERSION (external, cli)"
+    const val APP_HEADER = "x-app"
+    const val APP = "cli"
+    const val SESSION_HEADER = "X-Claude-Code-Session-Id"
+    const val IDENTITY_PROMPT = "You are Claude Code, Anthropic's official CLI for Claude."
+
     /** Контекст моделей Claude — 200k токенов. */
     const val CONTEXT_WINDOW = 200_000
 

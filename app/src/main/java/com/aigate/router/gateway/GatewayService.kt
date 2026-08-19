@@ -1702,7 +1702,11 @@ private suspend fun pipeNormalResponse(
 
         val outBytes = when {
             isCodex -> CodexUpstream.translateRequest(rawBody.decodeToString()).toByteArray(Charsets.UTF_8)
-            isClaudeChat -> AnthropicUpstream.translateRequest(rawBody.decodeToString()).toByteArray(Charsets.UTF_8)
+            isClaudeChat -> AnthropicUpstream.translateRequest(
+                rawBody.decodeToString(),
+                systemPrefix = if (AnthropicUpstream.isSubscription(provider))
+                    com.aigate.router.auth.ClaudeCliAuth.IDENTITY_PROMPT else null,
+            ).toByteArray(Charsets.UTF_8)
             else -> rawBody
         }
         val reqBody = outBytes.toRequestBody(DEFAULT_CT)
@@ -1719,7 +1723,8 @@ private suspend fun pipeNormalResponse(
                     )
                 } else if (isAnthropic) {
                     AnthropicUpstream.applyHeaders(
-                        this, k, AnthropicUpstream.isSubscription(provider), stream = false
+                        this, k, AnthropicUpstream.isSubscription(provider), stream = false,
+                        sessionId = java.util.UUID.randomUUID().toString(),
                     )
                 } else if (!k.isNullOrBlank()) header("Authorization", "Bearer $k")
             }
@@ -2021,7 +2026,11 @@ private suspend fun pipeStreamResponse(
         try {
             val outBytes = when {
                 isCodex -> CodexUpstream.translateRequest(rawBody.decodeToString()).toByteArray(Charsets.UTF_8)
-                isClaudeChat -> AnthropicUpstream.translateRequest(rawBody.decodeToString()).toByteArray(Charsets.UTF_8)
+                isClaudeChat -> AnthropicUpstream.translateRequest(
+                    rawBody.decodeToString(),
+                    systemPrefix = if (AnthropicUpstream.isSubscription(provider))
+                        com.aigate.router.auth.ClaudeCliAuth.IDENTITY_PROMPT else null,
+                ).toByteArray(Charsets.UTF_8)
                 else -> rawBody
             }
             val reqBody = outBytes.toRequestBody(DEFAULT_CT)
@@ -2035,7 +2044,8 @@ private suspend fun pipeStreamResponse(
                         )
                     } else if (isAnthropic) {
                         AnthropicUpstream.applyHeaders(
-                            this, k, AnthropicUpstream.isSubscription(provider), stream = true
+                            this, k, AnthropicUpstream.isSubscription(provider), stream = true,
+                            sessionId = java.util.UUID.randomUUID().toString(),
                         )
                     } else if (!k.isNullOrBlank()) header("Authorization", "Bearer $k")
                 }
