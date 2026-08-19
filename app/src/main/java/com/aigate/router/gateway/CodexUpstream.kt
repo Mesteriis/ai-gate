@@ -75,10 +75,11 @@ object CodexUpstream {
             put("stream", true)
             // Не сохранять диалог на стороне провайдера.
             put("store", false)
-            src.opt("temperature")?.let { if (it != JSONObject.NULL) put("temperature", it) }
-            src.opt("top_p")?.let { if (it != JSONObject.NULL) put("top_p", it) }
-            src.opt("max_tokens")?.let { if (it != JSONObject.NULL) put("max_output_tokens", it) }
-            src.opt("max_completion_tokens")?.let { if (it != JSONObject.NULL) put("max_output_tokens", it) }
+            // Параметры выборки и лимит ответа не передаются: бэкенд Codex стал
+            // отвечать 400 «Unsupported parameter» на temperature и
+            // max_output_tokens (проверено на устройстве 2026-08-19), и запрос
+            // клиента с безобидным max_tokens умирал целиком. Терять весь ответ
+            // из-за необязательного параметра нельзя — он просто опускается.
         }.toString()
     }
 

@@ -129,10 +129,18 @@ class CodexUpstreamTest {
     }
 
     @Test
-    fun `max_tokens maps to max_output_tokens`() {
-        val out = JSONObject(CodexUpstream.translateRequest("""{"model":"m","max_tokens":256,"messages":[]}"""))
-        assertEquals(256, out.getInt("max_output_tokens"))
+    fun `параметры выборки и лимит ответа не уходят наверх`() {
+        // Бэкенд Codex отвечает 400 «Unsupported parameter» на temperature и
+        // max_output_tokens — запрос клиента не должен умирать из-за них.
+        val out = JSONObject(
+            CodexUpstream.translateRequest(
+                """{"model":"m","max_tokens":256,"temperature":0.7,"top_p":0.9,"messages":[]}"""
+            )
+        )
+        assertFalse(out.has("max_output_tokens"))
         assertFalse(out.has("max_tokens"))
+        assertFalse(out.has("temperature"))
+        assertFalse(out.has("top_p"))
     }
 
     @Test
