@@ -1601,6 +1601,30 @@ fun getDisplayModelName(model: AiModel): String {
     // ★★ 三指标测速器（单例复用） ★★
     private val speedTester = ModelSpeedTester()
 
+    /**
+     * Один замер модели у её провайдера. Формат апстрима (Codex/Anthropic/OpenAI)
+     * и идентичность подписки собираются здесь, чтобы одиночный замер, обход всех
+     * моделей и конвейер не расходились. OAuth-токен освежается заранее — замер
+     * после простоя иначе упирался бы в просроченный access-токен.
+     */
+    private suspend fun measureModel(model: AiModel, provider: Provider): SpeedMetrics {
+        com.aigate.router.auth.AuthRegistry.ensureFreshForProvider(database, provider)
+        val key = CredentialStore.apiKeyForProvider(provider)
+        val isCodex = com.aigate.router.gateway.CodexUpstream.isCodex(provider)
+        return speedTester.measure(
+            modelId = model.modelId,
+            baseUrl = provider.resolvedBaseUrl,
+            apiKey = key,
+            chatPath = provider.chatPath,
+            useResponsesApi = isCodex,
+            accountId = if (isCodex) com.aigate.router.auth.CodexAccount.headerAccountId(
+                database.credentialDao().getByProvider(provider.id)?.accountId, key
+            ) else null,
+            useMessagesApi = com.aigate.router.gateway.AnthropicUpstream.isAnthropic(provider),
+            claudeSubscription = com.aigate.router.gateway.AnthropicUpstream.isSubscription(provider),
+        )
+    }
+
     /** 模型测速 - 三指标（TTFT / TPS / 总耗时） */
     fun testModelSpeed(model: AiModel) {
         viewModelScope.launch {
@@ -1611,15 +1635,7 @@ fun getDisplayModelName(model: AiModel): String {
                         _snackbarMessage.value = "${model.displayName}: связанный провайдер не найден"
                         return@withContext
                     }
-                    val isCodex = com.aigate.router.gateway.CodexUpstream.isCodex(provider)
-                    val metrics = speedTester.measure(
-                        modelId = model.modelId,
-                        baseUrl = provider.resolvedBaseUrl,
-                        apiKey = CredentialStore.apiKeyForProvider(provider),
-                        chatPath = provider.chatPath,
-                        useResponsesApi = isCodex,
-                        accountId = if (isCodex) com.aigate.router.auth.CodexAccount.headerAccountId(database.credentialDao().getByProvider(provider.id)?.accountId, CredentialStore.apiKeyForProvider(provider)) else null
-                    )
+                    val metrics = measureModel(model, provider)
                     val result = if (metrics.ttftMs < 0) {
                         "${model.displayName}: замер скорости не удался"
                     } else {
@@ -1635,6 +1651,55 @@ fun getDisplayModelName(model: AiModel): String {
                 }
             } catch (e: Exception) {
                 _snackbarMessage.value = "${model.displayName} — замер скорости не удался: ${e.localizedMessage ?: e.message}"
+            }
+        }
+    }
+
+    // Идёт ли обход замеров: кнопка на вкладке моделей на время обхода гаснет.
+    private val _speedSweepRunning = MutableStateFlow(false)
+    val speedSweepRunning: StateFlow<Boolean> = _speedSweepRunning.asStateFlow()
+
+    /**
+     * Замерить все включённые модели по одному разу, последовательно: параллельный
+     * обстрел исказил бы TTFT. Результаты уходят в историю замеров — строки на
+     * вкладке моделей обновляются сами, а свежие скорости и есть основание для
+     * порядка провайдеров внутри группы.
+     */
+    fun measureAllModelSpeeds() {
+        if (_speedSweepRunning.value) return
+        viewModelScope.launch {
+            _speedSweepRunning.value = true
+            try {
+                withContext(Dispatchers.IO) {
+                    val models = database.aiModelDao().getEnabledModelsList().filter { it.isEnabled }
+                    if (models.isEmpty()) {
+                        _snackbarMessage.value = "Нет включённых моделей для замера"
+                        return@withContext
+                    }
+                    val providers = database.providerDao().getAllProvidersOnce().associateBy { it.id }
+                    var ok = 0
+                    var failed = 0
+                    models.forEachIndexed { index, model ->
+                        val name = model.customAlias.ifBlank { model.displayName }
+                        _snackbarMessage.value = "Замер ${index + 1} из ${models.size}: $name"
+                        val provider = providers[model.providerId]
+                        if (provider == null || !provider.isEnabled) {
+                            failed++
+                            return@forEachIndexed
+                        }
+                        val metrics = try {
+                            measureModel(model, provider)
+                        } catch (_: Exception) {
+                            failed++
+                            return@forEachIndexed
+                        }
+                        recordSpeedHistory(model.routeKey, name, model.providerId, metrics)
+                        if (metrics.ttftMs >= 0) ok++ else failed++
+                    }
+                    _snackbarMessage.value = "Замеры завершены: $ok успешно, $failed не удалось"
+                }
+            } finally {
+                _speedSweepRunning.value = false
             }
         }
     }
@@ -1799,16 +1864,7 @@ fun clearSyncResult() {
                         var ttft = 0L; var tps = 0.0; var tokens = 0
                         try {
                             withContext(Dispatchers.IO) {
-                                val resolvedUrl = provider.resolvedBaseUrl.trimEnd('/')
-                                val isCodexProvider = com.aigate.router.gateway.CodexUpstream.isCodex(provider)
-                                val metrics = speedTester.measure(
-                                    modelId = model.modelId,
-                                    baseUrl = resolvedUrl,
-                                    apiKey = CredentialStore.apiKeyForProvider(provider),
-                                    chatPath = provider.chatPath,
-                                    useResponsesApi = isCodexProvider,
-                                    accountId = if (isCodexProvider) com.aigate.router.auth.CodexAccount.headerAccountId(database.credentialDao().getByProvider(provider.id)?.accountId, CredentialStore.apiKeyForProvider(provider)) else null
-                                )
+                                val metrics = measureModel(model, provider)
                                 latency = metrics.totalMs
                                 ttft = metrics.ttftMs
                                 tps = metrics.tps

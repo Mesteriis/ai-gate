@@ -34,29 +34,46 @@ class ModelSpeedTester(
         /** Провайдер отвечает по Responses API (Codex), а не chat/completions. */
         useResponsesApi: Boolean = false,
         /** Идентификатор аккаунта ChatGPT — обязателен для Codex. */
-        accountId: String? = null
+        accountId: String? = null,
+        /** Провайдер отвечает по Messages API (Anthropic), а не chat/completions. */
+        useMessagesApi: Boolean = false,
+        /** Подписка Claude: заголовки и системный блок идентичности клиента (см. ClaudeCliAuth). */
+        claudeSubscription: Boolean = false
     ): SpeedMetrics = withContext(Dispatchers.IO) {
         val path = when {
             useResponsesApi -> com.aigate.router.gateway.CodexUpstream.RESPONSES_PATH
+            useMessagesApi && chatPath == null -> com.aigate.router.gateway.AnthropicUpstream.MESSAGES_PATH
             chatPath != null -> if (chatPath.startsWith("/")) chatPath else "/$chatPath"
             else -> "/v1/chat/completions"
         }
         val url = baseUrl.trimEnd('/') + path
         val chatPayload = buildPayload(modelId, prompt)
-        val body = if (useResponsesApi) {
-            com.aigate.router.gateway.CodexUpstream.translateRequest(chatPayload)
-        } else chatPayload
+        val body = when {
+            useResponsesApi -> com.aigate.router.gateway.CodexUpstream.translateRequest(chatPayload)
+            useMessagesApi -> com.aigate.router.gateway.AnthropicUpstream.translateRequest(
+                chatPayload,
+                systemPrefix = if (claudeSubscription) com.aigate.router.auth.ClaudeCliAuth.IDENTITY_PROMPT else null,
+            )
+            else -> chatPayload
+        }
         val request = Request.Builder()
             .url(url)
             .post(body.toRequestBody(JSON_TYPE))
             .apply {
-                if (useResponsesApi) {
-                    com.aigate.router.gateway.CodexUpstream.applyHeaders(
+                when {
+                    useResponsesApi -> com.aigate.router.gateway.CodexUpstream.applyHeaders(
                         this, apiKey, accountId, java.util.UUID.randomUUID().toString()
                     )
-                } else if (!apiKey.isNullOrBlank()) header("Authorization", "Bearer $apiKey")
+                    useMessagesApi -> com.aigate.router.gateway.AnthropicUpstream.applyHeaders(
+                        this, apiKey, claudeSubscription, stream = true,
+                        sessionId = java.util.UUID.randomUUID().toString(),
+                    )
+                    else -> if (!apiKey.isNullOrBlank()) header("Authorization", "Bearer $apiKey")
+                }
             }
             .build()
+        // События Messages переводятся в чанки OpenAI, дальше разбор общий.
+        val translate = if (useMessagesApi) com.aigate.router.gateway.AnthropicUpstream.streamTranslator() else null
 
         val t0 = System.currentTimeMillis()
         var tFirst: Long? = null
@@ -89,7 +106,11 @@ class ModelSpeedTester(
                             val data = line.removePrefix("data:").trim()
                             if (data == "[DONE]" || data == "{\"done\":true}") break
 
-                            val delta = parseDelta(data) ?: continue
+                            val delta = (
+                                if (translate != null) translate(data, modelId, SPEED_CHUNK_ID)
+                                    .firstNotNullOfOrNull(::parseDelta)
+                                else parseDelta(data)
+                                ) ?: continue
                             if (delta.isNotEmpty()) {
                                 if (tFirst == null) {
                                     tFirst = System.currentTimeMillis()
@@ -102,7 +123,13 @@ class ModelSpeedTester(
                         if (tEnd == 0L) tEnd = System.currentTimeMillis()
                     } else {
                         // ★ 非 SSE 格式：完整 JSON 响应
-                        val fullBody = resp.body!!.string()
+                        // Полный ответ Messages приводится к chat/completions, разбор общий.
+                        val rawBody = resp.body!!.string()
+                        val fullBody = if (useMessagesApi) {
+                            runCatching {
+                                com.aigate.router.gateway.AnthropicUpstream.translateResponse(rawBody, modelId)
+                            }.getOrDefault(rawBody)
+                        } else rawBody
                         val jsonObj = try { JSONObject(fullBody) } catch (_: Exception) { null }
                         val message = jsonObj?.optJSONArray("choices")
                             ?.optJSONObject(0)
@@ -169,7 +196,9 @@ class ModelSpeedTester(
         put("model", modelId)
         put("stream", true)
         put("max_tokens", 200)
-        put("temperature", 0.7)
+        // Температуру не передаём: Responses API Codex отвечает на неё 400
+        // «Unsupported parameter», новейшие модели Claude — 400 «deprecated»,
+        // а на скорость она не влияет.
         put("messages", org.json.JSONArray().apply {
             put(JSONObject().apply {
                 put("role", "user")
@@ -180,6 +209,8 @@ class ModelSpeedTester(
 
     companion object {
         private const val TAG = "ModelSpeedTester"
+        /** Идентификатор чанков переводчика потока — в метрики он не попадает. */
+        private const val SPEED_CHUNK_ID = "speed-test"
         const val DEFAULT_PROMPT = "Расскажите о себе одним предложением."
         private val JSON_TYPE = "application/json; charset=utf-8".toMediaType()
     }

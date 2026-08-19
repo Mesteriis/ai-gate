@@ -13,7 +13,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.outlined.SmartToy
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,6 +62,7 @@ fun ModelsByModelSection(viewModel: GatewayViewModel) {
     val models by viewModel.models.collectAsState()
     val providers by viewModel.providers.collectAsState()
     val speeds by viewModel.latestSpeedHistory.collectAsState()
+    val sweepRunning by viewModel.speedSweepRunning.collectAsState()
     var query by remember { mutableStateOf("") }
     // Счётчик заставляет пересчитать порядок после его изменения: он живёт
     // в конфиге, а не в базе, и сам об изменении не сообщает.
@@ -75,14 +78,29 @@ fun ModelsByModelSection(viewModel: GatewayViewModel) {
         modifier = Modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(Gateway.spacing.sm),
     ) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = { query = it },
-            label = { Text("Поиск модели") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Gateway.spacing.xs),
+        ) {
+            // Обход замеров всех включённых моделей: свежие скорости — основание
+            // для порядка провайдеров внутри группы. Пока обход идёт, кнопка
+            // гаснет — второй параллельный запуск исказил бы TTFT.
+            IconButton(onClick = viewModel::measureAllModelSpeeds, enabled = !sweepRunning) {
+                if (sweepRunning) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Default.Speed, contentDescription = "Запустить замеры скорости")
+                }
+            }
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = { Text("Поиск модели") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+        }
 
         if (groups.isEmpty()) {
             EmptyState(
