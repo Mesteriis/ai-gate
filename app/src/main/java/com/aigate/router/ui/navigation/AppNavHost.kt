@@ -60,6 +60,7 @@ object Routes {
     const val ABOUT = "about"
     const val BACKUPS = "backups"
     const val CAPTURE = "capture"
+    const val LOCAL_MODELS = "local_models"
 }
 
 private data class TabItem(
@@ -207,6 +208,7 @@ private fun NavGraphBuilder.tabDestinations(
             com.aigate.router.ui.screens.ResourcesHubScreen(
                 viewModel = viewModel,
                 modifier = m,
+                onOpenLocalModels = { navController.navigate(Routes.LOCAL_MODELS) },
             )
         }
         if (showHelp) {
@@ -293,6 +295,23 @@ private fun NavGraphBuilder.nestedDestinations(
             viewModel = viewModel,
             onBack = { navController.popBackStack() },
         )
+    }
+    composable(Routes.LOCAL_MODELS) {
+        var showHelp by remember { mutableStateOf(false) }
+        AppScaffold(
+            title = "Локальные модели",
+            onBack = { navController.popBackStack() },
+            onHelp = { showHelp = true },
+        ) { m ->
+            com.aigate.router.ui.screens.LocalModelsScreen(viewModel, m)
+        }
+        if (showHelp) {
+            HelpSheet(
+                title = "Локальные модели",
+                sections = com.aigate.router.ui.screens.localModelsHelp,
+                onDismiss = { showHelp = false },
+            )
+        }
     }
     composable(Routes.ABOUT) {
         AppScaffold(title = "О программе", onBack = { navController.popBackStack() }) { m ->

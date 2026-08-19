@@ -6,7 +6,10 @@ import androidx.lifecycle.viewModelScope
 import android.app.ActivityManager
 import android.content.Context
 import com.aigate.router.GatewayApplication
+import com.aigate.router.catalog.ModelCatalogRepository
 import com.aigate.router.data.credential.CredentialStore
+import com.aigate.router.data.model.LocalModel
+import com.aigate.router.download.LocalModelsRepository
 import com.aigate.router.data.db.AppDatabase
 import com.aigate.router.data.model.AiModel
 import com.aigate.router.data.model.ModelRouteKey
@@ -2054,6 +2057,132 @@ fun clearSyncResult() {
     
     fun clearLiveSessions() {
         GatewayForegroundService.clearLiveSessions()
+    }
+
+    // ==================== Локальные модели ====================
+
+    /**
+     * Состояние поиска по каталогу.
+     *
+     * [Idle] отделён от пустого [Results] намеренно: пока запрос не введён,
+     * экран не должен показывать ни «ничего не найдено», ни пустой список —
+     * раздела результатов там просто нет.
+     */
+    sealed interface CatalogSearchState {
+        object Idle : CatalogSearchState
+        object Loading : CatalogSearchState
+        data class Results(val result: ModelCatalogRepository.SearchResult) : CatalogSearchState
+        data class Error(val message: String) : CatalogSearchState
+    }
+
+    private val localModelDao = database.localModelDao()
+
+    /** Контекст приложения: репозиториям локальных моделей он нужен в каждом вызове. */
+    private val appContext: Context get() = GatewayApplication.getInstance()
+
+    private val _catalogSearch = MutableStateFlow<CatalogSearchState>(CatalogSearchState.Idle)
+    val catalogSearch: StateFlow<CatalogSearchState> = _catalogSearch.asStateFlow()
+
+    /** Предыдущий поиск отменяется новым: выдача устаревшего запроса не нужна. */
+    private var catalogSearchJob: kotlinx.coroutines.Job? = null
+
+    val localModels: StateFlow<List<LocalModel>> =
+        LocalModelsRepository.observeAll(localModelDao)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _storageStats = MutableStateFlow<LocalModelsRepository.StorageStats?>(null)
+    val storageStats: StateFlow<LocalModelsRepository.StorageStats?> = _storageStats.asStateFlow()
+
+    private val _localEnginesSupported = MutableStateFlow(false)
+    val localEnginesSupported: StateFlow<Boolean> = _localEnginesSupported.asStateFlow()
+
+    init {
+        // Зонд грузит классы beta-SDK и нативную библиотеку — это работа не для
+        // главного потока, и делается она ровно один раз за жизнь процесса.
+        viewModelScope.launch {
+            _localEnginesSupported.value = withContext(Dispatchers.IO) {
+                com.aigate.router.capability.DeviceSupportProbe.report(appContext).anyEngineSupported
+            }
+        }
+        refreshStorageStats()
+    }
+
+    /** Поиск по каталогу. Пустой запрос возвращает экран в исходное состояние. */
+    fun searchCatalog(query: String, source: ModelCatalogRepository.CatalogSource) {
+        val needle = query.trim()
+        catalogSearchJob?.cancel()
+        if (needle.isEmpty()) {
+            _catalogSearch.value = CatalogSearchState.Idle
+            return
+        }
+        catalogSearchJob = viewModelScope.launch {
+            _catalogSearch.value = CatalogSearchState.Loading
+            _catalogSearch.value = try {
+                CatalogSearchState.Results(
+                    ModelCatalogRepository.search(appContext, needle, source)
+                )
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                // Отмена — это новый запрос пользователя, а не сбой каталога.
+                throw cancelled
+            } catch (e: Exception) {
+                CatalogSearchState.Error(e.message ?: "Каталог сейчас недоступен")
+            }
+        }
+    }
+
+    fun downloadModel(
+        entry: ModelCatalogRepository.CatalogEntry,
+        variant: ModelCatalogRepository.CatalogVariant,
+    ) {
+        viewModelScope.launch {
+            LocalModelsRepository.startDownload(appContext, localModelDao, entry, variant)
+                .onSuccess {
+                    _snackbarMessage.value =
+                        "«${ModelCatalogRepository.variantDisplayName(entry, variant)}» в очереди на загрузку"
+                    refreshStorageStats()
+                }
+                .onFailure { _snackbarMessage.value = it.message ?: "Загрузку начать не удалось" }
+        }
+    }
+
+    fun pauseDownload(id: Long) {
+        viewModelScope.launch { LocalModelsRepository.pause(appContext, localModelDao, id) }
+    }
+
+    fun resumeDownload(id: Long) {
+        viewModelScope.launch { LocalModelsRepository.resume(appContext, localModelDao, id) }
+    }
+
+    fun cancelDownload(id: Long) {
+        LocalModelsRepository.cancel(appContext, localModelDao, id)
+    }
+
+    fun deleteLocalModel(model: LocalModel) {
+        viewModelScope.launch {
+            // Удаление ходит по файловой системе, поэтому уходит с главного потока.
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    LocalModelsRepository.delete(appContext, localModelDao, model)
+                }
+            }
+                .onSuccess {
+                    _snackbarMessage.value = "Модель «${model.displayName}» удалена"
+                    refreshStorageStats()
+                }
+                .onFailure { _snackbarMessage.value = "Не удалось удалить: ${it.message}" }
+        }
+    }
+
+    /** Пересчёт занятого места. Ошибка оставляет null — экран покажет прочерк. */
+    fun refreshStorageStats() {
+        viewModelScope.launch {
+            // Занятое считается обходом каталога моделей — тоже дисковая работа.
+            _storageStats.value = runCatching {
+                withContext(Dispatchers.IO) {
+                    LocalModelsRepository.storageStats(appContext, localModelDao)
+                }
+            }.getOrNull()
+        }
     }
 
     // ========== Factory ==========

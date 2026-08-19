@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.SmartToy
+import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,6 +44,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.aigate.router.data.model.AiModel
+import com.aigate.router.data.model.LocalModel
 import com.aigate.router.data.model.Provider
 import com.aigate.router.ui.design.AppCard
 import com.aigate.router.ui.design.CardTone
@@ -53,6 +56,7 @@ import com.aigate.router.ui.design.Gateway
 import com.aigate.router.ui.design.HelpSection
 import com.aigate.router.ui.design.ProviderAvatar
 import com.aigate.router.ui.design.SectionHeader
+import com.aigate.router.ui.design.SettingsRow
 import com.aigate.router.ui.design.StatusTone
 import com.aigate.router.ui.viewmodel.GatewayViewModel
 
@@ -72,6 +76,13 @@ internal val resourcesHelp = listOf(
         "Модели",
         "Выключенная модель остаётся в списке, но шлюз её не использует. " +
             "Псевдоним позволяет обращаться к модели своим именем из внешнего приложения.",
+    ),
+    HelpSection(
+        "Локальные модели",
+        "Модель можно скачать на устройство и запускать её без сети и без ключей: " +
+            "раздел открывается строкой над переключателем разделов. " +
+            "На устройствах без подходящего движка строка не показывается — там эта " +
+            "возможность просто отсутствует.",
     ),
     HelpSection(
         "Квота, баланс и бесплатные модели",
@@ -95,8 +106,12 @@ private enum class ResourceTab(val label: String) {
 fun ResourcesHubScreen(
     viewModel: GatewayViewModel,
     modifier: Modifier = Modifier,
+    onOpenLocalModels: () -> Unit = {},
 ) {
     var tab by rememberSaveable { mutableStateOf(ResourceTab.Providers) }
+    val localEnginesSupported by viewModel.localEnginesSupported.collectAsState()
+    val localModels by viewModel.localModels.collectAsState()
+    val storageStats by viewModel.storageStats.collectAsState()
 
     Column(
         modifier = modifier
@@ -104,6 +119,29 @@ fun ResourcesHubScreen(
             .padding(bottom = Gateway.spacing.md),
         verticalArrangement = Arrangement.spacedBy(Gateway.spacing.md),
     ) {
+        // Строки нет совсем, а не выключенной: без движка на устройстве скачанный
+        // файл модели запустить нечем, и вход в раздел был бы дорогой в тупик.
+        if (localEnginesSupported) {
+            val readyCount = localModels.count { it.state == LocalModel.STATE_READY }
+            Surface(
+                color = Gateway.colors.surfaceContainerLow,
+                shape = MaterialTheme.shapes.large,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                SettingsRow(
+                    title = "Локальные модели",
+                    icon = Icons.Outlined.Storage,
+                    valueText = if (readyCount == 0) {
+                        "ничего не загружено"
+                    } else {
+                        "$readyCount на устройстве · " +
+                            (storageStats?.let { Fmt.bytes(it.modelsBytes) } ?: "—")
+                    },
+                    onClick = onOpenLocalModels,
+                )
+            }
+        }
+
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             ResourceTab.entries.forEachIndexed { index, item ->
                 SegmentedButton(
