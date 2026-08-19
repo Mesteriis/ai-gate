@@ -42,6 +42,34 @@ class ClaudeQuotaProviderTest {
     }
 
     @Test
+    fun `у момента сброса читаются доли секунды и смещение зоны`() {
+        // Один и тот же момент тремя записями: API шлёт то `Z`, то смещение,
+        // а доли секунды бывают любой длины — раньше их разбирал java.time,
+        // недоступный на Android 7.
+        val forms = listOf(
+            "2026-08-26T10:00:00.123456789Z",
+            "2026-08-26T13:00:00+03:00",
+            "2026-08-26T07:00:00-0300",
+            "2026-08-26T10:00:00+00",
+        )
+        for (raw in forms) {
+            assertEquals(raw, 1787738400000L, adapter.parse5h(iso(raw))!!.resetsAt)
+        }
+    }
+
+    @Test
+    fun `негодная строка сброса не превращается в выдуманный момент`() {
+        // Несуществующая дата, отсутствующая зона и просто мусор: окно остаётся
+        // с процентом, но без срока — угадывать момент нечем.
+        val bad = listOf("2026-13-45T10:00:00Z", "2026-08-26T10:00:00", "скоро")
+        for (raw in bad) {
+            val snap = adapter.parse5h(iso(raw))!!
+            assertEquals(raw, 50.0, snap.used!!, 0.01)
+            assertNull(raw, snap.resetsAt)
+        }
+    }
+
+    @Test
     fun `недельные окна по семействам моделей учитываются`() {
         val snap = adapter.parse5h(
             """{"seven_day":{"utilization":0.1},"seven_day_opus":{"utilization":0.97}}"""
@@ -70,6 +98,9 @@ class ClaudeQuotaProviderTest {
         // Снимок описывает самое напряжённое окно — неделю.
         assertEquals(30.0, reading.snapshot.used!!, 0.01)
     }
+
+    /** Недельное окно с заданной строкой момента сброса. */
+    private fun iso(raw: String) = """{"seven_day":{"utilization":0.5,"resets_at":"$raw"}}"""
 
     /** Короткий вызов разбора с фиксированным пулом. */
     private fun ClaudeQuotaProvider.parse5h(body: String) = read(body, poolId = 1L)?.snapshot

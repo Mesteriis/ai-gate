@@ -17,6 +17,8 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import java.util.GregorianCalendar
+import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 
 /**
@@ -136,9 +138,10 @@ class ClaudeQuotaProvider(
             }
             val asText = win.optString(key)
             if (asText.isNotBlank()) {
-                runCatching {
-                    return java.time.Instant.parse(asText).toEpochMilli()
-                }
+                val parsed = parseIsoMillis(asText)
+                if (parsed != null) return parsed
+                // Молчать нельзя: без срока сброса окно показывается неполным.
+                Log.w(TAG, "usage: не разобран момент сброса $key=$asText")
             }
         }
         val after = listOf("resets_in_seconds", "reset_after_seconds")
@@ -162,6 +165,44 @@ class ClaudeQuotaProvider(
             "seven_day_sonnet" to "неделя · Sonnet",
             "seven_day_oauth_apps" to "неделя · приложения",
         )
+
+        /**
+         * Строка ISO-8601: дата и время, необязательные доли секунды любой
+         * длины и зона — `Z`, `+03:00`, `+0300` или `+03`. Зона обязательна:
+         * без неё момент не определён, а угадывать её мы не станем.
+         */
+        private val ISO_8601 = Regex(
+            """(\d{4})-(\d{2})-(\d{2})[Tt ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?""" +
+                """(?:([Zz])|([+-])(\d{2}):?(\d{2})?)"""
+        )
+
+        /**
+         * Момент из строки ISO-8601 в epoch-миллисекундах.
+         *
+         * Разбор ручной, а не `java.time.Instant.parse`: тот класс появился
+         * только в API 26, а minSdk у нас 24 — на Android 7 вызов бросал бы
+         * `NoClassDefFoundError`, и окна лимитов молча оставались бы без срока
+         * сброса. Остальной проект считает время на `java.util`, так что второй
+         * набор дат (и десугаринг ради одной строки) здесь не нужен.
+         *
+         * Доли секунды отбрасываются: срок сброса окна измеряется часами.
+         */
+        private fun parseIsoMillis(text: String): Long? {
+            val g = ISO_8601.matchEntire(text.trim())?.groupValues ?: return null
+            val cal = GregorianCalendar(TimeZone.getTimeZone("UTC"))
+            // Строгий режим: «2026-13-45» должен быть отвергнут, а не переползти в следующий год.
+            cal.isLenient = false
+            cal.clear()
+            cal.set(
+                g[1].toInt(), g[2].toInt() - 1, g[3].toInt(),
+                g[4].toInt(), g[5].toInt(), g[6].ifEmpty { "0" }.toInt(),
+            )
+            val utc = runCatching { cal.timeInMillis }.getOrNull() ?: return null
+            if (g[7].isNotEmpty()) return utc
+            // Смещение вычитаем, чтобы получить UTC: «12:00+03:00» — это 09:00 по нулевому меридиану.
+            val offset = (g[9].toInt() * 60 + g[10].ifEmpty { "0" }.toInt()) * 60_000L
+            return if (g[8] == "-") utc + offset else utc - offset
+        }
 
         private fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
