@@ -353,6 +353,22 @@ object AnthropicUpstream {
     }.toString()
 
     /**
+     * Диагностика отказа: Anthropic сообщает в заголовках, КАКОЕ окно лимита
+     * упёрлось (`anthropic-ratelimit-unified-*`). Без этого 429 с пустым
+     * сообщением не отличить от запрета клиенту.
+     */
+    fun logRateLimitHeaders(response: okhttp3.Response) {
+        val relevant = response.headers.names()
+            .filter { it.startsWith("anthropic-ratelimit", ignoreCase = true) }
+            .joinToString(", ") { "$it=${response.header(it)}" }
+        if (relevant.isNotEmpty()) {
+            android.util.Log.w("ClaudeQuota", "HTTP ${response.code}: $relevant")
+        } else {
+            android.util.Log.w("ClaudeQuota", "HTTP ${response.code}: заголовков лимита нет")
+        }
+    }
+
+    /**
      * Заголовки Messages API. Подписка (OAuth) идёт как `Authorization: Bearer`
      * плюс бета-флаг, ключ API — как `x-api-key`. Способы не смешиваются.
      */

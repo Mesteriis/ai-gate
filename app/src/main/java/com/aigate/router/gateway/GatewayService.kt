@@ -1777,6 +1777,9 @@ private suspend fun pipeNormalResponse(
                 statusCode = HttpStatusCode.fromValue(resp.code)
                 respCode = resp.code
 
+                // Отказ подписки Claude: пишем окна лимита из заголовков ответа —
+                // по телу 429 причину не понять, оно приходит пустым.
+                if (isClaudeChat && !resp.isSuccessful) AnthropicUpstream.logRateLimitHeaders(resp)
                 // ★★ 关键修复：上游返回 4xx/5xx，抛出异常触发故障转移！
                 if (!resp.isSuccessful) {
                     val errBody = respBytes.decodeToString().take(200)
