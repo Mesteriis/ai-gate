@@ -261,6 +261,10 @@ class GatewayForegroundService : Service() {
         releaseWakeLock()
         cancelAlarmKeepAlive()
         gatewayService.stop()
+        // Шлюз остановлен — считать больше некому, а модель держит гигабайты.
+        com.aigate.router.GatewayApplication.getInstance().applicationScope.launch {
+            runCatching { com.aigate.router.gateway.local.LocalEngineManager.unloadAll() }
+        }
         super.onDestroy()
     }
 

@@ -113,8 +113,28 @@ class GatewayApplication : Application() {
             if (!support.anyLocalSupported) {
                 GatewayForegroundService.addDebugLog("Локальные модели недоступны: ${support.nano.reasonRu}")
             }
-            // Движки скачанных моделей подключатся здесь по мере готовности:
-            // LiteRT-LM и llama.cpp.
+            if (support.litert.supported) {
+                val store = com.aigate.router.download.RoomLocalModelStore(database.localModelDao())
+                com.aigate.router.gateway.local.LocalEngineManager.register(
+                    com.aigate.router.gateway.local.litert.LiteRtBackend.Loader
+                )
+                com.aigate.router.gateway.local.LocalBackendRegistry.register(
+                    com.aigate.router.gateway.local.litert.LiteRtBackend(this, store, applicationScope)
+                )
+            }
+            // Движок llama.cpp подключится здесь, когда появится его модуль.
+        }
+    }
+
+    /**
+     * Система просит освободить память. Крупнее загруженной модели у нас
+     * ничего нет, поэтому отдаём именно её — иначе следующим шагом система
+     * убьёт всё приложение вместе со шлюзом.
+     */
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= TRIM_MEMORY_RUNNING_LOW) {
+            com.aigate.router.gateway.local.LocalEngineManager.onTrimMemory(applicationScope)
         }
     }
 

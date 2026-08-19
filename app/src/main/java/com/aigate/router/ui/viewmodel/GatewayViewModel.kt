@@ -2229,7 +2229,11 @@ fun clearSyncResult() {
     }
 
     /** Поиск по каталогу. Пустой запрос возвращает экран в исходное состояние. */
-    fun searchCatalog(query: String, source: ModelCatalogRepository.CatalogSource) {
+    fun searchCatalog(
+        query: String,
+        source: ModelCatalogRepository.CatalogSource,
+        litertOnly: Boolean = false,
+    ) {
         val needle = query.trim()
         catalogSearchJob?.cancel()
         if (needle.isEmpty()) {
@@ -2240,7 +2244,7 @@ fun clearSyncResult() {
             _catalogSearch.value = CatalogSearchState.Loading
             _catalogSearch.value = try {
                 CatalogSearchState.Results(
-                    ModelCatalogRepository.search(appContext, needle, source)
+                    ModelCatalogRepository.search(appContext, needle, source, litertOnly)
                 )
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 // Отмена — это новый запрос пользователя, а не сбой каталога.

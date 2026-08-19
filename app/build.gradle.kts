@@ -109,6 +109,9 @@ dependencies {
     // закрыты проверкой версии и загружаемости (см. DeviceSupportProbe).
     implementation(libs.mlkit.genai.prompt)
 
+    // Движок скачанных моделей формата .litertlm: CPU, GPU и NPU.
+    implementation(libs.litertlm.android)
+
     // Ktor Server
     implementation(libs.ktor.server.cio)
     implementation(libs.ktor.server.content.negotiation)

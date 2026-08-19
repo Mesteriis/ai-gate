@@ -264,7 +264,16 @@ class ModelDownloadWorker(
      */
     private suspend fun httpFailure(dao: LocalModelDao, modelId: Long, code: Int): Result =
         if (code in PERMANENT_HTTP_CODES) {
-            failWith(dao, modelId, "Файл недоступен на сервере (код $code)")
+            // 401 у HuggingFace почти всегда значит закрытый лицензией
+            // репозиторий, а не пропавший файл: список файлов там открыт, а
+            // сама загрузка требует принятых условий и токена. Общая фраза
+            // «файл недоступен» отправила бы пользователя искать не там.
+            val reason = if (code == 401) {
+                "Репозиторий закрыт лицензией: примите условия на huggingface.co"
+            } else {
+                "Файл недоступен на сервере (код $code)"
+            }
+            failWith(dao, modelId, reason)
         } else if (runAttemptCount >= MAX_ATTEMPTS) {
             failWith(dao, modelId, "Сервер отвечает ошибкой $code, загрузка не удалась за $MAX_ATTEMPTS попыток")
         } else {

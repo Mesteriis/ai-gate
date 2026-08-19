@@ -99,6 +99,10 @@ fun LocalModelsScreen(
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var source by rememberSaveable { mutableStateOf(CatalogSource.Ollama) }
+    // Третий источник — те же репозитории HuggingFace, но другой запрос:
+    // модели .litertlm лежат у автора litert-community и по фильтру GGUF
+    // не находятся вовсе.
+    var litertOnly by rememberSaveable { mutableStateOf(false) }
 
     val searchState by viewModel.catalogSearch.collectAsState()
     val localModels by viewModel.localModels.collectAsState()
@@ -109,9 +113,9 @@ fun LocalModelsScreen(
 
     // Пауза после ввода: реестры отвечают 429 на запрос с каждой буквы, и тогда
     // пользователь не увидит вообще ничего вместо неполной, но рабочей выдачи.
-    LaunchedEffect(query, source) {
+    LaunchedEffect(query, source, litertOnly) {
         delay(SEARCH_DEBOUNCE_MS)
-        viewModel.searchCatalog(query, source)
+        viewModel.searchCatalog(query, source, litertOnly)
     }
 
     val active = localModels.filter { it.state != LocalModel.STATE_READY }
@@ -131,9 +135,13 @@ fun LocalModelsScreen(
             SearchBlock(
                 query = query,
                 source = source,
+                litertOnly = litertOnly,
                 onQueryChange = { query = it },
-                onSourceChange = { source = it },
-                onSearch = { viewModel.searchCatalog(query, source) },
+                onSourceChange = { newSource, newLitert ->
+                    source = newSource
+                    litertOnly = newLitert
+                },
+                onSearch = { viewModel.searchCatalog(query, source, litertOnly) },
             )
         }
 
@@ -246,8 +254,9 @@ internal fun engineLabel(engine: String): String = when (engine) {
 private fun SearchBlock(
     query: String,
     source: CatalogSource,
+    litertOnly: Boolean,
     onQueryChange: (String) -> Unit,
-    onSourceChange: (CatalogSource) -> Unit,
+    onSourceChange: (CatalogSource, Boolean) -> Unit,
     onSearch: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(Gateway.spacing.sm)) {
@@ -264,13 +273,20 @@ private fun SearchBlock(
         Row(horizontalArrangement = Arrangement.spacedBy(Gateway.spacing.sm)) {
             FilterChip(
                 selected = source == CatalogSource.Ollama,
-                onClick = { onSourceChange(CatalogSource.Ollama) },
+                onClick = { onSourceChange(CatalogSource.Ollama, false) },
                 label = { Text("Ollama") },
             )
             FilterChip(
-                selected = source == CatalogSource.HuggingFace,
-                onClick = { onSourceChange(CatalogSource.HuggingFace) },
+                selected = source == CatalogSource.HuggingFace && !litertOnly,
+                onClick = { onSourceChange(CatalogSource.HuggingFace, false) },
                 label = { Text("HuggingFace") },
+            )
+            // Отдельный выбор, а не подпункт HuggingFace: репозитории те же,
+            // но запрос другой, и без него модели .litertlm не найти вовсе.
+            FilterChip(
+                selected = source == CatalogSource.HuggingFace && litertOnly,
+                onClick = { onSourceChange(CatalogSource.HuggingFace, true) },
+                label = { Text("LiteRT") },
             )
         }
     }

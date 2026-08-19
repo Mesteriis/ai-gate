@@ -19,6 +19,8 @@ zxingCore = "3.5.3"
 # Gemini Nano через системный AICore. Версия beta4, а не beta2 из документации:
 # в Google Maven она новее, а API у обеих одинаковый.
 mlkitGenaiPrompt = "1.0.0-beta4"
+# Движок LiteRT-LM для моделей .litertlm (CPU, GPU, NPU).
+litertlm = "0.16.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -41,6 +43,7 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxingCore" }
 mlkit-genai-prompt = { group = "com.google.mlkit", name = "genai-prompt", version.ref = "mlkitGenaiPrompt" }
+litertlm-android = { group = "com.google.ai.edge.litertlm", name = "litertlm-android", version.ref = "litertlm" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version = "1.7.0" }
 
 # Ktor Server
