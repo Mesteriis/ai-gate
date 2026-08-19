@@ -65,6 +65,40 @@ class ModelSpeedTesterTest {
     }
 
     @Test
+    fun `Codex - поток Responses разбирается даже без Content-Type события`() = runTest {
+        // Бэкенд Codex стримит с Content-Type, отличным от text/event-stream, —
+        // разбор не должен уходить в JSON-ветку и терять поток.
+        val server = MockWebServer()
+        server.enqueue(
+            MockResponse()
+                .setHeader("Content-Type", "text/plain")
+                .setBody(
+                    listOf(
+                        """data: {"type":"response.created","response":{"id":"resp_1","status":"in_progress"}}""",
+                        """data: {"type":"response.output_text.delta","delta":"Привет, я отвечаю на замер."}""",
+                        """data: {"type":"response.completed","response":{"usage":{"input_tokens":10,"output_tokens":6}}}""",
+                    ).joinToString("\n\n", postfix = "\n\n")
+                ),
+        )
+        server.start()
+        try {
+            val metrics = ModelSpeedTester().measure(
+                modelId = "gpt-5.4",
+                baseUrl = server.url("/").toString(),
+                apiKey = "codex-token",
+                useResponsesApi = true,
+                accountId = "acc-1",
+            )
+
+            assertTrue("TTFT должен быть замерен: $metrics", metrics.ttftMs >= 0)
+            assertTrue("токены ответа должны быть посчитаны", metrics.tokenCount > 0)
+            assertEquals("/responses", server.takeRequest().path)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
     fun `ключ Anthropic - x-api-key без заголовков подписки`() = runTest {
         val server = MockWebServer()
         server.enqueue(

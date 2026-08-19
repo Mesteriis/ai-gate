@@ -23,6 +23,11 @@ class ModelSpeedTester(
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
+        // Жёсткий потолок на весь вызов. withTimeoutOrNull не прерывает
+        // блокирующий execute(), а readTimeout молчит, пока сервер хоть что-то
+        // шлёт — без callTimeout один зависший апстрим вешал обход замеров
+        // навсегда (наблюдалось на устройстве).
+        .callTimeout(45, TimeUnit.SECONDS)
         .build()
 ) {
     suspend fun measure(
@@ -72,9 +77,19 @@ class ModelSpeedTester(
                 }
             }
             .build()
-        // События Messages переводятся в чанки OpenAI, дальше разбор общий.
-        val translate = if (useMessagesApi) com.aigate.router.gateway.AnthropicUpstream.streamTranslator() else null
+        // События Messages/Responses переводятся в чанки OpenAI, дальше разбор общий.
+        val anthropicTranslate =
+            if (useMessagesApi) com.aigate.router.gateway.AnthropicUpstream.streamTranslator() else null
+        val translate: ((String) -> List<String>)? = when {
+            anthropicTranslate != null -> { data -> anthropicTranslate(data, modelId, SPEED_CHUNK_ID) }
+            useResponsesApi -> { data ->
+                com.aigate.router.gateway.CodexUpstream.translateStreamEvent(data, modelId, SPEED_CHUNK_ID)
+            }
+            else -> null
+        }
 
+        // Начало замера в логе: если модель зависнет, по последней строке видно кто.
+        Log.i(TAG, "Замер $modelId → $url")
         val t0 = System.currentTimeMillis()
         var tFirst: Long? = null
         var tEnd: Long = 0L
@@ -95,7 +110,9 @@ class ModelSpeedTester(
 
                     // ★ 检测响应格式：SSE 还是完整 JSON
                     val contentType = resp.header("Content-Type", "") ?: ""
-                    val isSSE = "text/event-stream" in contentType
+                    // Бэкенд Codex всегда стримит, но Content-Type у него не
+                    // text/event-stream — без поправки поток уходил в JSON-ветку.
+                    val isSSE = "text/event-stream" in contentType || useResponsesApi
 
                     if (isSSE) {
                         // ★ SSE 流式解析
@@ -107,8 +124,7 @@ class ModelSpeedTester(
                             if (data == "[DONE]" || data == "{\"done\":true}") break
 
                             val delta = (
-                                if (translate != null) translate(data, modelId, SPEED_CHUNK_ID)
-                                    .firstNotNullOfOrNull(::parseDelta)
+                                if (translate != null) translate(data).firstNotNullOfOrNull(::parseDelta)
                                 else parseDelta(data)
                                 ) ?: continue
                             if (delta.isNotEmpty()) {
@@ -123,13 +139,18 @@ class ModelSpeedTester(
                         if (tEnd == 0L) tEnd = System.currentTimeMillis()
                     } else {
                         // ★ 非 SSE 格式：完整 JSON 响应
-                        // Полный ответ Messages приводится к chat/completions, разбор общий.
+                        // Полный ответ Messages/Responses приводится к chat/completions,
+                        // разбор общий.
                         val rawBody = resp.body!!.string()
-                        val fullBody = if (useMessagesApi) {
-                            runCatching {
+                        val fullBody = when {
+                            useMessagesApi -> runCatching {
                                 com.aigate.router.gateway.AnthropicUpstream.translateResponse(rawBody, modelId)
                             }.getOrDefault(rawBody)
-                        } else rawBody
+                            useResponsesApi -> runCatching {
+                                com.aigate.router.gateway.CodexUpstream.translateResponse(rawBody, modelId)
+                            }.getOrDefault(rawBody)
+                            else -> rawBody
+                        }
                         val jsonObj = try { JSONObject(fullBody) } catch (_: Exception) { null }
                         val message = jsonObj?.optJSONArray("choices")
                             ?.optJSONObject(0)
