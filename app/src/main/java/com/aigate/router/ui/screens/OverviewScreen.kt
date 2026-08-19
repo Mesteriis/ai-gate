@@ -196,11 +196,19 @@ fun OverviewScreen(
 
         ConnectivityCheckCard(db = db, port = gatewayPort)
 
-        SectionHeader("Ресурсы провайдеров")
-        QuotaStrip(
-            pools = pools,
-            providerTypes = providers.associate { it.id to it.type },
-        )
+        // Плитки бесплатных ресурсов на обзор не выносим: у них нечего
+        // показывать, кроме знака бесконечности, а обзор нужен для того, что
+        // кончается. Пять одинаковых «без лимита» занимали половину сетки и
+        // прятали ресурсы, за которыми действительно надо следить. Сами
+        // ресурсы никуда не делись — они в разделе «Ресурсы».
+        val limited = pools.filterNot { ResourcePoolKind.fromName(it.pool.kind) == ResourcePoolKind.FREE }
+        if (pools.isEmpty() || limited.isNotEmpty()) {
+            SectionHeader("Ресурсы провайдеров")
+            QuotaStrip(
+                pools = limited,
+                providerTypes = providers.associate { it.id to it.type },
+            )
+        }
 
         val forecast = usage?.first
         val days = usage?.second.orEmpty()
