@@ -2102,7 +2102,8 @@ private suspend fun pipeStreamResponse(
             apiKeyLabel = call.apiKeyLabel,
             pipeStartTime = pipeStartTime,
             translateEvent = if (isCodex) CodexUpstream::translateStreamEvent
-                else AnthropicUpstream::translateStreamEvent,
+                // С памятью: входные токены приходят один раз, в начале потока.
+                else AnthropicUpstream.streamTranslator(),
         )
         return
     }

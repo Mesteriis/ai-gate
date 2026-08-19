@@ -2,6 +2,7 @@ package com.aigate.router.ui.design
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
@@ -76,6 +77,74 @@ fun QuotaBar(
                 strokeWidth = 1.5.dp.toPx(),
             )
         }
+    }
+}
+
+/**
+ * Два окна лимита одним знаком: внешнее кольцо — короткое окно (у Claude сессия
+ * на 5 часов), внутреннее — длинное (неделя). Одного кольца для такой подписки
+ * недостаточно: упереться можно и в сессию, и в неделю, а сбрасываются они
+ * в разное время.
+ *
+ * В центре — самое напряжённое из двух значений: именно оно ограничит работу
+ * первым. Расшифровка обоих окон идёт подписью под знаком, а не внутри кольца:
+ * в кольцо она не влезает и налезает на дугу.
+ */
+@Composable
+fun QuotaRings(
+    outerFraction: Float?,
+    innerFraction: Float?,
+    outerPressure: ResourcePressure?,
+    innerPressure: ResourcePressure?,
+    centerText: String,
+    modifier: Modifier = Modifier,
+    size: Dp = 86.dp,
+    stroke: Dp = 8.dp,
+) {
+    val track = Gateway.colors.surfaceContainerHigh
+    val outerFill = pressureColor(outerPressure)
+    val innerFill = pressureColor(innerPressure)
+    Box(modifier.size(size), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(size)) {
+            val strokePx = stroke.toPx()
+            // Внутреннее кольцо тоньше и отстоит на толщину внешнего плюс зазор.
+            val innerStrokePx = strokePx * 0.62f
+            val gapPx = strokePx * 0.85f
+
+            fun ring(inset: Float, width: Float, fraction: Float?, fill: Color) {
+                val arcSize = Size(this.size.width - inset * 2, this.size.height - inset * 2)
+                val topLeft = Offset(inset, inset)
+                drawArc(
+                    color = track,
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = arcSize,
+                    style = Stroke(width, cap = StrokeCap.Round),
+                )
+                fraction?.let { f ->
+                    drawArc(
+                        color = fill,
+                        startAngle = -90f,
+                        sweepAngle = 360f * f.coerceIn(0f, 1f),
+                        useCenter = false,
+                        topLeft = topLeft,
+                        size = arcSize,
+                        style = Stroke(width, cap = StrokeCap.Round),
+                    )
+                }
+            }
+
+            ring(strokePx / 2f, strokePx, outerFraction, outerFill)
+            ring(strokePx + gapPx + innerStrokePx / 2f, innerStrokePx, innerFraction, innerFill)
+        }
+        Text(
+            text = centerText,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
 

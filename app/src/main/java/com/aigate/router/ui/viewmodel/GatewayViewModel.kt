@@ -1134,12 +1134,27 @@ companion object {
         }
     }
 
-    /** 更新服务商 */
+    /**
+     * Сохранить изменения провайдера (в том числе переименование).
+     *
+     * У провайдера с OAuth-сессией (Codex, Claude Code) ключа API нет. Запись
+     * «ключа» превратила бы сессию в обычный ключ: тип credential менялся на
+     * api_key, автообновление переставало работать, и после истечения токена
+     * провайдер умирал молча. Поэтому там меняются только поля провайдера.
+     */
     fun updateProvider(provider: Provider, apiKey: String) {
         viewModelScope.launch {
             try {
-                val credId = CredentialStore.setApiKey(database, provider.id, apiKey)
-                database.providerDao().update(provider.copy(credentialId = credId))
+                val existing = database.credentialDao().getByProvider(provider.id)
+                if (existing?.type == com.aigate.router.data.model.Credential.TYPE_OAUTH) {
+                    database.providerDao().update(provider.copy(credentialId = existing.id))
+                } else {
+                    val credId = CredentialStore.setApiKey(database, provider.id, apiKey)
+                    database.providerDao().update(provider.copy(credentialId = credId))
+                }
+                // Имя ресурса следует за именем провайдера — обновляем пулы сразу,
+                // иначе плитка на «Обзоре» осталась бы с прежним именем до сброса.
+                runCatching { com.aigate.router.quota.QuotaRepository.refreshAll(database) }
                 _showEditProviderDialog.value = null
                 _snackbarMessage.value = "Провайдер обновлён"
             } catch (e: Exception) {

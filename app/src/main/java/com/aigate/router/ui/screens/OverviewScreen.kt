@@ -53,6 +53,8 @@ import androidx.compose.ui.unit.dp
 import com.aigate.router.GatewayApplication
 import com.aigate.router.quota.QuotaRepository
 import com.aigate.router.quota.QuotaBurn
+import com.aigate.router.quota.QuotaWindow
+import com.aigate.router.quota.QuotaWindows
 import com.aigate.router.quota.ResourcePoolKind
 import com.aigate.router.service.GatewayForegroundService
 import com.aigate.router.ui.design.AppCard
@@ -66,6 +68,7 @@ import com.aigate.router.ui.design.MetricTile
 import com.aigate.router.ui.design.ProviderAvatar
 import com.aigate.router.ui.design.QrCodeImage
 import com.aigate.router.ui.design.QuotaRing
+import com.aigate.router.ui.design.QuotaRings
 import com.aigate.router.ui.design.SectionHeader
 import com.aigate.router.ui.design.StatusChip
 import com.aigate.router.ui.design.StatusTone
@@ -445,6 +448,10 @@ private fun ResourceTile(
     val kind = ResourcePoolKind.fromName(pq.pool.kind)
     val snapshot = pq.snapshot
     val unit = snapshot?.unit ?: pq.pool.unit
+    // Окна лимита провайдера: у подписки Claude их два — сессия и неделя.
+    val windows = remember(pq.pool.id, snapshot?.updatedAt) {
+        if (kind.hasFraction) QuotaWindows.of(pq.pool.id) else emptyList()
+    }
     // Прогноз считаем от истории расхода: он даёт «хватит до» или «сгорит».
     val db = remember { GatewayApplication.getInstance().database }
     val outlook by produceState<QuotaBurn.Outlook?>(initialValue = null, pq.pool.id, snapshot?.updatedAt) {
@@ -490,6 +497,22 @@ private fun ResourceTile(
                     modifier = Modifier.size(72.dp).padding(Gateway.spacing.md),
                 )
 
+                // Два окна лимита сразу (сессия и неделя у подписки Claude):
+                // одно кольцо не покажет, во что упрёшься первым.
+                windows.size >= 2 -> {
+                    val outer = windows[0]
+                    val inner = windows[1]
+                    QuotaRings(
+                        outerFraction = (outer.percent / 100.0).toFloat(),
+                        innerFraction = (inner.percent / 100.0).toFloat(),
+                        outerPressure = windowPressure(outer.percent),
+                        innerPressure = windowPressure(inner.percent),
+                        // В центре — то окно, которое ограничит работу первым.
+                        centerText = "${Math.round(maxOf(outer.percent, inner.percent))}%",
+                        size = 82.dp,
+                    )
+                }
+
                 kind.hasFraction -> {
                     val used = snapshot?.used
                     val limit = snapshot?.limit
@@ -522,15 +545,39 @@ private fun ResourceTile(
             }
 
             // Нижняя строка: что будет дальше — из расчёта, а не из порога.
-            Text(
-                text = tileFooter(kind, snapshot?.resetsAt, outlook),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            // У двух окон сначала расшифровка колец, потом ближайший сброс.
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (windows.size >= 2) {
+                    Text(
+                        text = windows.take(2).joinToString(" · ") {
+                            "${it.label} ${Math.round(it.percent)}%"
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Text(
+                    text = if (windows.size >= 2) windowsFooter(windows)
+                    else tileFooter(kind, snapshot?.resetsAt, outlook),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
+}
+
+/** Подпись для двух окон: когда сбрасывается ближайшее из них. */
+private fun windowsFooter(windows: List<QuotaWindow>): String {
+    val soonest = windows.mapNotNull { w -> w.resetsAt?.let { w to it } }
+        .minByOrNull { it.second } ?: return ""
+    val left = soonest.second - System.currentTimeMillis()
+    if (left <= 0) return ""
+    return "сброс ${soonest.first.label} через ${Fmt.duration(left)}"
 }
 
 /**

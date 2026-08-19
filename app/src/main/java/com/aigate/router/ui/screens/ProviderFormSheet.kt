@@ -103,18 +103,21 @@ fun EditProviderSheet(
     var baseUrl by remember { mutableStateOf(provider.baseUrl) }
     var port by remember { mutableStateOf(provider.port) }
     var chatPath by remember { mutableStateOf(provider.chatPath ?: "") }
-    var apiKey by remember { mutableStateOf(CredentialStore.apiKeyForProvider(provider) ?: "") }
     val typeIndex = remember(type) {
         types.indexOfFirst { it.defaultType == type }.takeIf { it >= 0 } ?: types.lastIndex
     }
-    // Провайдер с OAuth-сессией (Codex) настроен самим провайдером: тип, адрес
-    // и путь менять нельзя — иначе форма подставит «Custom» и сломает его.
+    // Провайдер с OAuth-сессией (Codex, Claude Code) настроен самим провайдером:
+    // тип, адрес и путь менять нельзя — иначе форма подставит «Custom» и сломает
+    // его. Токен сессии в поле «ключ» тоже не подставляем: показывать его незачем.
     val sessionManaged = remember(provider.type) {
         types.none { it.defaultType == provider.type }
     }
+    var apiKey by remember {
+        mutableStateOf(if (sessionManaged) "" else CredentialStore.apiKeyForProvider(provider) ?: "")
+    }
 
     FormSheet(
-        title = "Провайдер: ${provider.name}",
+        title = if (sessionManaged) "Имя провайдера" else "Провайдер: ${provider.name}",
         onDismiss = onDismiss,
         confirmText = "Сохранить",
         confirmEnabled = name.isNotBlank() && baseUrl.startsWith("http"),

@@ -215,8 +215,11 @@ object OAuthBrowserFlow {
             val account = json.optJSONObject("account")
             val accountId = account?.optString("uuid")?.takeIf { it.isNotBlank() }
                 ?: claims?.let { findClaim(it, "chatgpt_account_id") }
-            val email = account?.optString("email")?.takeIf { it.isNotBlank() }
-                ?: claims?.let { findClaim(it, "email") }
+            val email = account?.let { acc ->
+                listOf("email", "email_address").firstNotNullOfOrNull { key ->
+                    acc.optString(key).takeIf { it.isNotBlank() }
+                }
+            } ?: claims?.let { findClaim(it, "email") }
             return Result.success(
                 ImportedSession(
                     accessToken = access,

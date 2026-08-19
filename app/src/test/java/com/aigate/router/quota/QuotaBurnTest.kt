@@ -104,4 +104,20 @@ class QuotaBurnTest {
         assertNotNull("после сброса темп считается по свежим снимкам", rate)
         assertTrue(rate!!.perHour > 0.0)
     }
+
+    @Test
+    fun `смена единицы измерения не считается расходом`() {
+        // Пул считался локально в долларах, потом провайдер начал отдавать
+        // проценты. Переход 0 USD → 33 % — смена шкалы, а не расход: иначе
+        // прогноз обещал бы конец квоты через полчаса.
+        val inUsd = snap(0.0, 3).copy(unit = "USD", source = "LOCAL_USAGE")
+        val inPercent = snap(33.0, 0)
+        assertNull(QuotaBurn.rate(listOf(inUsd, inPercent), now))
+
+        // Появился второй снимок в процентах — темп снова считается.
+        val later = snap(43.0, 0).copy(updatedAt = now)
+        val rate = QuotaBurn.rate(listOf(inUsd, snap(33.0, 2), later), now)
+        assertNotNull(rate)
+        assertEquals(5.0, rate!!.perHour, 0.01)
+    }
 }

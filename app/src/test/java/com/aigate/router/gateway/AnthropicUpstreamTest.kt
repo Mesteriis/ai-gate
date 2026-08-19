@@ -179,4 +179,35 @@ class AnthropicUpstreamTest {
         )
         assertNull(out.optJSONObject("usage"))
     }
+
+    @Test
+    fun `в потоке входные токены доходят до финального чанка`() {
+        // Anthropic присылает их один раз, в message_start: без памяти расход
+        // считался бы только по ответу.
+        val translate = AnthropicUpstream.streamTranslator()
+        translate(
+            """{"type":"message_start","message":{"usage":{"input_tokens":120,"cache_read_input_tokens":30}}}""",
+            "m", "id1",
+        )
+        val chunks = translate(
+            """{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":8}}""",
+            "m", "id1",
+        )
+        val usage = JSONObject(chunks.single()).getJSONObject("usage")
+        assertEquals(150, usage.getInt("prompt_tokens"))
+        assertEquals(8, usage.getInt("completion_tokens"))
+        assertEquals(158, usage.getInt("total_tokens"))
+    }
+
+    @Test
+    fun `токены из кэша учитываются во входных`() {
+        val out = JSONObject(
+            AnthropicUpstream.translateResponse(
+                """{"id":"m","content":[{"type":"text","text":"x"}],
+                   "usage":{"input_tokens":10,"cache_read_input_tokens":90,"output_tokens":5}}""",
+                model = "m",
+            )
+        )
+        assertEquals(100, out.getJSONObject("usage").getInt("prompt_tokens"))
+    }
 }

@@ -166,7 +166,7 @@ object AnthropicUpstream {
     }
 
     private fun translateUsage(usage: JSONObject): JSONObject {
-        val prompt = usage.optInt("input_tokens", 0)
+        val prompt = inputTokens(usage)
         val completion = usage.optInt("output_tokens", 0)
         return JSONObject().apply {
             put("prompt_tokens", prompt)
@@ -174,6 +174,15 @@ object AnthropicUpstream {
             put("total_tokens", prompt + completion)
         }
     }
+
+    /**
+     * Входные токены: кроме `input_tokens` Anthropic отдельно считает токены,
+     * прочитанные из кэша и записанные в него. Игнорировать их — занижать расход.
+     */
+    private fun inputTokens(usage: JSONObject): Int =
+        usage.optInt("input_tokens", 0) +
+            usage.optInt("cache_read_input_tokens", 0) +
+            usage.optInt("cache_creation_input_tokens", 0)
 
     private fun errorCompletion(model: String, message: String): String =
         JSONObject().apply {
@@ -211,7 +220,7 @@ object AnthropicUpstream {
             when (ev.optString("type")) {
                 "message_start" -> ev.optJSONObject("message")?.let { msg ->
                     msg.optString("model").takeIf { it.isNotBlank() }?.let { responseModel = it }
-                    msg.optJSONObject("usage")?.let { promptTokens = it.optInt("input_tokens", 0) }
+                    msg.optJSONObject("usage")?.let { promptTokens = inputTokens(it) }
                 }
                 "content_block_delta" -> textDelta(ev)?.let { text.append(it) }
                 "message_delta" -> {
@@ -262,7 +271,12 @@ object AnthropicUpstream {
      *
      * @param dataJson содержимое строки `data:` события
      */
-    fun translateStreamEvent(dataJson: String, model: String, id: String): List<String> {
+    fun translateStreamEvent(
+        dataJson: String,
+        model: String,
+        id: String,
+        promptTokens: Int = 0,
+    ): List<String> {
         val ev = runCatching { JSONObject(dataJson) }.getOrNull() ?: return emptyList()
         return when (ev.optString("type")) {
             "content_block_delta" -> {
@@ -278,9 +292,9 @@ object AnthropicUpstream {
                 val out = ev.optJSONObject("usage")?.optInt("output_tokens")
                 listOf(chunk(id, model, JSONObject(), finish, out?.let {
                     JSONObject().apply {
-                        put("prompt_tokens", 0)
+                        put("prompt_tokens", promptTokens)
                         put("completion_tokens", it)
-                        put("total_tokens", it)
+                        put("total_tokens", promptTokens + it)
                     }
                 }))
             }
@@ -298,6 +312,24 @@ object AnthropicUpstream {
             }
 
             else -> emptyList()
+        }
+    }
+
+    /**
+     * Переводчик потока с памятью. Входные токены Anthropic присылает один раз —
+     * в `message_start`, а расход уходит клиенту и в учёт в финальном чанке.
+     * Без этой памяти prompt_tokens в потоке были бы нулевыми, и стоимость
+     * запроса считалась бы только по ответу.
+     */
+    fun streamTranslator(): (String, String, String) -> List<String> {
+        var promptTokens = 0
+        return { dataJson, model, id ->
+            val ev = runCatching { JSONObject(dataJson) }.getOrNull()
+            if (ev?.optString("type") == "message_start") {
+                ev.optJSONObject("message")?.optJSONObject("usage")
+                    ?.let { promptTokens = inputTokens(it) }
+            }
+            translateStreamEvent(dataJson, model, id, promptTokens)
         }
     }
 

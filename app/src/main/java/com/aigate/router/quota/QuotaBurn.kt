@@ -38,7 +38,13 @@ object QuotaBurn {
      * участки, где счётчик упал (произошёл сброс квоты), в расчёт не идут.
      */
     fun rate(history: List<QuotaSnapshot>, now: Long): Rate? {
-        val ordered = history.filter { it.used != null }.sortedBy { it.updatedAt }
+        val all = history.filter { it.used != null }.sortedBy { it.updatedAt }
+        // Сравнивать снимки в разных единицах нельзя: пул мог считаться локально
+        // в долларах, а потом провайдер начал отдавать проценты — переход 0 USD →
+        // 33 % не расход, а смена шкалы, и без этого фильтра он давал бы
+        // мгновенный «конец квоты через полчаса».
+        val unit = all.lastOrNull()?.unit
+        val ordered = all.filter { it.unit.equals(unit, ignoreCase = true) }
         if (ordered.size < 2) return null
 
         val windowStart = now - (RATE_WINDOW_HOURS * HOUR_MS).toLong()

@@ -32,7 +32,9 @@ import com.aigate.router.data.model.Provider
 import com.aigate.router.data.model.ResourcePool
 import com.aigate.router.quota.QuotaBurn
 import com.aigate.router.quota.QuotaRepository
+import com.aigate.router.quota.QuotaWindows
 import com.aigate.router.quota.ResourcePoolKind
+import com.aigate.router.quota.ResourcePressure
 import com.aigate.router.ui.design.ConfirmDialog
 import com.aigate.router.ui.design.Fmt
 import com.aigate.router.ui.design.FormSheet
@@ -66,6 +68,15 @@ fun ProviderSheet(
     val pools by remember { QuotaRepository.observe(db) }.collectAsState(initial = emptyList())
     val pq = pools.firstOrNull { it.pool.providerId == provider.id }
     val kind = pq?.let { ResourcePoolKind.fromName(it.pool.kind) }
+
+    // Вход учётной записью или ключ API — от этого зависят и блок сессии,
+    // и то, что вообще можно изменить.
+    val isOAuth by produceState(initialValue = false, provider.id) {
+        value = withContext(Dispatchers.IO) {
+            db.credentialDao().getByProvider(provider.id)?.type ==
+                com.aigate.router.data.model.Credential.TYPE_OAUTH
+        }
+    }
 
     var showNotify by remember { mutableStateOf(false) }
     var showBudget by remember { mutableStateOf(false) }
@@ -133,8 +144,10 @@ fun ProviderSheet(
             SheetActionRow("Уведомления", "пороги и темп") { showNotify = true }
         }
 
-        // Провайдер с OAuth-сессией: срок действия и повторный вход.
-        if (provider.type.equals("codex", ignoreCase = true)) {
+        // Провайдер с OAuth-сессией: срок действия и повторный вход. Проверяем
+        // сам credential, а не тип провайдера: сессий уже больше одной (Codex,
+        // Claude Code), и перечислять типы значило бы забыть следующий.
+        if (isOAuth) {
             SectionHeader("Сессия")
             SessionRow(provider = provider)
             TextButton(onClick = {
@@ -144,7 +157,11 @@ fun ProviderSheet(
 
         SectionHeader("Действия")
         SheetActionRow("Синхронизировать модели", "запросить список у провайдера", onClick = onSyncModels)
-        SheetActionRow("Изменить", "имя и ключ", onClick = onEdit)
+        SheetActionRow(
+            title = if (isOAuth) "Переименовать" else "Изменить",
+            value = if (isOAuth) "имя провайдера" else "имя и ключ",
+            onClick = onEdit,
+        )
         SheetActionRow("Удалить провайдера", "", destructive = true) { confirmDelete = true }
     }
 }
@@ -166,12 +183,36 @@ private fun ResourceSummary(pq: QuotaRepository.PoolQuota, kind: ResourcePoolKin
         }
     }
 
+    // Окна лимита: у подписки Claude их два — сессия на 5 часов и неделя.
+    // Показываем каждое своей полосой: сбрасываются они в разное время.
+    val windows = remember(pq.pool.id, snapshot?.updatedAt) {
+        if (kind.hasFraction) QuotaWindows.of(pq.pool.id) else emptyList()
+    }
+
     when {
         kind == ResourcePoolKind.FREE -> Text(
             text = "Без лимита: локальные модели",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+
+        windows.size >= 2 -> windows.forEach { w ->
+            QuotaBar(
+                fractionUsed = (w.percent / 100.0).toFloat(),
+                pressure = windowPressure(w.percent),
+            )
+            Text(
+                text = listOfNotNull(
+                    "${w.label}: израсходовано ${Math.round(w.percent)}%",
+                    w.resetsAt?.let { at ->
+                        val left = at - System.currentTimeMillis()
+                        if (left > 0) "сброс через ${Fmt.duration(left)}" else "сброс сейчас"
+                    },
+                ).joinToString(" · "),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+            )
+        }
 
         kind.hasFraction && snapshot?.remaining != null && snapshot.limit != null -> {
             QuotaBar(
@@ -223,7 +264,8 @@ private fun ResourceSummary(pq: QuotaRepository.PoolQuota, kind: ResourcePoolKin
             )
         }
     }
-    if (kind.hasReset) {
+    // Сброс: у нескольких окон он уже указан в строке каждого окна.
+    if (kind.hasReset && windows.size < 2) {
         snapshot?.resetsAt?.let { resetsAt ->
             val left = resetsAt - System.currentTimeMillis()
             if (left > 0) {
@@ -235,6 +277,17 @@ private fun ResourceSummary(pq: QuotaRepository.PoolQuota, kind: ResourcePoolKin
             }
         }
     }
+}
+
+/**
+ * Давление по одному окну лимита: только уровень израсходованного. Темп сюда не
+ * входит — своей истории снимков у отдельного окна нет.
+ */
+internal fun windowPressure(percent: Double): ResourcePressure = when {
+    percent >= 90.0 -> ResourcePressure.CRITICAL
+    percent >= 70.0 -> ResourcePressure.CONSERVE
+    percent >= 30.0 -> ResourcePressure.NORMAL
+    else -> ResourcePressure.FREE
 }
 
 @Composable
