@@ -9,6 +9,7 @@ import com.aigate.router.data.model.ResourcePool
 import com.aigate.router.quota.QuotaSource
 import com.aigate.router.quota.QuotaUnit
 import com.aigate.router.quota.RemoteQuotaProvider
+import com.aigate.router.service.GatewayForegroundService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -48,31 +49,61 @@ class CursorQuotaProvider(
         val base = provider.resolvedBaseUrl.trimEnd('/').ifBlank { DEFAULT_BASE_URL }
 
         return withContext(Dispatchers.IO) {
-            try {
-                val request = Request.Builder()
-                    .url("$base$SPEND_PATH")
-                    // Basic: ключ вместо имени пользователя, пароль пустой.
-                    .header("Authorization", okhttp3.Credentials.basic(key, ""))
-                    .header("Accept", "application/json")
-                    .post("{}".toRequestBody(JSON))
-                    .build()
-                client.newCall(request).execute().use { resp ->
-                    val body = resp.body?.string().orEmpty()
-                    if (!resp.isSuccessful) {
-                        Log.w(TAG, "spend → HTTP ${resp.code}: ${body.take(200)}")
-                        return@withContext null
-                    }
-                    parse(body, pool.id) ?: run {
-                        Log.w(TAG, "spend: неожидаемый формат ответа: ${body.take(200)}")
-                        null
-                    }
+            // Схему аутентификации перебираем, а не угадываем. Админ-API Cursor
+            // документирован как basic с ключом вместо имени пользователя, но
+            // на отказ он отвечает тем же «Invalid Team API Key», что и на
+            // запрос вовсе без ключа, — по ответу не отличить неверный ключ от
+            // неверной схемы. Порядок задан документацией: сначала basic.
+            val schemes = listOf(
+                "basic" to okhttp3.Credentials.basic(key, ""),
+                "bearer" to "Bearer $key",
+            )
+            var lastFailure: String? = null
+            for ((name, authorization) in schemes) {
+                val snapshot = runCatching { request(base, authorization, pool, name) }
+                    .onFailure { lastFailure = "$name: ${it.message}" }
+                    .getOrNull()
+                if (snapshot != null) {
+                    Log.i(TAG, "spend получен схемой $name")
+                    return@withContext snapshot
                 }
-            } catch (e: Exception) {
-                Log.w(TAG, "spend failed: ${e.message}")
-                null // честный null, а не выдуманный расход
+            }
+            // Молчать нельзя: без строки в журнале пользователь видит пустой
+            // расход и не понимает, ключ ли отвергнут или сеть подвела.
+            val reason = lastFailure ?: "ключ отклонён (проверьте, что это ключ Team API, а не персональный)"
+            Log.w(TAG, "расход не получен: $reason")
+            GatewayForegroundService.addDebugLog("Cursor: расход не получен — $reason")
+            null
+        }
+    }
+
+    /** Один запрос расхода. Возвращает null, если сервер отказал или ответ не тот. */
+    private fun request(base: String, authorization: String, pool: ResourcePool, scheme: String): QuotaSnapshot? {
+        val request = Request.Builder()
+            .url("$base$SPEND_PATH")
+            .header("Authorization", authorization)
+            .header("Accept", "application/json")
+            .post("{}".toRequestBody(JSON))
+            .build()
+        client.newCall(request).execute().use { resp ->
+            val body = resp.body?.string().orEmpty()
+            if (!resp.isSuccessful) {
+                Log.w(TAG, "spend ($scheme) → HTTP ${resp.code}: ${body.take(200)}")
+                // Сообщение сервера уносим наверх: пользователю нужна причина
+                // отказа дословно, а не наша догадка о ней.
+                error("HTTP ${resp.code} — ${serverMessage(body)}")
+            }
+            return parse(body, pool.id) ?: run {
+                Log.w(TAG, "spend ($scheme): неожидаемый формат ответа: ${body.take(200)}")
+                null
             }
         }
     }
+
+    /** Текст ошибки из тела ответа: у Cursor он лежит в поле message. */
+    private fun serverMessage(body: String): String =
+        runCatching { JSONObject(body).optString("message") }.getOrNull()
+            ?.takeIf { it.isNotBlank() } ?: body.take(120).ifBlank { "ответ без текста" }
 
     /** Разбор ответа админ-API. Публично для юнит-тестов. */
     fun parse(body: String, poolId: Long, now: Long = System.currentTimeMillis()): QuotaSnapshot? {
