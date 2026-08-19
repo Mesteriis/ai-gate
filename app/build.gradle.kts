@@ -52,6 +52,10 @@ android {
 
     buildTypes {
         release {
+            // Только arm64: библиотеки под x86_64 весят двадцать пять мегабайт
+            // и на телефоне не выполнятся никогда. В отладочной сборке они
+            // остаются — иначе нельзя запустить приложение на эмуляторе.
+            ndk { abiFilters += "arm64-v8a" }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

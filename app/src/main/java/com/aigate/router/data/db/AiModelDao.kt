@@ -56,6 +56,17 @@ interface AiModelDao {
     @Query("DELETE FROM models WHERE provider_id = :providerId")
     suspend fun deleteByProvider(providerId: Long)
 
+    /**
+     * Строки моделей, чей провайдер исчез.
+     *
+     * Room следит за внешними ключами и в обычной работе таких строк не
+     * оставляет. Но база переживает восстановление из резервной копии и правку
+     * извне, а осиротевшая модель попадает в выдачу /v1/models и обещает
+     * клиенту то, что обслужить некому.
+     */
+    @Query("DELETE FROM models WHERE provider_id NOT IN (SELECT id FROM providers)")
+    suspend fun deleteOrphans(): Int
+
     @Query("UPDATE models SET is_default = 0 WHERE is_default = 1")
     suspend fun clearDefaultModel()
 

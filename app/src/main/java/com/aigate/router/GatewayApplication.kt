@@ -80,6 +80,10 @@ class GatewayApplication : Application() {
      * не числясь ни за одной моделью.
      */
     private suspend fun restoreLocalModels() {
+        runCatching {
+            val orphans = database.aiModelDao().deleteOrphans()
+            if (orphans > 0) GatewayForegroundService.addDebugLog("Убрано моделей без провайдера: $orphans")
+        }
         val dao = database.localModelDao()
         runCatching { com.aigate.router.download.LocalModelSync.sync(database) }
         runCatching {

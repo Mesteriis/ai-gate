@@ -150,10 +150,10 @@ object LocalModelsRepository {
     /**
      * Сколько места занято моделями и сколько осталось.
      *
-     * Занятое берётся с диска, а не суммой размеров из базы: в каталоге
-     * моделей могут лежать хвосты прерванных удалений и недокачанные файлы, и
-     * человеку важно видеть, сколько места действительно израсходовано, а не
-     * сколько числится за учтёнными записями.
+     * Занятое считается по записям моделей, а не обходом каталога: обход видит
+     * только текущий корень хранилища, и при расхождении экран показывал бы
+     * ноль под списком непустых моделей. По записям цифра всегда совпадает с
+     * тем, что человек видит рядом.
      *
      * [dao] в сигнатуре ради единообразия вызовов с экрана хранилища, который
      * тут же показывает список моделей.
@@ -161,12 +161,22 @@ object LocalModelsRepository {
     @Suppress("UNUSED_PARAMETER")
     suspend fun storageStats(context: Context, dao: LocalModelDao): StorageStats {
         val app = context.applicationContext
-        val used = ModelStorage.usedBytes(app)
+        // Занятое место считаем по записям, а не обходом каталога. Обход видит
+        // только текущий корень хранилища, а файлы могли лечь в другой — тогда
+        // экран показывал бы ноль под списком непустых моделей. По записям
+        // цифра всегда совпадает с тем, что человек видит рядом.
+        val used = dao.getAll()
+            .filter { it.state == LocalModel.STATE_READY }
+            .sumOf { it.sizeBytes }
+        // Недокачанное место тоже занято, и умалчивать о нём нельзя.
+        val partial = dao.getAll()
+            .filter { it.state != LocalModel.STATE_READY }
+            .sumOf { it.downloadedBytes }
         val free = ModelStorage.freeBytes(app)
         return StorageStats(
-            modelsBytes = used,
+            modelsBytes = used + partial,
             freeBytes = free,
-            totalBytes = used + free,
+            totalBytes = used + partial + free,
         )
     }
 }
