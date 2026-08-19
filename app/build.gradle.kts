@@ -100,6 +100,9 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
 
+    // QR-код адреса шлюза
+    implementation(libs.zxing.core)
+
     // Ktor Server
     implementation(libs.ktor.server.cio)
     implementation(libs.ktor.server.content.negotiation)

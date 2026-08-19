@@ -64,6 +64,7 @@ import com.aigate.router.ui.design.HelpSection
 import com.aigate.router.ui.design.HelpSheet
 import com.aigate.router.ui.design.MetricTile
 import com.aigate.router.ui.design.ProviderAvatar
+import com.aigate.router.ui.design.QrCodeImage
 import com.aigate.router.ui.design.QuotaRing
 import com.aigate.router.ui.design.SectionHeader
 import com.aigate.router.ui.design.StatusChip
@@ -282,6 +283,15 @@ private fun GatewayStatusCard(
             }
         } else {
             AddressRow("Адрес в сети", "http://$lanIp:$port", onCopy)
+
+            // QR избавляет от ручного ввода адреса на другом устройстве —
+            // тем нужнее, что адрес меняется при смене сети.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                QrCodeImage(content = "http://$lanIp:$port", size = 132.dp)
+            }
         }
 
         Spacer(Modifier.height(Gateway.spacing.lg))
