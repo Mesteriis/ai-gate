@@ -1398,18 +1398,13 @@ companion object {
             ).let { it.copy(id = database.providerDao().insert(it)) }
 
             if (availability == com.aigate.router.gateway.local.nano.AiCoreStatus.Availability.DOWNLOADABLE) {
-                // Загрузку запускаем и не ждём: она идёт силами системы,
-                // весит гигабайты и переживает закрытие приложения. Держать
+                // Загрузку запускаем и не ждём: она весит гигабайты, и держать
                 // ради неё нажатие «подключить» значило бы повесить экран на
-                // несколько минут.
-                viewModelScope.launch(Dispatchers.IO) {
-                    runCatching { com.aigate.router.gateway.local.nano.AiCoreStatus.download()?.collect {} }
-                    com.aigate.router.gateway.local.nano.AiCoreStatus.invalidate()
-                    // Состояние модели изменилось — обновляем строку в списке.
-                    database.providerDao().getAllProvidersList()
-                        .firstOrNull { it.type.equals(type, ignoreCase = true) }
-                        ?.let { runCatching { syncLocalProvider(it) } }
-                }
+                // несколько минут. Область — уровня приложения, а не экрана:
+                // уход с экрана не должен обрывать загрузку на середине.
+                com.aigate.router.gateway.local.nano.AiCoreStatus.startDownload(
+                    GatewayApplication.getInstance().applicationScope
+                )
             }
 
             syncLocalProvider(provider)
@@ -1440,12 +1435,18 @@ companion object {
 
         com.aigate.router.gateway.local.nano.AiCoreStatus.invalidate()
         val availability = com.aigate.router.gateway.local.nano.AiCoreStatus.availability()
+        val existing = database.aiModelDao().getModelsByProvider(provider.id)
+            .firstOrNull { it.modelId == NANO_MODEL_ID }
+
         if (availability == com.aigate.router.gateway.local.nano.AiCoreStatus.Availability.UNAVAILABLE) {
+            // Строку не удаляем: устройство могло временно потерять доступ, а
+            // выключенная модель честнее исчезнувшей — видно, что она есть и
+            // почему молчит. Но включённой её оставлять нельзя: шлюз пошёл бы
+            // к ней и вернул клиенту ошибку.
+            existing?.takeIf { it.isEnabled }?.let { database.aiModelDao().update(it.copy(isEnabled = false)) }
             return "Встроенная модель недоступна на этом устройстве"
         }
 
-        val existing = database.aiModelDao().getModelsByProvider(provider.id)
-            .firstOrNull { it.modelId == NANO_MODEL_ID }
         val enabled = availability == com.aigate.router.gateway.local.nano.AiCoreStatus.Availability.AVAILABLE
         if (existing == null) {
             database.aiModelDao().insert(

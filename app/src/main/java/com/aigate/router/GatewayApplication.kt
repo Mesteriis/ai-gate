@@ -105,15 +105,6 @@ class GatewayApplication : Application() {
     private fun registerLocalBackends() {
         runCatching {
             val support = com.aigate.router.capability.DeviceSupportProbe.report(this)
-            if (com.aigate.router.gateway.local.EchoBackend.isEnabled()) {
-                // Отладочный бэкенд занимает место движка llama.cpp: так путь
-                // обслуживания проверяется целиком, вместе с маршрутизацией.
-                com.aigate.router.gateway.local.LocalBackendRegistry.register(
-                    com.aigate.router.gateway.local.EchoBackend()
-                )
-                GatewayForegroundService.addDebugLog("Локальный отладочный бэкенд подключён")
-                return@runCatching
-            }
             if (support.nano.supported) {
                 com.aigate.router.gateway.local.LocalBackendRegistry.register(
                     com.aigate.router.gateway.local.nano.GeminiNanoBackend()
