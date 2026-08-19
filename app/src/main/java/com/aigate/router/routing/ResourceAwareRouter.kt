@@ -35,7 +35,6 @@ object ResourceAwareRouter {
 
         return when (strategy) {
             RouteStrategy.AUTO, RouteStrategy.FAST -> base
-            RouteStrategy.QUALITY -> byProviderPriority(db, base)
             RouteStrategy.OFFLINE -> offlineFirst(db, base)
             RouteStrategy.CHEAP -> byPrice(db, base)
             RouteStrategy.QUOTA -> byQuota(db, base)
@@ -49,13 +48,6 @@ object ResourceAwareRouter {
     private suspend fun providersById(db: AppDatabase): Map<Long, Provider> =
         db.providerDao().getAllProvidersOnce().associateBy { it.id }
 
-    private suspend fun byProviderPriority(db: AppDatabase, base: List<AiModel>): List<AiModel> {
-        val providers = providersById(db)
-        val idx = originalIndex(base)
-        return base.sortedWith(
-            compareBy({ providers[it.providerId]?.orderIndex ?: Int.MAX_VALUE }, { idx[it.id] })
-        )
-    }
 
     private suspend fun offlineFirst(db: AppDatabase, base: List<AiModel>): List<AiModel> {
         val providers = providersById(db)

@@ -299,7 +299,9 @@ class GatewayService(private val database: AppDatabase) {
                             body["n"]?.let { put("n", it) }
                         }
                         // 获取模型对应的服务商，转发
-                        val models = database.aiModelDao().getEnabledModelsList()
+                        val models = com.aigate.router.routing.ModelPreference.sortStored(
+                            database.aiModelDao().getEnabledModelsList()
+                        )
                         val targetModel = models.find { it.modelId == modelId } ?: models.firstOrNull()
                         if (targetModel == null) { call.respondText(openAIError(HttpStatusCode.NotFound, "Model $modelId not found").second, ContentType.Application.Json, status = HttpStatusCode.NotFound); return@post }
                         val provider = database.providerDao().getProviderById(targetModel.providerId)
@@ -393,7 +395,9 @@ class GatewayService(private val database: AppDatabase) {
                             body["tool_choice"]?.let { put("tool_choice", it) }
                         }
                         // 查找模型并转发
-                        val models = database.aiModelDao().getEnabledModelsList()
+                        val models = com.aigate.router.routing.ModelPreference.sortStored(
+                            database.aiModelDao().getEnabledModelsList()
+                        )
                         val targetModel = models.find { it.modelId == modelId } ?: models.firstOrNull()
                         if (targetModel == null) { call.respondText(openAIError(HttpStatusCode.NotFound, "Model $modelId not found").second, ContentType.Application.Json, status = HttpStatusCode.NotFound); return@post }
                         val provider = database.providerDao().getProviderById(targetModel.providerId)
@@ -459,7 +463,9 @@ class GatewayService(private val database: AppDatabase) {
                         }
                         val input = body["input"] ?: throw Exception("input is required")
                         // 查找模型和提供商
-                        val models = database.aiModelDao().getEnabledModelsList()
+                        val models = com.aigate.router.routing.ModelPreference.sortStored(
+                            database.aiModelDao().getEnabledModelsList()
+                        )
                         val targetModel = models.find { it.modelId == modelId } ?: models.firstOrNull()
                         if (targetModel == null) { call.respondText(openAIError(HttpStatusCode.NotFound, "Model $modelId not found").second, ContentType.Application.Json, status = HttpStatusCode.NotFound); return@post }
                         val provider = database.providerDao().getProviderById(targetModel.providerId)
@@ -1233,7 +1239,9 @@ private suspend fun proxyRequest(call: ApplicationCall, database: AppDatabase) {
             val requestApiKey = authHeader.removePrefix("Bearer ").trim()
             // 获取请求模型对应的服务商ID
             val requestProviderId = if (requestModelId.isNotBlank()) {
-                database.aiModelDao().getEnabledModelsList().find { it.modelId == requestModelId }?.providerId ?: 0L
+                com.aigate.router.routing.ModelPreference.sortStored(
+                    database.aiModelDao().getEnabledModelsList()
+                ).find { it.modelId == requestModelId }?.providerId ?: 0L
             } else 0L
             val matchedRule = RoutingRuleManager.matchRule(
                 database = database,
@@ -1296,7 +1304,11 @@ private suspend fun proxyRequest(call: ApplicationCall, database: AppDatabase) {
         // ★★ auto没有前缀或脑子说chat → 走正常转发：用排行榜最快的模型直接透传 ★★
         if (VirtualModel.isVirtual(modelId)) {
             // 找最适合的模型
-            val allEnabledModels = database.aiModelDao().getEnabledModelsList().filter { it.isEnabled }
+            // Порядок провайдеров внутри модели решает, кто обслужит запрос:
+            // одну и ту же модель могут предоставлять несколько аккаунтов.
+            val allEnabledModels = com.aigate.router.routing.ModelPreference.sortStored(
+                database.aiModelDao().getEnabledModelsList().filter { it.isEnabled }
+            )
             val forced = GatewayForegroundService.getForcedModel()
             // ★ 如果强制模型是auto（虚拟模型），用上一次切换的模型或排行榜
             val effectiveForced = if (VirtualModel.isVirtual(forced)) GatewayForegroundService.activeNodeName.ifBlank { null } else forced.ifBlank { null }
@@ -1421,7 +1433,11 @@ private suspend fun proxyRequest(call: ApplicationCall, database: AppDatabase) {
             val autoFailover = GatewayForegroundService.getAutoFailover()
 
             // 已移除 refreshHealthCache — 每次请求都触发健康检查会导致模型一直在跑
-            val allEnabled = database.aiModelDao().getEnabledModelsList().filter { it.isEnabled }
+            // Порядок провайдеров внутри модели: именно он решает, кто обслужит
+            // запрошенную по имени модель и кто станет резервом при сбое.
+            val allEnabled = com.aigate.router.routing.ModelPreference.sortStored(
+                database.aiModelDao().getEnabledModelsList().filter { it.isEnabled }
+            )
 val baseAttempts: List<AiModel> = if (allEnabled.isNotEmpty()) {
                     // ★★ 自动化切换 (auto) ★★
                     if (VirtualModel.isVirtual(modelId)) {
@@ -1463,7 +1479,15 @@ val baseAttempts: List<AiModel> = if (allEnabled.isNotEmpty()) {
                     } else {
                         allEnabled
                     }
-                    val ordered = (listOfNotNull(primary) + pipelineSorted.filter { it.routeKey != primary?.routeKey }).distinctBy { it.routeKey }
+                    // Сначала та же модель у других провайдеров (порядок внутри
+                    // модели), и лишь затем другие модели: подмена модели — более
+                    // грубое вмешательство, чем смена провайдера.
+                    val sameModel = allEnabled.filter { it.modelId == modelId }
+                    val ordered = (
+                        listOfNotNull(primary) +
+                            sameModel.filter { it.routeKey != primary?.routeKey } +
+                            pipelineSorted.filter { it.modelId != modelId }
+                        ).distinctBy { it.routeKey }
 
                     if (lastGoodModel != null && lastGoodModel != modelId && ordered.count { it.modelId == lastGoodModel } == 1) {
                         val rest = ordered.filter { it.modelId != lastGoodModel }
@@ -1472,7 +1496,10 @@ val baseAttempts: List<AiModel> = if (allEnabled.isNotEmpty()) {
                         ordered
                     }
                 } else {
-                    listOfNotNull(allEnabled.find { it.modelId == modelId })
+                    // Резерв внутри одной модели: если её предоставляют несколько
+                    // провайдеров, следующий по порядку подхватывает запрос.
+                    // Имя модели не меняется, поэтому клиент получает то, что просил.
+                    allEnabled.filter { it.modelId == modelId }
                 }
             } else {
                 emptyList()

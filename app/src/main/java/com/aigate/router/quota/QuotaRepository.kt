@@ -134,12 +134,18 @@ object QuotaRepository {
         // именами типа, не затрагивая выбранное пользователем.
         val providersById = providers.associateBy { it.id }
         for (pool in existingPools) {
-            if (pool.kind.uppercase() !in legacyKindNames) continue
             val provider = providersById[pool.providerId] ?: continue
-            val corrected = kindForProvider(provider.type)
-            if (corrected.name != pool.kind) {
-                dao.update(pool.copy(kind = corrected.name))
+            var updated = pool
+            // Имя ресурса следует за именем провайдера: пользователь задаёт имя
+            // сам, и два аккаунта одного типа не должны выглядеть одинаково.
+            if (provider.name.isNotBlank() && pool.name != provider.name) {
+                updated = updated.copy(name = provider.name)
             }
+            if (pool.kind.uppercase() in legacyKindNames) {
+                val corrected = kindForProvider(provider.type)
+                if (corrected.name != pool.kind) updated = updated.copy(kind = corrected.name)
+            }
+            if (updated != pool) dao.update(updated)
         }
 
         for (p in providers) {

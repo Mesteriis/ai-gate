@@ -56,7 +56,6 @@ object Routes {
     // Вложенные экраны (доступны из табов, живут в back stack)
     const val MODELS = "models"
     const val STATS = "stats"
-    const val QUOTAS = "quotas"
     const val KEYS = "keys"
     const val ABOUT = "about"
     const val BACKUPS = "backups"
@@ -208,7 +207,6 @@ private fun NavGraphBuilder.tabDestinations(
             com.aigate.router.ui.screens.ResourcesHubScreen(
                 viewModel = viewModel,
                 modifier = m,
-                onOpenQuotas = { navController.navigate(Routes.QUOTAS) },
             )
         }
         if (showHelp) {
@@ -280,9 +278,6 @@ private fun NavGraphBuilder.nestedDestinations(
         AppScaffold(title = "Статистика", onBack = { navController.popBackStack() }) { m ->
             Box(m) { com.aigate.router.ui.screens.StatsScreen(viewModel) }
         }
-    }
-    composable(Routes.QUOTAS) {
-        com.aigate.router.ui.screens.ResourcesScreen(onBack = { navController.popBackStack() })
     }
     composable(Routes.KEYS) {
         com.aigate.router.ui.screens.KeyManagementScreen(onDismiss = { navController.popBackStack() })

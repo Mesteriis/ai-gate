@@ -47,6 +47,7 @@ import com.aigate.router.ui.design.AppCard
 import com.aigate.router.ui.design.CardTone
 import com.aigate.router.ui.design.ConfirmDialog
 import com.aigate.router.ui.design.EmptyState
+import com.aigate.router.ui.design.Fmt
 import com.aigate.router.ui.design.EntityCard
 import com.aigate.router.ui.design.Gateway
 import com.aigate.router.ui.design.HelpSection
@@ -84,7 +85,6 @@ internal val resourcesHelp = listOf(
 private enum class ResourceTab(val label: String) {
     Providers("Провайдеры"),
     Models("Модели"),
-    Quotas("Лимиты"),
 }
 
 /**
@@ -95,7 +95,6 @@ private enum class ResourceTab(val label: String) {
 fun ResourcesHubScreen(
     viewModel: GatewayViewModel,
     modifier: Modifier = Modifier,
-    onOpenQuotas: () -> Unit,
 ) {
     var tab by rememberSaveable { mutableStateOf(ResourceTab.Providers) }
 
@@ -119,7 +118,6 @@ fun ResourcesHubScreen(
         when (tab) {
             ResourceTab.Providers -> ProvidersSection(viewModel)
             ResourceTab.Models -> ModelsSection(viewModel)
-            ResourceTab.Quotas -> QuotasSection(onOpenQuotas)
         }
     }
 }
@@ -130,15 +128,15 @@ private fun ProvidersSection(viewModel: GatewayViewModel) {
     val models by viewModel.models.collectAsState()
     val showAdd by viewModel.showAddProviderDialog.collectAsState()
     val editProvider by viewModel.showEditProviderDialog.collectAsState()
-    var pendingDelete by remember { mutableStateOf<Provider?>(null) }
     var showConnect by remember { mutableStateOf(false) }
-    val sorted = remember(providers) { providers.sortedBy { it.orderIndex } }
+    var sheetFor by remember { mutableStateOf<Provider?>(null) }
 
     Column(
         modifier = Modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(Gateway.spacing.sm),
     ) {
-        // Подключение — первое действие раздела, а не пункт, спрятанный в лимитах.
+        // Подключение — первое действие раздела; вход через браузер стоит здесь
+        // же, потому что провайдер с OAuth-сессией — такой же поставщик.
         Button(
             onClick = { showConnect = true },
             modifier = Modifier.fillMaxWidth(),
@@ -148,7 +146,7 @@ private fun ProvidersSection(viewModel: GatewayViewModel) {
             Text("Подключить провайдера")
         }
 
-        if (sorted.isEmpty()) {
+        if (providers.isEmpty()) {
             EmptyState(
                 icon = Icons.Outlined.Hub,
                 text = "Провайдеров пока нет",
@@ -156,15 +154,18 @@ private fun ProvidersSection(viewModel: GatewayViewModel) {
                 onAction = { showConnect = true },
             )
         } else {
-            sorted.forEachIndexed { index, provider ->
+            providers.forEach { provider ->
                 val modelCount = models.count { it.providerId == provider.id }
                 EntityCard(
+                    // Имя задаёт владелец, и оно же показывается везде: тип
+                    // одинаков у нескольких аккаунтов и их не различает.
                     title = provider.name,
                     subtitle = provider.resolvedBaseUrl,
                     leading = { ProviderAvatar(name = provider.name, type = provider.type) },
                     statusText = if (provider.isEnabled) "Включён" else "Выключен",
                     statusTone = if (provider.isEnabled) StatusTone.Success else StatusTone.Neutral,
                     dimmed = !provider.isEnabled,
+                    onClick = { sheetFor = provider },
                     trailing = {
                         Switch(
                             checked = provider.isEnabled,
@@ -177,27 +178,12 @@ private fun ProvidersSection(viewModel: GatewayViewModel) {
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = "$modelCount ${modelsWord(modelCount)} · ${provider.type}",
+                            text = "$modelCount " +
+                                Fmt.plural(modelCount.toLong(), "модель", "модели", "моделей"),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f),
                         )
-                        // Порядок меняется прямо в строке: без long-press и без
-                        // диалога, который раньше закрывался после каждого шага.
-                        IconButton(
-                            onClick = { viewModel.moveProvider(provider, -1) },
-                            enabled = index > 0,
-                        ) {
-                            Icon(Icons.Default.ArrowUpward, contentDescription = "Выше", modifier = Modifier.size(18.dp))
-                        }
-                        IconButton(
-                            onClick = { viewModel.moveProvider(provider, 1) },
-                            enabled = index < sorted.lastIndex,
-                        ) {
-                            Icon(Icons.Default.ArrowDownward, contentDescription = "Ниже", modifier = Modifier.size(18.dp))
-                        }
                         IconButton(onClick = { viewModel.syncModels(provider) }) {
                             Icon(
                                 Icons.Default.Sync,
@@ -206,40 +192,29 @@ private fun ProvidersSection(viewModel: GatewayViewModel) {
                                 modifier = Modifier.size(18.dp),
                             )
                         }
-                        IconButton(onClick = { viewModel.showEditProvider(provider) }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Изменить", modifier = Modifier.size(18.dp))
-                        }
-                        IconButton(onClick = { pendingDelete = provider }) {
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = "Удалить",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
                     }
                 }
-            }
-            Spacer(Modifier.size(Gateway.spacing.sm))
-            Button(
-                onClick = { viewModel.showAddProvider() },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(Gateway.spacing.sm))
-                Text("Добавить провайдера")
             }
         }
     }
 
-    // Удаление провайдера уносит его модели и историю — спрашиваем подтверждение.
-    pendingDelete?.let { provider ->
-        ConfirmDialog(
-            title = "Удалить провайдера?",
-            message = "«${provider.name}» и его модели будут удалены. Действие необратимо.",
-            confirmText = "Удалить",
-            onConfirm = { viewModel.deleteProvider(provider) },
-            onDismiss = { pendingDelete = null },
+    sheetFor?.let { provider ->
+        ProviderSheet(
+            provider = provider,
+            modelCount = models.count { it.providerId == provider.id },
+            onDismiss = { sheetFor = null },
+            onEdit = {
+                sheetFor = null
+                viewModel.showEditProvider(provider)
+            },
+            onDelete = {
+                sheetFor = null
+                viewModel.deleteProvider(provider)
+            },
+            onSyncModels = {
+                sheetFor = null
+                viewModel.syncModels(provider)
+            },
         )
     }
 
@@ -247,7 +222,6 @@ private fun ProvidersSection(viewModel: GatewayViewModel) {
         ConnectProviderSheet(
             viewModel = viewModel,
             onDismiss = { showConnect = false },
-            // «Свой сервис» — единственный путь, где адрес и путь вводятся руками.
             onManual = { viewModel.showAddProvider() },
         )
     }
@@ -258,36 +232,15 @@ private fun ProvidersSection(viewModel: GatewayViewModel) {
         EditProviderSheet(
             provider = provider,
             onDismiss = { viewModel.hideEditProvider() },
-            onSave = { updated, apiKey -> viewModel.updateProvider(updated, apiKey) },
+            onSave = { updated, key -> viewModel.updateProvider(updated, key) },
         )
     }
 }
 
 @Composable
 private fun ModelsSection(viewModel: GatewayViewModel) {
-    // Каталог моделей уже реализован (поиск, пакетный тест, псевдонимы) —
-    // переиспользуем его здесь, а не дублируем.
-    ModelsScreen(viewModel)
+    // Группировка по модели: важно, кто обслужит запрошенную модель, а не
+    // какому провайдеру она принадлежит.
+    ModelsByModelSection(viewModel)
 }
 
-@Composable
-private fun QuotasSection(onOpenQuotas: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(Gateway.spacing.md)) {
-        SectionHeader("Лимиты и цены")
-        AppCard(tone = CardTone.Raised, onClick = onOpenQuotas) {
-            Text(
-                text = "Квоты подписок, балансы, свои бюджеты, цены моделей и CLI-сессии",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.size(Gateway.spacing.sm))
-            TextButton(onClick = onOpenQuotas) { Text("Открыть") }
-        }
-    }
-}
-
-private fun modelsWord(count: Int): String = when {
-    count % 10 == 1 && count % 100 != 11 -> "модель"
-    count % 10 in 2..4 && count % 100 !in 12..14 -> "модели"
-    else -> "моделей"
-}

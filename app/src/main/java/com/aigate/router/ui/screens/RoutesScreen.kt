@@ -1,6 +1,12 @@
 package com.aigate.router.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
+import com.aigate.router.service.GatewayForegroundService
+import com.aigate.router.routing.RouteStrategy
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Switch
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -67,9 +73,10 @@ internal val routesHelp: List<HelpSection> = listOf(
     HelpSection(
         "Чем отличаются пресеты",
         "«Скорость» — быстрейшая доступная модель по времени до первого токена. " +
-            "«Качество» — приоритет качества, порядок задаёт пользователь. " +
             "«Экономия» — минимальная стоимость по прайсингу, когда он доступен. " +
-            "«Локально» — только локальные модели (Ollama и подобные).",
+            "«Локально» — только локальные модели (Ollama и подобные). " +
+            "Какой провайдер обслужит конкретную модель, задаётся порядком внутри модели " +
+            "в разделе «Ресурсы».",
     ),
     HelpSection(
         "Данные под пресетом",
@@ -111,13 +118,6 @@ private val routePresets = listOf(
         criterion = "по времени первого токена",
         icon = Icons.Outlined.Bolt,
         basis = RouteBasis.Latency,
-    ),
-    RoutePreset(
-        id = "route:quality",
-        name = "Качество",
-        criterion = "по порядку моделей из настроек",
-        icon = Icons.Outlined.Diamond,
-        basis = RouteBasis.None,
     ),
     RoutePreset(
         id = "route:cheap",
@@ -164,6 +164,70 @@ private fun ModelChoice.details(): String = buildList {
  * а не четыре независимых переключателя) с данными, которые обосновывают выбор,
  * и ручное закрепление модели. Инструкции живут в [routesHelp].
  */
+/**
+ * Переключение на другую модель, когда запрошенная не отвечает. Резерв внутри
+ * одной модели работает всегда; этот переключатель разрешает уходить и на
+ * другие модели, то есть отвечать не тем, что просил клиент.
+ */
+@Composable
+private fun FailoverRow(viewModel: GatewayViewModel) {
+    val enabled by viewModel.autoFailover.collectAsState()
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Переключаться на другую модель", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = if (enabled) "разрешено" else "только резерв внутри той же модели",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = enabled, onCheckedChange = { viewModel.toggleAutoFailover() })
+    }
+}
+
+/**
+ * Стратегия автовыбора модели. Переехала из таба «Лимиты»: это про
+ * маршрутизацию, а не про ресурсы.
+ */
+@Composable
+private fun StrategyRow() {
+    var strategy by remember {
+        mutableStateOf(
+            RouteStrategy.fromName(
+                GatewayForegroundService.getGatewayConfig(RouteStrategy.CONFIG_KEY, RouteStrategy.AUTO.name)
+            )
+        )
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(Gateway.spacing.sm),
+    ) {
+        RouteStrategy.entries.forEach { item ->
+            FilterChip(
+                selected = strategy == item,
+                onClick = {
+                    strategy = item
+                    GatewayForegroundService.saveGatewayConfig(RouteStrategy.CONFIG_KEY, item.name)
+                },
+                label = { Text(strategyLabel(item)) },
+            )
+        }
+    }
+}
+
+/** Подписи стратегий. «Качество» убрано: порядок задаётся внутри модели. */
+private fun strategyLabel(strategy: RouteStrategy): String = when (strategy) {
+    RouteStrategy.AUTO -> "Авто"
+    RouteStrategy.FAST -> "Быстрее"
+    RouteStrategy.CHEAP -> "Дешевле"
+    RouteStrategy.OFFLINE -> "Локально"
+    RouteStrategy.QUOTA -> "По остатку квоты"
+}
+
 @Composable
 fun RoutesScreen(viewModel: GatewayViewModel, modifier: Modifier = Modifier) {
     val db = remember { GatewayApplication.getInstance().database }
@@ -265,6 +329,12 @@ fun RoutesScreen(viewModel: GatewayViewModel, modifier: Modifier = Modifier) {
                 onSelect = { selectPreset(preset) },
             )
         }
+
+        SectionHeader("Автопереключение при сбое")
+        FailoverRow(viewModel)
+
+        SectionHeader("Стратегия при автовыборе")
+        StrategyRow()
 
         if (forcedKey.isNotBlank()) {
             SectionHeader(
