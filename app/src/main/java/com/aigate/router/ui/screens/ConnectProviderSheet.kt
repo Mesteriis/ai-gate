@@ -59,7 +59,12 @@ private data class CatalogEntry(
     /** Индекс в [GatewayViewModel.PROVIDER_TYPES]; -1 для OAuth-входа. */
     val presetIndex: Int,
     val hint: String,
+    /** Какой именно вход выполнять для OAuth-записей каталога. */
+    val oauth: OAuthKind? = null,
 )
+
+/** Сервисы, куда входим учётной записью через браузер. */
+private enum class OAuthKind { Codex, ClaudeCode }
 
 /**
  * Каталог подключения. Эндпоинты и пути в форму не выносятся: для известных
@@ -91,7 +96,10 @@ fun ConnectProviderSheet(
                     CatalogRow(entry = entry, busy = connecting) {
                         connecting = true
                         scope.launch {
-                            val result = CliSessionManager.connectCodex(context, db)
+                            val result = when (entry.oauth) {
+                                OAuthKind.ClaudeCode -> CliSessionManager.connectClaudeCli(context, db)
+                                else -> CliSessionManager.connectCodex(context, db)
+                            }
                             connecting = false
                             result.fold(
                                 onSuccess = { onDismiss() },
@@ -242,7 +250,15 @@ private fun buildCatalog(
             kind = ConnectKind.OAuth,
             presetIndex = -1,
             hint = "вход через браузер, ключ не нужен",
-        )
+            oauth = OAuthKind.Codex,
+        ),
+        CatalogEntry(
+            title = "Claude Code",
+            kind = ConnectKind.OAuth,
+            presetIndex = -1,
+            hint = "вход подпиской Claude через браузер",
+            oauth = OAuthKind.ClaudeCode,
+        ),
     )
     presets.forEachIndexed { index, preset ->
         val isLocal = preset.defaultBaseUrl.contains("localhost") ||
@@ -253,7 +269,13 @@ private fun buildCatalog(
             title = preset.displayName,
             kind = if (isLocal) ConnectKind.LocalAddress else ConnectKind.ApiKey,
             presetIndex = index,
-            hint = if (isLocal) "нужен только адрес сервера" else "нужен только API-ключ",
+            hint = when {
+                isLocal -> "нужен только адрес сервера"
+                // У Cursor нет публичного чат-API: это строка расхода, не провайдер моделей.
+                preset.defaultType.contains("cursor", ignoreCase = true) ->
+                    "ключ админ-API: только расход, без моделей"
+                else -> "нужен только API-ключ"
+            },
         )
     }
     return out

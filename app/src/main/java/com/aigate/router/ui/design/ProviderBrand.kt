@@ -57,6 +57,7 @@ private val brands: List<Pair<Regex, ProviderBrand>> = listOf(
     rule("perplexity", R.drawable.logo_perplexity, 0xFF1FB8CD, "Px"),
     rule("ollama|llama\\.cpp|lmstudio|local|локал", R.drawable.logo_ollama, 0xFF1F2937, "Ol"),
     // Логотипов нет в наборе — остаётся монограмма в фирменном цвете.
+    rule("cursor", null, 0xFF0B0B0B, "Cu"),
     rule("groq", null, 0xFFF55036, "Gq"),
     rule("together", null, 0xFF0F6FFF, "Tg"),
     rule("cohere", null, 0xFF39594D, "Co"),

@@ -48,6 +48,9 @@ class GatewayApplication : Application() {
         com.aigate.router.quota.QuotaProviderRegistry.register(
             com.aigate.router.quota.adapters.DeepSeekQuotaProvider()
         )
+        com.aigate.router.quota.QuotaProviderRegistry.register(
+            com.aigate.router.quota.adapters.CursorQuotaProvider()
+        )
         // Периодическое обновление квот (каждые 6ч; не поллинг).
         com.aigate.router.quota.QuotaRefreshWorker.schedule(this)
         // ★★ 从 SharedPreferences 恢复上次网关运行状态（进程重建时最可靠的初始化）★★

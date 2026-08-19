@@ -22,6 +22,12 @@ data class OAuth2Config(
     val clientId: String,
     val clientSecret: String? = null,
     val scopes: List<String> = emptyList(),
+    /**
+     * Отправлять тело запроса токена как JSON, а не как form-urlencoded.
+     * RFC 6749 требует form, но token endpoint Anthropic принимает JSON —
+     * без этого обновление сессии Claude падает.
+     */
+    val jsonBody: Boolean = false,
     /** За сколько до истечения считать токен «пора обновить» (ms). */
     val refreshSkewMs: Long = 60_000L
 )

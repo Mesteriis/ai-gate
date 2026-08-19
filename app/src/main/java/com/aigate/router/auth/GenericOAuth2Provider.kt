@@ -4,8 +4,10 @@ import com.aigate.router.data.model.Credential
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -33,20 +35,24 @@ open class GenericOAuth2Provider(
     }
 
     override suspend fun refresh(refreshToken: String): TokenBundle = withContext(Dispatchers.IO) {
-        val form = FormBody.Builder()
-            .add("grant_type", "refresh_token")
-            .add("refresh_token", refreshToken)
-            .add("client_id", config.clientId)
-            .apply {
-                config.clientSecret?.let { add("client_secret", it) }
-                if (config.scopes.isNotEmpty()) add("scope", config.scopes.joinToString(" "))
-            }
-            .build()
+        val fields = buildMap {
+            put("grant_type", "refresh_token")
+            put("refresh_token", refreshToken)
+            put("client_id", config.clientId)
+            config.clientSecret?.let { put("client_secret", it) }
+            if (config.scopes.isNotEmpty()) put("scope", config.scopes.joinToString(" "))
+        }
+        val requestBody = if (config.jsonBody) {
+            JSONObject(fields).toString()
+                .toRequestBody("application/json".toMediaType())
+        } else {
+            FormBody.Builder().apply { fields.forEach { (k, v) -> add(k, v) } }.build()
+        }
 
         val request = Request.Builder()
             .url(config.tokenUrl)
             .header("Accept", "application/json")
-            .post(form)
+            .post(requestBody)
             .build()
 
         client.newCall(request).execute().use { resp ->

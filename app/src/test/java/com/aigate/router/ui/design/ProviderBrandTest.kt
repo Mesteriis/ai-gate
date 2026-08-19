@@ -55,4 +55,13 @@ class ProviderBrandTest {
             providerBrand("OpenAI", "OpenAI Compatible").logo,
         )
     }
+
+    @Test
+    fun `у Cursor свой знак, а не общий серый по умолчанию`() {
+        // Иначе «Cursor (расход)» выглядел бы как «Свой сервис».
+        val cursor = providerBrand("Cursor (расход)", "Cursor Admin")
+        val fallback = providerBrand("Мой сервис", "Custom")
+        assertEquals("Cu", cursor.monogram)
+        assertNotEquals(fallback.monogram, cursor.monogram)
+    }
 }

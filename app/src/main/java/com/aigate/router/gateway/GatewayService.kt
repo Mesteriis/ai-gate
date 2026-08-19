@@ -1684,17 +1684,27 @@ private suspend fun pipeNormalResponse(
         val upstreamPath = if (path.contains("chat/completions") || path.contains("completions")) {
             provider.chatPath?.let { if (it.startsWith("/")) it else "/$it" } ?: path
         } else path
-        // Codex говорит на Responses API: другой путь, другое тело, другие заголовки.
+        // Codex говорит на Responses API, Claude — на Messages API: другой путь,
+        // другое тело, другие заголовки. Перевод включаем только для чата: по
+        // остальным путям (например embeddings) тела несовместимы.
         val isCodex = CodexUpstream.isCodex(provider)
-        val url = if (isCodex) CodexUpstream.responsesUrl(provider) else resolvedUrl + upstreamPath
+        val isAnthropic = AnthropicUpstream.isAnthropic(provider)
+        val isClaudeChat = isAnthropic && path.contains("completions")
+        val url = when {
+            isCodex -> CodexUpstream.responsesUrl(provider)
+            isClaudeChat -> AnthropicUpstream.messagesUrl(provider)
+            else -> resolvedUrl + upstreamPath
+        }
         val pipeStartTime = System.currentTimeMillis()
 
         // OAuth pre-flight: обновить истекающий токен (single-flight) до чтения из кэша.
         com.aigate.router.auth.AuthRegistry.ensureFreshForProvider(database, provider)
 
-        val outBytes = if (isCodex) {
-            CodexUpstream.translateRequest(rawBody.decodeToString()).toByteArray(Charsets.UTF_8)
-        } else rawBody
+        val outBytes = when {
+            isCodex -> CodexUpstream.translateRequest(rawBody.decodeToString()).toByteArray(Charsets.UTF_8)
+            isClaudeChat -> AnthropicUpstream.translateRequest(rawBody.decodeToString()).toByteArray(Charsets.UTF_8)
+            else -> rawBody
+        }
         val reqBody = outBytes.toRequestBody(DEFAULT_CT)
         val request = okhttp3.Request.Builder()
             .url(url)
@@ -1706,6 +1716,10 @@ private suspend fun pipeNormalResponse(
                         this, k,
                         com.aigate.router.auth.CodexAccount.headerAccountId(database.credentialDao().getByProvider(provider.id)?.accountId, CredentialStore.apiKeyForProvider(provider)),
                         java.util.UUID.randomUUID().toString()
+                    )
+                } else if (isAnthropic) {
+                    AnthropicUpstream.applyHeaders(
+                        this, k, AnthropicUpstream.isSubscription(provider), stream = false
                     )
                 } else if (!k.isNullOrBlank()) header("Authorization", "Bearer $k")
             }
@@ -1746,9 +1760,19 @@ private suspend fun pipeNormalResponse(
                         CodexUpstream.translateResponse(raw, model)
                     }.toByteArray(Charsets.UTF_8)
                 }
+                // Ответ Messages API переводим так же: клиент ждёт chat.completion.
+                if (isClaudeChat && resp.isSuccessful && respBytes.isNotEmpty()) {
+                    val raw = respBytes.decodeToString()
+                    val model = call.proxyModelId ?: "claude"
+                    respBytes = if (raw.contains("data:")) {
+                        AnthropicUpstream.aggregateSseToCompletion(raw, model)
+                    } else {
+                        AnthropicUpstream.translateResponse(raw, model)
+                    }.toByteArray(Charsets.UTF_8)
+                }
                 GatewayForegroundService.trafficDownloadBytes.addAndGet(respBytes.size.toLong())
                 GatewayForegroundService.totalDownloadBytes.addAndGet(respBytes.size.toLong())
-                contentType = if (isCodex) "application/json"
+                contentType = if (isCodex || isClaudeChat) "application/json"
                     else resp.header("Content-Type") ?: "application/json"
                 statusCode = HttpStatusCode.fromValue(resp.code)
                 respCode = resp.code
@@ -1864,7 +1888,12 @@ private suspend fun pipeNormalResponse(
  * чанков `chat.completion.chunk`, в конце дописываем `[DONE]`. Расход токенов
  * берём из события `response.completed`.
  */
-private suspend fun pipeCodexStream(
+/**
+ * Стрим апстрима, который говорит не на языке chat/completions: события читаются
+ * построчно и переводятся в чанки OpenAI функцией [translateEvent] — так работает
+ * и Codex (Responses API), и Claude (Messages API).
+ */
+private suspend fun pipeTranslatedStream(
     call: ApplicationCall,
     response: okhttp3.Response,
     bodyStream: java.io.InputStream,
@@ -1873,6 +1902,7 @@ private suspend fun pipeCodexStream(
     database: AppDatabase,
     apiKeyLabel: String?,
     pipeStartTime: Long,
+    translateEvent: (String, String, String) -> List<String>,
 ) {
     val streamId = "chatcmpl-${java.util.UUID.randomUUID().toString().take(12)}"
     var promptTokens = 0
@@ -1891,7 +1921,7 @@ private suspend fun pipeCodexStream(
                 val payload = line.removePrefix("data:").trim()
                 if (payload.isEmpty() || payload == "[DONE]") continue
 
-                for (chunk in CodexUpstream.translateStreamEvent(payload, modelId, streamId)) {
+                for (chunk in translateEvent(payload, modelId, streamId)) {
                     val frame = "data: $chunk\n\n".toByteArray(Charsets.UTF_8)
                     writeFully(frame)
                     flush()
@@ -1920,7 +1950,7 @@ private suspend fun pipeCodexStream(
             GatewayForegroundService.totalDownloadBytes.addAndGet(done.size.toLong())
         } catch (e: Exception) {
             if (GatewayForegroundService.getDebugMode()) {
-                GatewayForegroundService.addDebugLog("STREAM CODEX ERR: ${e.message?.take(80)}")
+                GatewayForegroundService.addDebugLog("STREAM TRANSLATE ERR: ${e.message?.take(80)}")
             }
         } finally {
             withContext(Dispatchers.IO) {
@@ -1969,7 +1999,13 @@ private suspend fun pipeStreamResponse(
     } else path
     // Codex: Responses API вместо chat/completions.
     val isCodex = CodexUpstream.isCodex(provider)
-    val url = if (isCodex) CodexUpstream.responsesUrl(provider) else resolvedUrl + upstreamPath
+    val isAnthropic = AnthropicUpstream.isAnthropic(provider)
+    val isClaudeChat = isAnthropic && path.contains("completions")
+    val url = when {
+        isCodex -> CodexUpstream.responsesUrl(provider)
+        isClaudeChat -> AnthropicUpstream.messagesUrl(provider)
+        else -> resolvedUrl + upstreamPath
+    }
     val httpClient = if (useProxy) UpstreamClient.getOkHttpClient() else UpstreamClient.getDirectClient()
 
     // OAuth pre-flight: обновить истекающий токен (single-flight) до чтения из кэша.
@@ -1980,9 +2016,11 @@ private suspend fun pipeStreamResponse(
     // 在 IO 线程发起请求，拿到 response 对象（不读 body）
     val response = withContext(Dispatchers.IO) {
         try {
-            val outBytes = if (isCodex) {
-                CodexUpstream.translateRequest(rawBody.decodeToString()).toByteArray(Charsets.UTF_8)
-            } else rawBody
+            val outBytes = when {
+                isCodex -> CodexUpstream.translateRequest(rawBody.decodeToString()).toByteArray(Charsets.UTF_8)
+                isClaudeChat -> AnthropicUpstream.translateRequest(rawBody.decodeToString()).toByteArray(Charsets.UTF_8)
+                else -> rawBody
+            }
             val reqBody = outBytes.toRequestBody(DEFAULT_CT)
             val request = okhttp3.Request.Builder()
                 .url(url).post(reqBody)
@@ -1991,6 +2029,10 @@ private suspend fun pipeStreamResponse(
                     if (isCodex) {
                         CodexUpstream.applyHeaders(
                             this, k, codexAccountId, java.util.UUID.randomUUID().toString()
+                        )
+                    } else if (isAnthropic) {
+                        AnthropicUpstream.applyHeaders(
+                            this, k, AnthropicUpstream.isSubscription(provider), stream = true
                         )
                     } else if (!k.isNullOrBlank()) header("Authorization", "Bearer $k")
                 }
@@ -2022,8 +2064,13 @@ private suspend fun pipeStreamResponse(
         if (responseBytes.isEmpty()) {
             throw Exception("Upstream stream ${response.code}: empty response body")
         }
+        // У Claude нестримовый ответ — это message, а не chat.completion:
+        // сначала перевод, потом упаковка в SSE.
+        val jsonForSse = if (isClaudeChat) {
+            AnthropicUpstream.translateResponse(responseBytes.toString(Charsets.UTF_8), modelId)
+        } else responseBytes.toString(Charsets.UTF_8)
         val sseBytes = try {
-            OpenAiStreamCompat.chatCompletionJsonToSse(responseBytes.toString(Charsets.UTF_8))
+            OpenAiStreamCompat.chatCompletionJsonToSse(jsonForSse)
         } catch (error: Exception) {
             throw Exception("Upstream stream ${response.code}: ${error.message}", error)
         }
@@ -2044,8 +2091,8 @@ private suspend fun pipeStreamResponse(
 
     // Codex отдаёт события Responses API — переводим их в чанки chat.completion
     // построчно, чтобы клиент получал текст по мере генерации.
-    if (isCodex) {
-        pipeCodexStream(
+    if (isCodex || isClaudeChat) {
+        pipeTranslatedStream(
             call = call,
             response = response,
             bodyStream = bodyStream,
@@ -2054,6 +2101,8 @@ private suspend fun pipeStreamResponse(
             database = database,
             apiKeyLabel = call.apiKeyLabel,
             pipeStartTime = pipeStartTime,
+            translateEvent = if (isCodex) CodexUpstream::translateStreamEvent
+                else AnthropicUpstream::translateStreamEvent,
         )
         return
     }

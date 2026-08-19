@@ -8,8 +8,10 @@ import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -39,7 +41,19 @@ data class OAuthFlowConfig(
     /** Путь редиректа (Codex: /auth/callback). */
     val redirectPath: String = "/callback",
     /** Доп. параметры authorization-запроса (провайдер-специфичные). */
-    val extraAuthParams: Map<String, String> = emptyMap()
+    val extraAuthParams: Map<String, String> = emptyMap(),
+    /**
+     * Просить refresh-токен параметрами Google (`access_type`, `prompt`).
+     * Провайдеры, которые их не знают, могут отвечать ошибкой — тогда false.
+     */
+    val requestOfflineAccess: Boolean = true,
+    /**
+     * Отправлять обмен кода как JSON, а не form-urlencoded: так требует token
+     * endpoint Anthropic. RFC 6749 предписывает form, поэтому по умолчанию form.
+     */
+    val tokenRequestJson: Boolean = false,
+    /** Передавать `state` в запросе токена (требование Anthropic). */
+    val sendStateInTokenRequest: Boolean = false
 )
 
 object OAuthBrowserFlow {
@@ -89,7 +103,7 @@ object OAuthBrowserFlow {
                 val code = cb["code"]
                     ?: return@withContext Result.failure(IllegalStateException("Провайдер не вернул code"))
 
-                exchangeCode(config, code, redirectUri, verifier)
+                exchangeCode(config, code, redirectUri, verifier, state)
             } catch (e: Exception) {
                 Log.w(TAG, "OAuth flow failed: ${e.message}")
                 Result.failure(e)
@@ -106,8 +120,10 @@ object OAuthBrowserFlow {
             put("code_challenge", challenge)
             put("code_challenge_method", "S256")
             put("state", state)
-            put("access_type", "offline")   // Google: выдать refresh_token
-            put("prompt", "consent")
+            if (config.requestOfflineAccess) {
+                put("access_type", "offline")   // Google: выдать refresh_token
+                put("prompt", "consent")
+            }
             if (config.scopes.isNotEmpty()) put("scope", config.scopes.joinToString(" "))
             putAll(config.extraAuthParams) // провайдер-специфичные (Codex и т.п.)
         }
@@ -151,19 +167,31 @@ object OAuthBrowserFlow {
         return null
     }
 
-    private fun exchangeCode(config: OAuthFlowConfig, code: String, redirectUri: String, verifier: String): Result<ImportedSession> {
-        val form = FormBody.Builder()
-            .add("grant_type", "authorization_code")
-            .add("code", code)
-            .add("redirect_uri", redirectUri)
-            .add("client_id", config.clientId)
-            .add("code_verifier", verifier)
-            .apply { config.clientSecret?.let { add("client_secret", it) } }
-            .build()
+    private fun exchangeCode(
+        config: OAuthFlowConfig,
+        code: String,
+        redirectUri: String,
+        verifier: String,
+        state: String,
+    ): Result<ImportedSession> {
+        val fields = buildMap {
+            put("grant_type", "authorization_code")
+            put("code", code)
+            put("redirect_uri", redirectUri)
+            put("client_id", config.clientId)
+            put("code_verifier", verifier)
+            config.clientSecret?.let { put("client_secret", it) }
+            if (config.sendStateInTokenRequest) put("state", state)
+        }
+        val requestBody = if (config.tokenRequestJson) {
+            JSONObject(fields).toString().toRequestBody("application/json".toMediaType())
+        } else {
+            FormBody.Builder().apply { fields.forEach { (k, v) -> add(k, v) } }.build()
+        }
         val request = Request.Builder()
             .url(config.tokenUrl)
             .header("Accept", "application/json")
-            .post(form)
+            .post(requestBody)
             .build()
         client.newCall(request).execute().use { resp ->
             val bodyStr = resp.body?.string().orEmpty()
@@ -182,8 +210,13 @@ object OAuthBrowserFlow {
             // лежит в namespaced-claim, поэтому ищем и на верхнем уровне, и во
             // вложенных объектах.
             val claims = decodeJwtClaims(json.optString("id_token", ""))
-            val accountId = claims?.let { findClaim(it, "chatgpt_account_id") }
-            val email = claims?.let { findClaim(it, "email") }
+            // Anthropic отдаёт аккаунт прямо в теле ответа (`account.uuid`,
+            // `account.email`), id_token не присылает — поэтому смотрим оба места.
+            val account = json.optJSONObject("account")
+            val accountId = account?.optString("uuid")?.takeIf { it.isNotBlank() }
+                ?: claims?.let { findClaim(it, "chatgpt_account_id") }
+            val email = account?.optString("email")?.takeIf { it.isNotBlank() }
+                ?: claims?.let { findClaim(it, "email") }
             return Result.success(
                 ImportedSession(
                     accessToken = access,

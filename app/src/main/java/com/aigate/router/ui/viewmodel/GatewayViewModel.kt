@@ -440,13 +440,6 @@ companion object {
                     exampleApiKey = "sk-..."
                 ),
                 ProviderTypePreset(
-                    displayName = "Groq",
-                    defaultType = "OpenAI Compatible",
-                    defaultBaseUrl = "https://api.groq.com/openai",
-                    defaultPort = "443",
-                    exampleApiKey = "gsk-..."
-                ),
-                ProviderTypePreset(
                     displayName = "OpenRouter",
                     defaultType = "OpenAI Compatible",
                     defaultBaseUrl = "https://openrouter.ai/api",
@@ -461,11 +454,15 @@ companion object {
                     exampleApiKey = "api-..."
                 ),
                 ProviderTypePreset(
-                    displayName = "AI.JILI5",
-                    defaultType = "OpenAI Compatible",
-                    defaultBaseUrl = "https://ai.jili5.cn",
+                    // Чат-API у Cursor не публичный: провайдер нужен только для
+                    // расхода по админ-API, моделей он не даёт.
+                    displayName = "Cursor (расход)",
+                    defaultType = "Cursor Admin",
+                    defaultBaseUrl = "https://api.cursor.com",
                     defaultPort = "443",
-                    exampleApiKey = ""
+                    exampleApiKey = "key_...",
+                    defaultChatPath = "",
+                    defaultApiPath = ""
                 ),
                 ProviderTypePreset(
                     displayName = "Ollama (локально)",
@@ -1216,6 +1213,23 @@ companion object {
                     "${provider.name}: моделей — $count"
                 } else {
                     "${provider.name}: сервер не отдал список моделей"
+                }
+                return@launch
+            }
+
+            // У подписки Claude каталог может быть закрыт для токена — там свой
+            // путь с запасным списком, поэтому обычная ветка не подходит.
+            if (provider.type.equals(com.aigate.router.auth.ClaudeCliAuth.PROVIDER_TYPE, true)) {
+                val count = withContext(Dispatchers.IO) {
+                    runCatching {
+                        com.aigate.router.auth.CliSessionManager.syncClaudeModels(database, provider.id)
+                    }.getOrNull()
+                }
+                _syncingProviderId.value = null
+                _syncResult.value = if (count != null) {
+                    "${provider.name}: моделей — $count"
+                } else {
+                    "${provider.name}: список моделей получить не удалось"
                 }
                 return@launch
             }

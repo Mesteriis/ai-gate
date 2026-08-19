@@ -255,6 +255,44 @@ object CliSessionManager {
     }
 
     /**
+     * Один тап: браузерный вход подпиской Claude. Как и у Codex, аккаунтов может
+     * быть несколько — сопоставление идёт по идентификатору аккаунта из токена.
+     */
+    suspend fun connectClaudeCli(context: android.content.Context, db: AppDatabase): Result<Long> {
+        val res = OAuthBrowserFlow.authorize(context, ClaudeCliAuth.config)
+        return res.mapCatching { session ->
+            val name = session.email?.takeIf { it.isNotBlank() }
+                ?.let { "${ClaudeCliAuth.DISPLAY_NAME} · $it" }
+                ?: run {
+                    val taken = db.providerDao().getAllProvidersOnce()
+                        .count { it.type.equals(ClaudeCliAuth.PROVIDER_TYPE, true) }
+                    if (taken == 0) ClaudeCliAuth.DISPLAY_NAME
+                    else "${ClaudeCliAuth.DISPLAY_NAME} ${taken + 1}"
+                }
+            val providerId = connect(
+                db = db,
+                providerType = ClaudeCliAuth.PROVIDER_TYPE,
+                name = name,
+                baseUrl = ClaudeCliAuth.DEFAULT_BASE_URL,
+                session = session,
+                refreshTokenUrl = ClaudeCliAuth.config.tokenUrl,
+                clientId = ClaudeCliAuth.CLIENT_ID,
+                clientSecret = null,
+                matchAccountId = session.accountId,
+                jsonTokenRequest = true
+            )
+            // Путь чата у Anthropic свой — сохраняем его в провайдере.
+            db.providerDao().getProviderById(providerId)?.let {
+                db.providerDao().update(it.copy(chatPath = ClaudeCliAuth.CHAT_PATH))
+            }
+            // Список моделей запрашиваем сразу после входа.
+            runCatching { syncClaudeModels(db, providerId) }
+            runCatching { com.aigate.router.quota.QuotaRepository.refreshAll(db) }
+            providerId
+        }
+    }
+
+    /**
      * Имя нового Codex-провайдера. Аккаунт подписываем e-mail из id_token, если он
      * там есть, иначе нумеруем — чтобы в списке было видно, какой аккаунт какой.
      */
@@ -264,6 +302,39 @@ object CliSessionManager {
         val taken = db.providerDao().getAllProvidersOnce()
             .count { it.type.equals(CodexAuth.PROVIDER_TYPE, true) }
         return if (taken == 0) CodexAuth.DISPLAY_NAME else "${CodexAuth.DISPLAY_NAME} ${taken + 1}"
+    }
+
+    /**
+     * Модели подписки Claude. Сначала спрашиваем каталог у сервера; если путь
+     * `/v1/models` недоступен по токену подписки, берём запасной список из
+     * [ClaudeCliAuth.FALLBACK_MODELS] — иначе провайдер остаётся без моделей и
+     * бесполезен. Возвращает число моделей.
+     */
+    suspend fun syncClaudeModels(db: AppDatabase, providerId: Long): Int? {
+        val provider = db.providerDao().getProviderById(providerId) ?: return null
+        val token = CredentialStore.apiKeyForProvider(provider)?.takeIf { it.isNotBlank() }
+        val remote = com.aigate.router.network.ModelCatalogApi.fetch(provider, token)
+        val models = if (!remote.isNullOrEmpty()) {
+            remote.mapIndexed { index, m ->
+                CodexModelsApi.RemoteModel(
+                    slug = m.id,
+                    displayName = m.displayName,
+                    contextWindow = ClaudeCliAuth.CONTEXT_WINDOW,
+                    priority = index,
+                )
+            }
+        } else {
+            ClaudeCliAuth.FALLBACK_MODELS.mapIndexed { index, (id, name) ->
+                CodexModelsApi.RemoteModel(
+                    slug = id,
+                    displayName = name,
+                    contextWindow = ClaudeCliAuth.CONTEXT_WINDOW,
+                    priority = index,
+                )
+            }
+        }
+        applyRemoteModels(db, providerId, models)
+        return models.size
     }
 
     /** Обновить модели всех подключённых Codex-провайдеров (вызывать на старте). */
@@ -379,7 +450,9 @@ object CliSessionManager {
          * позволяет держать НЕСКОЛЬКО аккаунтов одного типа (несколько Codex),
          * при этом повторный вход в тот же аккаунт не создаёт дубль.
          */
-        matchAccountId: String? = null
+        matchAccountId: String? = null,
+        /** Token endpoint принимает JSON вместо form-urlencoded (Anthropic). */
+        jsonTokenRequest: Boolean = false
     ): Long {
         // 1) Provider (без секрета).
         val providerDao = db.providerDao()
@@ -421,21 +494,28 @@ object CliSessionManager {
 
         // 3) Refresh-адаптер (single-flight), если задан стандартный OAuth token endpoint.
         if (!refreshTokenUrl.isNullOrBlank() && !clientId.isNullOrBlank()) {
-            registerAdapter(providerType, refreshTokenUrl, clientId, clientSecret)
+            registerAdapter(providerType, refreshTokenUrl, clientId, clientSecret, jsonTokenRequest)
             // Персистим конфиг (зашифрованно), чтобы автообновление пережило рестарт.
-            persistRefreshConfig(providerType, refreshTokenUrl, clientId, clientSecret)
+            persistRefreshConfig(providerType, refreshTokenUrl, clientId, clientSecret, jsonTokenRequest)
         }
         return providerId
     }
 
-    private fun registerAdapter(providerType: String, tokenUrl: String, clientId: String, clientSecret: String?) {
+    private fun registerAdapter(
+        providerType: String,
+        tokenUrl: String,
+        clientId: String,
+        clientSecret: String?,
+        jsonBody: Boolean = false,
+    ) {
         AuthRegistry.register(
             GenericOAuth2Provider(
                 OAuth2Config(
                     providerType = providerType,
                     tokenUrl = tokenUrl,
                     clientId = clientId,
-                    clientSecret = clientSecret
+                    clientSecret = clientSecret,
+                    jsonBody = jsonBody
                 )
             )
         )
@@ -451,11 +531,18 @@ object CliSessionManager {
         return if (plain.isEmpty()) JSONObject() else try { JSONObject(plain) } catch (_: Exception) { JSONObject() }
     }
 
-    private fun persistRefreshConfig(providerType: String, tokenUrl: String, clientId: String, clientSecret: String?) {
+    private fun persistRefreshConfig(
+        providerType: String,
+        tokenUrl: String,
+        clientId: String,
+        clientSecret: String?,
+        jsonBody: Boolean = false,
+    ) {
         val all = readRefreshConfigs()
         all.put(providerType, JSONObject().apply {
             put("tokenUrl", tokenUrl); put("clientId", clientId)
             if (!clientSecret.isNullOrBlank()) put("clientSecret", clientSecret)
+            if (jsonBody) put("jsonBody", true)
         })
         val enc = com.aigate.router.security.CryptoBox.encrypt(all.toString())
         com.aigate.router.service.GatewayForegroundService.saveGatewayConfig(REFRESH_CONFIG_KEY, enc)
@@ -468,7 +555,13 @@ object CliSessionManager {
             val o = all.optJSONObject(type) ?: continue
             val tokenUrl = o.optString("tokenUrl"); val clientId = o.optString("clientId")
             if (tokenUrl.isNotEmpty() && clientId.isNotEmpty()) {
-                registerAdapter(type, tokenUrl, clientId, o.optString("clientSecret").ifEmpty { null })
+                registerAdapter(
+                    type,
+                    tokenUrl,
+                    clientId,
+                    o.optString("clientSecret").ifEmpty { null },
+                    o.optBoolean("jsonBody", false),
+                )
             }
         }
     }

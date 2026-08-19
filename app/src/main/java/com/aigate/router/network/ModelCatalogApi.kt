@@ -69,7 +69,17 @@ object ModelCatalogApi {
             val builder = Request.Builder().url(url).get().header("Accept", "application/json")
             when (family) {
                 Family.ANTHROPIC -> {
-                    apiKey?.takeIf { it.isNotBlank() }?.let { builder.header("x-api-key", it) }
+                    // Подписка Claude аутентифицируется Bearer-токеном и бета-заголовком,
+                    // ключ API — заголовком x-api-key. Это разные способы, и путать их нельзя.
+                    if (provider.type.equals(com.aigate.router.auth.ClaudeCliAuth.PROVIDER_TYPE, true)) {
+                        apiKey?.takeIf { it.isNotBlank() }?.let { builder.header("Authorization", "Bearer $it") }
+                        builder.header(
+                            com.aigate.router.auth.ClaudeCliAuth.BETA_HEADER,
+                            com.aigate.router.auth.ClaudeCliAuth.BETA_OAUTH,
+                        )
+                    } else {
+                        apiKey?.takeIf { it.isNotBlank() }?.let { builder.header("x-api-key", it) }
+                    }
                     builder.header("anthropic-version", ANTHROPIC_VERSION)
                 }
                 // Ключ Gemini уходит в query — в заголовке он не принимается.

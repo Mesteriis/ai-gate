@@ -175,9 +175,10 @@ object QuotaRepository {
             // Локальные и встроенные в устройство модели — ресурс без лимита.
             t.contains("ollama") || t.contains("local") || t.contains("device") ||
                 t.contains("llama.cpp") || t.contains("lmstudio") -> ResourcePoolKind.FREE
-            // Сессии CLI по подписке: расход квоты со сбросом по периоду.
-            t.contains("codex") || t.contains("claude-cli") || t.contains("gemini-cli") ->
-                ResourcePoolKind.QUOTA
+            // Подписки: расход квоты со сбросом по периоду. Cursor сюда же —
+            // у него месячный платёжный цикл, а не невосполнимый баланс.
+            t.contains("codex") || t.contains("claude-cli") || t.contains("gemini-cli") ||
+                t.contains("cursor") -> ResourcePoolKind.QUOTA
             // Остальные облачные API — оплаченный баланс.
             else -> ResourcePoolKind.BALANCE
         }
