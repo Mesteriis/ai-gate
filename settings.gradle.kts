@@ -15,4 +15,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "AiGate"
 include(":app")
+include(":llamacpp")
  

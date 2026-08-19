@@ -122,7 +122,15 @@ class GatewayApplication : Application() {
                     com.aigate.router.gateway.local.litert.LiteRtBackend(this, store, applicationScope)
                 )
             }
-            // Движок llama.cpp подключится здесь, когда появится его модуль.
+            if (support.llama.supported) {
+                val store = com.aigate.router.download.RoomLocalModelStore(database.localModelDao())
+                com.aigate.router.gateway.local.LocalEngineManager.register(
+                    com.aigate.router.gateway.local.llama.LlamaCppBackend.Loader
+                )
+                com.aigate.router.gateway.local.LocalBackendRegistry.register(
+                    com.aigate.router.gateway.local.llama.LlamaCppBackend(store, applicationScope)
+                )
+            }
         }
     }
 

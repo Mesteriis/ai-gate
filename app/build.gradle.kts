@@ -112,6 +112,9 @@ dependencies {
     // Движок скачанных моделей формата .litertlm: CPU, GPU и NPU.
     implementation(libs.litertlm.android)
 
+    // Движок моделей GGUF: llama.cpp собирается из исходников подмодулем.
+    implementation(project(":llamacpp"))
+
     // Ktor Server
     implementation(libs.ktor.server.cio)
     implementation(libs.ktor.server.content.negotiation)
