@@ -349,6 +349,13 @@ val totalUploadBytes = java.util.concurrent.atomic.AtomicLong(0L)     // ★ APP
 val totalDownloadBytes = java.util.concurrent.atomic.AtomicLong(0L)   // ★ APP内总统计（持久化不重置）
         @Volatile var isServiceRunning: Boolean = false  // 由 start/stop 同步更新
 
+        /**
+         * Попытки подключиться к остановленному шлюзу. Считаются только при
+         * включённом «тихом приёмнике»: без открытого сокета узнать о попытке
+         * технически нельзя, и счётчик остаётся нулевым.
+         */
+        val blockedAttempts = java.util.concurrent.atomic.AtomicInteger(0)
+
         @Volatile var activeNodeName: String = ""
         @Volatile var lastUploadBytes: Long = 0L
         @Volatile var lastDownloadBytes: Long = 0L

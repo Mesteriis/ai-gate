@@ -157,6 +157,39 @@ fun OverviewScreen(
             )
         }
 
+        // Поводы для реакции считаем теми же триггерами, что и уведомления.
+        val attention by produceState(initialValue = emptyList<com.aigate.router.notify.QuotaTriggers.Alert>(), pools.size, ticker / 15) {
+            value = withContext(Dispatchers.IO) {
+                val now = System.currentTimeMillis()
+                pools.flatMap { pq ->
+                    val kind = ResourcePoolKind.fromName(pq.pool.kind)
+                    com.aigate.router.notify.QuotaTriggers.evaluate(
+                        com.aigate.router.notify.QuotaTriggers.Input(
+                            poolName = pq.pool.name,
+                            kind = kind,
+                            remaining = pq.snapshot?.remaining,
+                            limit = pq.snapshot?.limit,
+                            unit = pq.snapshot?.unit ?: pq.pool.unit,
+                            resetsAt = pq.snapshot?.resetsAt,
+                            rate = QuotaBurn.rate(db.quotaSnapshotDao().getHistoryForPool(pq.pool.id), now),
+                            settings = com.aigate.router.notify.NotifyPrefs.load(pq.pool.id, kind),
+                            now = now,
+                            // На экране показываем состояние как есть, без учёта
+                            // того, о чём уже уведомляли.
+                            resetSeenAt = System.currentTimeMillis(),
+                        )
+                    )
+                }
+            }
+        }
+        AttentionBlock(
+            alerts = attention,
+            gatewayStopped = !serviceRunning,
+            blockedAttempts = GatewayForegroundService.blockedAttempts.get(),
+        )
+
+        ConnectivityCheckCard(db = db, port = gatewayPort)
+
         SectionHeader("Ресурсы провайдеров")
         QuotaStrip(
             pools = pools,
