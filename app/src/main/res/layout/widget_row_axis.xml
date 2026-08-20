@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Подписи оси X: начало, середина и «сегодня». В приложении на графике до семи
+  подписей, здесь их три — на домашнем экране больше не читается.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:layout_marginTop="2dp">
+
+    <TextView
+        android:id="@+id/w_axis_start"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="start"
+        android:textSize="9sp"
+        android:textColor="@color/w_axis"
+        android:maxLines="1" />
+
+    <TextView
+        android:id="@+id/w_axis_mid"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:textSize="9sp"
+        android:textColor="@color/w_axis"
+        android:maxLines="1" />
+
+    <TextView
+        android:id="@+id/w_axis_end"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="end"
+        android:textSize="9sp"
+        android:textStyle="bold"
+        android:textColor="@color/w_prim"
+        android:maxLines="1" />
+</LinearLayout>

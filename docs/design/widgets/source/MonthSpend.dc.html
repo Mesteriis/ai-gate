@@ -1,0 +1,331 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+/*BASE_CSS*/
+    .xabs { position: absolute; white-space: nowrap; font: 500 9px/16px var(--f); color: var(--axis); }
+    .xabs.today { color: var(--prim); font-weight: 600; }
+    .ico { flex-shrink: 0; }
+  </style>
+</helmet>
+<div class="page" style="width: 956px">
+
+  <div>
+    <div class="h1">AiGate — расход за месяц и трафик</div>
+    <div class="h2">Расход в долларах (2×2, 4×2) и трафик (2×2) · тап по дню подменяет строку-вывод</div>
+  </div>
+
+  <div class="light strip">
+    <div class="strip-cap">Светлая тема</div>
+    <div class="row">
+
+      <div>
+        <div class="size-cap">2×2 · 184 × 184</div>
+        <div class="w s2x2">
+          <div class="eyebrow">Расход за месяц</div>
+          <div class="read-xxl" style="margin-top: 2px">{{spend.total}}</div>
+          <div class="sub">{{spend.dayLine}}</div>
+          <div style="margin-top: auto">
+            <svg width="152" height="30" viewBox="0 0 152 30">
+              <path class="spark-area" d="{{spend.miniArea}}"></path>
+              <path class="spark" d="{{spend.miniLine}}"></path>
+              <circle class="dot-halo" cx="{{spend.miniX}}" cy="{{spend.miniY}}" r="4.5"></circle>
+              <circle class="dot-cur" cx="{{spend.miniX}}" cy="{{spend.miniY}}" r="3"></circle>
+            </svg>
+            <div class="sub">прогноз {{spend.forecast}}</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184</div>
+        <div class="w s4x2">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Расход за месяц</div>
+            <div class="chip info sm">+8% к июлю</div>
+          </div>
+          <div class="read" style="margin-top: 2px">{{spend.readMain}}</div>
+          <div class="sub">{{spend.readSub}}</div>
+          <div style="position: relative; margin-top: 8px">
+            <svg width="348" height="60" viewBox="0 0 348 60">
+              <sc-for list="{{spend.grid}}" as="g" hint-placeholder-count="3">
+                <line class="gridline" x1="0" y1="{{g.y}}" x2="348" y2="{{g.y}}"></line>
+              </sc-for>
+              <path class="ln-area" d="{{spend.areaD}}"></path>
+              <path class="ln-proj" d="{{spend.projD}}"></path>
+              <path class="ln" d="{{spend.lineD}}"></path>
+              <circle class="dot-halo" cx="{{spend.curX}}" cy="{{spend.curY}}" r="6.5"></circle>
+              <circle class="dot-cur" cx="{{spend.curX}}" cy="{{spend.curY}}" r="4.5"></circle>
+              <sc-if value="{{spend.hasSel}}" hint-placeholder-val="{{true}}">
+                <line class="crosshair" x1="{{spend.selX}}" y1="0" x2="{{spend.selX}}" y2="60"></line>
+                <circle class="dot-halo" cx="{{spend.selX}}" cy="{{spend.selY}}" r="7"></circle>
+                <circle class="dot-sel" cx="{{spend.selX}}" cy="{{spend.selY}}" r="5"></circle>
+              </sc-if>
+              <sc-for list="{{spend.hits}}" as="h" hint-placeholder-count="20">
+                <rect class="hit" x="{{h.x}}" y="0" width="{{h.w}}" height="60" onClick="{{h.pick}}"></rect>
+              </sc-for>
+            </svg>
+            <div style="position: relative; height: 16px">
+              <sc-for list="{{spend.xLabels}}" as="l" hint-placeholder-count="3">
+                <div class="{{l.cls}}" style="left: {{l.x}}px; transform: translateX({{l.tx}})">{{l.text}}</div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">2×2 · 184 × 184 · трафик</div>
+        <div class="w s2x2">
+          <div class="eyebrow">Трафик</div>
+          <div class="read-xl" style="margin-top: 2px">{{traffic.mainValue}}</div>
+          <div class="sub">{{traffic.mainLabel}}</div>
+          <div style="display: flex; flex-direction: column; gap: 6px; margin-top: auto">
+            <div onClick="{{traffic.pickIn}}" style="display: flex; align-items: center; gap: 6px; cursor: pointer; opacity: {{traffic.opIn}}">
+              <svg class="ico" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="color: var(--s0)">
+                <path d="M6 2 L6 10 M3 7 L6 10 L9 7"></path>
+              </svg>
+              <div class="sub" style="width: 58px">получено</div>
+              <svg width="60" height="18" viewBox="0 0 60 18" style="flex-grow: 1">
+                <path class="spark-area" d="{{traffic.inArea}}"></path>
+                <path class="spark" d="{{traffic.inLine}}"></path>
+              </svg>
+            </div>
+            <div onClick="{{traffic.pickOut}}" style="display: flex; align-items: center; gap: 6px; cursor: pointer; opacity: {{traffic.opOut}}">
+              <svg class="ico" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="color: var(--s1)">
+                <path d="M6 10 L6 2 M3 5 L6 2 L9 5"></path>
+              </svg>
+              <div class="sub" style="width: 58px">отправлено</div>
+              <svg width="60" height="18" viewBox="0 0 60 18" style="flex-grow: 1">
+                <path class="spark-b-area" d="{{traffic.outArea}}"></path>
+                <path class="spark-b" d="{{traffic.outLine}}"></path>
+              </svg>
+            </div>
+            <div class="foot">за август</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="dark strip">
+    <div class="strip-cap">Тёмная тема</div>
+    <div class="row">
+
+      <div>
+        <div class="size-cap">2×2 · 184 × 184</div>
+        <div class="w s2x2">
+          <div class="eyebrow">Расход за месяц</div>
+          <div class="read-xxl" style="margin-top: 2px">{{spend.total}}</div>
+          <div class="sub">{{spend.dayLine}}</div>
+          <div style="margin-top: auto">
+            <svg width="152" height="30" viewBox="0 0 152 30">
+              <path class="spark-area" d="{{spend.miniArea}}"></path>
+              <path class="spark" d="{{spend.miniLine}}"></path>
+              <circle class="dot-halo" cx="{{spend.miniX}}" cy="{{spend.miniY}}" r="4.5"></circle>
+              <circle class="dot-cur" cx="{{spend.miniX}}" cy="{{spend.miniY}}" r="3"></circle>
+            </svg>
+            <div class="sub">прогноз {{spend.forecast}}</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184</div>
+        <div class="w s4x2">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Расход за месяц</div>
+            <div class="chip info sm">+8% к июлю</div>
+          </div>
+          <div class="read" style="margin-top: 2px">{{spend.readMain}}</div>
+          <div class="sub">{{spend.readSub}}</div>
+          <div style="position: relative; margin-top: 8px">
+            <svg width="348" height="60" viewBox="0 0 348 60">
+              <sc-for list="{{spend.grid}}" as="g" hint-placeholder-count="3">
+                <line class="gridline" x1="0" y1="{{g.y}}" x2="348" y2="{{g.y}}"></line>
+              </sc-for>
+              <path class="ln-area" d="{{spend.areaD}}"></path>
+              <path class="ln-proj" d="{{spend.projD}}"></path>
+              <path class="ln" d="{{spend.lineD}}"></path>
+              <circle class="dot-halo" cx="{{spend.curX}}" cy="{{spend.curY}}" r="6.5"></circle>
+              <circle class="dot-cur" cx="{{spend.curX}}" cy="{{spend.curY}}" r="4.5"></circle>
+              <sc-if value="{{spend.hasSel}}" hint-placeholder-val="{{true}}">
+                <line class="crosshair" x1="{{spend.selX}}" y1="0" x2="{{spend.selX}}" y2="60"></line>
+                <circle class="dot-halo" cx="{{spend.selX}}" cy="{{spend.selY}}" r="7"></circle>
+                <circle class="dot-sel" cx="{{spend.selX}}" cy="{{spend.selY}}" r="5"></circle>
+              </sc-if>
+              <sc-for list="{{spend.hits}}" as="h" hint-placeholder-count="20">
+                <rect class="hit" x="{{h.x}}" y="0" width="{{h.w}}" height="60" onClick="{{h.pick}}"></rect>
+              </sc-for>
+            </svg>
+            <div style="position: relative; height: 16px">
+              <sc-for list="{{spend.xLabels}}" as="l" hint-placeholder-count="3">
+                <div class="{{l.cls}}" style="left: {{l.x}}px; transform: translateX({{l.tx}})">{{l.text}}</div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">2×2 · 184 × 184 · трафик</div>
+        <div class="w s2x2">
+          <div class="eyebrow">Трафик</div>
+          <div class="read-xl" style="margin-top: 2px">{{traffic.mainValue}}</div>
+          <div class="sub">{{traffic.mainLabel}}</div>
+          <div style="display: flex; flex-direction: column; gap: 6px; margin-top: auto">
+            <div onClick="{{traffic.pickIn}}" style="display: flex; align-items: center; gap: 6px; cursor: pointer; opacity: {{traffic.opIn}}">
+              <svg class="ico" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="color: var(--s0)">
+                <path d="M6 2 L6 10 M3 7 L6 10 L9 7"></path>
+              </svg>
+              <div class="sub" style="width: 58px">получено</div>
+              <svg width="60" height="18" viewBox="0 0 60 18" style="flex-grow: 1">
+                <path class="spark-area" d="{{traffic.inArea}}"></path>
+                <path class="spark" d="{{traffic.inLine}}"></path>
+              </svg>
+            </div>
+            <div onClick="{{traffic.pickOut}}" style="display: flex; align-items: center; gap: 6px; cursor: pointer; opacity: {{traffic.opOut}}">
+              <svg class="ico" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="color: var(--s1)">
+                <path d="M6 10 L6 2 M3 5 L6 2 L9 5"></path>
+              </svg>
+              <div class="sub" style="width: 58px">отправлено</div>
+              <svg width="60" height="18" viewBox="0 0 60 18" style="flex-grow: 1">
+                <path class="spark-b-area" d="{{traffic.outArea}}"></path>
+                <path class="spark-b" d="{{traffic.outLine}}"></path>
+              </svg>
+            </div>
+            <div class="foot">за август</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"day":{"editor":"enum","options":["10","20","30"],"default":"20","section":"Данные"},"$preview":{"width":956,"height":760}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: null, dir: 'in' };
+  }
+
+/*HELPERS*/
+
+  bytesMb(mb) {
+    if (mb < 1024) return this.dec(mb) + ' МБ';
+    return this.dec2(mb / 1024) + ' ГБ';
+  }
+
+  daily() {
+    const all = [0.42, 0.68, 0.31, 0.12, 0.94, 1.12, 0.66, 0.78, 0.51, 0.19,
+      0.38, 1.31, 0.72, 0.86, 0.44, 0.16, 0.29, 1.24, 0.81, 0.44,
+      0.57, 0.63, 0.22, 0.18, 0.88, 1.04, 0.71, 0.59, 0.33, 0.27, 0.49];
+    const day = Number(this.props.day || 20);
+    return { all: all, day: day };
+  }
+
+  traffic() {
+    const inMb = [42, 68, 31, 120, 94, 112, 66, 78, 51, 19, 38, 131, 72, 86, 44, 16, 29, 124, 81, 64];
+    const outMb = [3.2, 5.1, 2.4, 9.8, 7.1, 8.4, 5.0, 5.9, 3.9, 1.4, 2.9, 9.9, 5.4, 6.5, 3.3, 1.2, 2.2, 9.4, 6.1, 4.8];
+    return { inMb: inMb, outMb: outMb };
+  }
+
+  sparkPaths(vals, w, h) {
+    const max = Math.max.apply(null, vals);
+    const min = Math.min.apply(null, vals);
+    const span = max - min || 1;
+    const pts = vals.map((v, i) => [
+      (i / (vals.length - 1)) * (w - 4) + 2,
+      h - 2 - ((v - min) / span) * (h - 4),
+    ]);
+    return { line: this.linePath(pts), area: this.areaPath(pts, h), last: pts[pts.length - 1] };
+  }
+
+  renderVals() {
+    const W = 348;
+    const H = 60;
+    const d = this.daily();
+    const days = d.all.length;
+    const upto = d.day;
+
+    let acc = 0;
+    const cum = [];
+    for (let i = 0; i < upto; i++) { acc += d.all[i]; cum.push(acc); }
+    const total = acc;
+    const perDay = total / upto;
+    const forecast = total + perDay * (days - upto);
+    const axisMax = this.niceCeil(forecast);
+
+    const xOf = (i) => ((i + 1) / days) * W;
+    const yOf = (v) => H - 1 - (v / axisMax) * (H - 5);
+    const pts = cum.map((v, i) => [xOf(i), yOf(v)]);
+    const projPts = [[xOf(upto - 1), yOf(total)], [xOf(days - 1), yOf(forecast)]];
+
+    const sel = this.state.sel;
+    const hasSel = sel !== null && sel !== undefined && sel < upto;
+    const slot = W / days;
+
+    const mini = this.sparkPaths(d.all.slice(0, upto), 152, 30);
+
+    const tr = this.traffic();
+    const inTotal = tr.inMb.reduce((a, b) => a + b, 0);
+    const outTotal = tr.outMb.reduce((a, b) => a + b, 0);
+    const inS = this.sparkPaths(tr.inMb, 60, 18);
+    const outS = this.sparkPaths(tr.outMb, 60, 18);
+    const dirIn = this.state.dir === 'in';
+
+    return {
+      spend: {
+        total: this.usd(total),
+        dayLine: 'за август · день ' + upto + ' из ' + days,
+        forecast: this.usd(forecast),
+        readMain: hasSel ? (sel + 1) + ' августа · ' + this.usd(d.all[sel]) : this.usd(total),
+        readSub: hasSel
+          ? 'накоплено ' + this.usd(cum[sel]) + ' · день ' + (sel + 1) + ' из ' + days
+          : 'прогноз ' + this.usd(forecast) + ' к 31 августа · день ' + upto + ' из ' + days,
+        grid: [axisMax, axisMax / 2, 0].map((v) => ({ y: yOf(v) })),
+        lineD: this.linePath(pts),
+        areaD: this.areaPath(pts, H),
+        projD: this.linePath(projPts),
+        curX: xOf(upto - 1), curY: yOf(total),
+        hasSel: hasSel,
+        selX: hasSel ? pts[sel][0] : 0,
+        selY: hasSel ? pts[sel][1] : 0,
+        hits: cum.map((v, i) => ({
+          x: Math.max(xOf(i) - slot / 2, 0), w: slot,
+          pick: () => this.setState({ sel: sel === i ? null : i }),
+        })),
+        xLabels: [
+          { x: 0, tx: '0', cls: 'xabs', text: '01.08' },
+          { x: xOf(upto - 1), tx: '-50%', cls: 'xabs today', text: 'сегодня' },
+          { x: W, tx: '-100%', cls: 'xabs', text: '31.08' },
+        ],
+        miniLine: mini.line, miniArea: mini.area,
+        miniX: mini.last[0], miniY: mini.last[1],
+      },
+      traffic: {
+        mainValue: dirIn ? this.bytesMb(inTotal) : this.bytesMb(outTotal),
+        mainLabel: dirIn ? 'получено · отправлено ' + this.bytesMb(outTotal) : 'отправлено · получено ' + this.bytesMb(inTotal),
+        inLine: inS.line, inArea: inS.area,
+        outLine: outS.line, outArea: outS.area,
+        opIn: dirIn ? 1 : 0.45,
+        opOut: dirIn ? 0.45 : 1,
+        pickIn: () => this.setState({ dir: 'in' }),
+        pickOut: () => this.setState({ dir: 'out' }),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

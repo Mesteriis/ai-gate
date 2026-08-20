@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Строка таблицы вызовов: время, точка провайдера, модель, токены, расход.
+  Точка того же цвета, что сектор провайдера в донате — связка держится по всему комплекту.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_row_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:baselineAligned="false"
+    android:layout_marginTop="3dp">
+
+    <TextView
+        android:id="@+id/w_cell_time"
+        android:layout_width="38dp"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
+        android:textColor="@color/w_on_var"
+        android:maxLines="1" />
+
+    <ImageView
+        android:id="@+id/w_cell_dot"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="6dp"
+        android:importantForAccessibility="no" />
+
+    <TextView
+        android:id="@+id/w_cell_model"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textSize="12sp"
+        android:textColor="@color/w_on"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/w_cell_tokens"
+        android:layout_width="46dp"
+        android:layout_height="wrap_content"
+        android:gravity="end"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:textColor="@color/w_on"
+        android:maxLines="1" />
+
+    <TextView
+        android:id="@+id/w_cell_usd"
+        android:layout_width="52dp"
+        android:layout_height="wrap_content"
+        android:gravity="end"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:textColor="@color/w_on"
+        android:maxLines="1" />
+</LinearLayout>

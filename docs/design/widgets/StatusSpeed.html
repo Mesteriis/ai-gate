@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AiGate — статус шлюза и скорость</title>
+<style>
+    :root { --f: Roboto, "Helvetica Neue", system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--f); }
+    a { color: #2E6FE0; } a:hover { color: #1E50B5; }
+
+    .light {
+      --wall: linear-gradient(155deg, #DCE9FA, #EDF3FC 60%, #E4EDFA);
+      --surf: #FFFFFF; --surf-low: #F4F8FE; --surf-high: #E4EDFA; --prim: #2E6FE0;
+      --on: #16233A; --on-var: #4A5A70; --outline: #DBE6F5;
+      --border: rgba(46, 111, 224, 0.102); --inner: rgba(255, 255, 255, 0);
+      --succ: #23B26A; --warn: #F0A020; --err: #E5484D; --unk: #94A3B8;
+      --succ-c: #DCF5E7; --on-succ-c: #115B36; --warn-c: #FDF0D8; --on-warn-c: #7A5510;
+      --err-c: #FBE0E1; --on-err-c: #8F2327; --info-c: #DFEAFC; --on-info-c: #1E50B5;
+      --neu-c: #E4EDFA; --on-neu-c: #4A5A70;
+      --s0: #2E6FE0; --s1: #C07E12; --s2: #8F62DE; --s3: #1D9A5E; --s4: #2492C8; --s5: #D25A68;
+      --grid: #DBE6F5; --axis: #7E90A8; --proj: #9DB8DF; --sel: #1E50B5; --p-normal: #2E6FE0;
+      --hero: linear-gradient(135deg, #FFFFFF, #E7F0FC); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #4A5A70; --on-prim: #FFFFFF;
+      --track-hero: #DCE6F5; --frame: rgba(22, 35, 58, 0.10);
+    }
+    .dark {
+      --wall: linear-gradient(155deg, #0A1220, #101B30 60%, #16233A);
+      --surf: #16233A; --surf-low: #1A2A45; --surf-high: #24355C; --prim: #56B6E8;
+      --on: #E6EEF9; --on-var: #A9BAD4; --outline: #2A3B5C;
+      --border: rgba(127, 196, 245, 0.141); --inner: rgba(255, 255, 255, 0.06);
+      --succ: #3BCB82; --warn: #F3B04E; --err: #F06A6F; --unk: #64748B;
+      --succ-c: #14402B; --on-succ-c: #A4E8C6; --warn-c: #4A3712; --on-warn-c: #F8DCA8;
+      --err-c: #54191C; --on-err-c: #F5B4B7; --info-c: #1D3560; --on-info-c: #C2D7FB;
+      --neu-c: #24355C; --on-neu-c: #A9BAD4;
+      --s0: #4A85EC; --s1: #C67F14; --s2: #9A6FE0; --s3: #2AA866; --s4: #2E9FD0; --s5: #D9636F;
+      --grid: #2A3B5C; --axis: #8FA3C0; --proj: #4A648F; --sel: #7FB3F6; --p-normal: #6AA2F8;
+      --hero: linear-gradient(135deg, #16233A, #1B3055); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #A9BAD4; --on-prim: #06121F;
+      --track-hero: #24355C; --frame: rgba(127, 196, 245, 0.16);
+    }
+
+    .page { background: #F1F4F9; display: flex; flex-direction: column; gap: 24px; padding: 32px; }
+    .h1 { font: 600 20px/28px var(--f); color: #16233A; }
+    .h2 { font: 400 14px/20px var(--f); color: #4A5A70; }
+    .strip { background: var(--wall); border-radius: 20px; padding: 24px 32px 28px; }
+    .strip-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 14px; }
+    .row { display: flex; gap: 32px; align-items: flex-start; }
+    .size-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 8px; }
+
+    .w { background: var(--surf); border: 1px solid var(--border); border-radius: 24px; padding: 16px;
+         box-shadow: inset 0 1px 0 var(--inner); overflow: hidden; position: relative;
+         display: flex; flex-direction: column; }
+    .w.hero { background: var(--hero); }
+    .w.hero::after { content: ''; position: absolute; top: -56px; right: -56px; width: 200px; height: 200px;
+         border-radius: 50%; background: radial-gradient(circle, var(--glow), rgba(127, 196, 245, 0)); pointer-events: none; }
+    .s2x1 { width: 184px; height: 86px; } .s4x1 { width: 380px; height: 86px; }
+    .s2x2 { width: 184px; height: 184px; } .s4x2 { width: 380px; height: 184px; } .s4x4 { width: 380px; height: 380px; }
+
+    .eyebrow { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .read { font: 700 18px/24px var(--f); color: var(--on); }
+    .read-lg { font: 600 20px/28px var(--f); color: var(--on); }
+    .read-xl { font: 700 24px/32px var(--f); color: var(--on); }
+    .read-xxl { font: 700 32px/40px var(--f); color: var(--on); }
+    .sub { font: 500 11px/16px var(--f); color: var(--on-var); }
+    .lab { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .body { font: 400 14px/20px var(--f); color: var(--on); }
+    .body-var { font: 400 14px/20px var(--f); color: var(--on-var); }
+    .name { font: 500 14px/20px var(--f); color: var(--on); }
+    .title-md { font: 500 16px/22px var(--f); color: var(--on); }
+    .foot { font: 500 11px/16px var(--f); color: var(--on-var); }
+
+    .chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 8px; padding: 3px 8px; font: 500 12px/16px var(--f); }
+    .chip.sm { font: 500 11px/14px var(--f); padding: 2px 6px; }
+    .chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .chip.succ { background: var(--succ-c); color: var(--on-succ-c); } .chip.succ .dot { background: var(--succ); }
+    .chip.warn { background: var(--warn-c); color: var(--on-warn-c); } .chip.warn .dot { background: var(--warn); }
+    .chip.err { background: var(--err-c); color: var(--on-err-c); } .chip.err .dot { background: var(--err); }
+    .chip.info { background: var(--info-c); color: var(--on-info-c); } .chip.info .dot { background: var(--prim); }
+    .chip.neu { background: var(--neu-c); color: var(--on-neu-c); } .chip.neu .dot { background: var(--unk); }
+
+    .xl-row { display: flex; height: 16px; margin-top: 2px; }
+    .xl { flex: 1 1 0; text-align: center; white-space: nowrap; font: 500 9px/16px var(--f); color: var(--axis); }
+    .xl.today { color: var(--prim); font-weight: 600; }
+    .xl.end { text-align: right; }
+    .yl-col { display: flex; flex-direction: column; justify-content: space-between; width: 34px; margin-right: 6px; }
+    .yl { font: 500 10px/12px var(--f); color: var(--axis); text-align: right; }
+
+    .p-free { background: var(--succ); } .p-normal { background: var(--p-normal); }
+    .p-conserve { background: var(--warn); } .p-critical { background: var(--err); }
+    .p-unknown { background: var(--unk); }
+    .pt-free { color: var(--succ); } .pt-normal { color: var(--p-normal); }
+    .pt-conserve { color: var(--warn); } .pt-critical { color: var(--err); }
+    .pt-unknown { color: var(--unk); }
+    .ring { fill: none; stroke-linecap: round; }
+    .r-track { stroke: var(--surf-high); }
+    .r-free { stroke: var(--succ); } .r-normal { stroke: var(--p-normal); }
+    .r-conserve { stroke: var(--warn); } .r-critical { stroke: var(--err); }
+    .r-unknown { stroke: var(--unk); }
+
+    .ln { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .ln-area { fill: var(--s0); opacity: 0.14; }
+    .ln-proj { fill: none; stroke: var(--proj); stroke-width: 2; stroke-dasharray: 7 5; stroke-linecap: round; }
+    .ln-ref { fill: none; stroke: var(--on-var); stroke-width: 1.5; stroke-dasharray: 6 4; }
+    .crosshair { stroke: var(--axis); stroke-width: 1; }
+    .dot-halo { fill: var(--surf); }
+    .dot-cur { fill: var(--s0); }
+    .dot-sel { fill: var(--sel); }
+    .dot-mark { fill: var(--s5); }
+    .spark { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .spark-area { fill: var(--s0); opacity: 0.16; }
+    .spark-b { fill: none; stroke: var(--s1); stroke-width: 2; stroke-linecap: round; }
+    .spark-b-area { fill: var(--s1); opacity: 0.16; }
+    .mark-lab { position: absolute; white-space: nowrap; font: 600 9px/12px var(--f); color: var(--s5); }
+
+    .av { border-radius: 28%; display: flex; align-items: center; justify-content: center;
+          font-weight: 700; flex-shrink: 0; }
+    .r-row { border-radius: 8px; padding: 4px 8px; margin: 0 -8px; }
+    .r-row.on { background: var(--surf-low); }
+
+    .bar-bot { fill: var(--s0); } .bar-bot.sel { fill: var(--sel); }
+    .bar-top { fill: var(--s1); }
+    .gridline { stroke: var(--grid); stroke-width: 1; }
+    .hit { cursor: pointer; fill: transparent; }
+    .dot9 { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .track { background: var(--surf-high); border-radius: 999px; overflow: hidden; }
+    .w.hero .track { background: var(--track-hero); }
+    .divider { height: 1px; background: var(--outline); }
+    .vdiv { width: 1px; background: var(--outline); align-self: stretch; }
+    .gate-on { color: var(--prim); }
+    .gate-off { color: var(--on-var); }
+    .mname { font: 500 14px/20px var(--f); color: var(--on); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  
+    html { background: #F1F4F9; }
+    body { display: flex; justify-content: center; }
+</style>
+</head>
+<body>
+
+<helmet>
+  <style>
+    :root { --f: Roboto, "Helvetica Neue", system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--f); }
+    a { color: #2E6FE0; } a:hover { color: #1E50B5; }
+
+    .light {
+      --wall: linear-gradient(155deg, #DCE9FA, #EDF3FC 60%, #E4EDFA);
+      --surf: #FFFFFF; --surf-low: #F4F8FE; --surf-high: #E4EDFA; --prim: #2E6FE0;
+      --on: #16233A; --on-var: #4A5A70; --outline: #DBE6F5;
+      --border: rgba(46, 111, 224, 0.102); --inner: rgba(255, 255, 255, 0);
+      --succ: #23B26A; --warn: #F0A020; --err: #E5484D; --unk: #94A3B8;
+      --succ-c: #DCF5E7; --on-succ-c: #115B36; --warn-c: #FDF0D8; --on-warn-c: #7A5510;
+      --err-c: #FBE0E1; --on-err-c: #8F2327; --info-c: #DFEAFC; --on-info-c: #1E50B5;
+      --neu-c: #E4EDFA; --on-neu-c: #4A5A70;
+      --s0: #2E6FE0; --s1: #C07E12; --s2: #8F62DE; --s3: #1D9A5E; --s4: #2492C8; --s5: #D25A68;
+      --grid: #DBE6F5; --axis: #7E90A8; --proj: #9DB8DF; --sel: #1E50B5; --p-normal: #2E6FE0;
+      --hero: linear-gradient(135deg, #FFFFFF, #E7F0FC); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #4A5A70; --on-prim: #FFFFFF;
+      --track-hero: #DCE6F5; --frame: rgba(22, 35, 58, 0.10);
+    }
+    .dark {
+      --wall: linear-gradient(155deg, #0A1220, #101B30 60%, #16233A);
+      --surf: #16233A; --surf-low: #1A2A45; --surf-high: #24355C; --prim: #56B6E8;
+      --on: #E6EEF9; --on-var: #A9BAD4; --outline: #2A3B5C;
+      --border: rgba(127, 196, 245, 0.141); --inner: rgba(255, 255, 255, 0.06);
+      --succ: #3BCB82; --warn: #F3B04E; --err: #F06A6F; --unk: #64748B;
+      --succ-c: #14402B; --on-succ-c: #A4E8C6; --warn-c: #4A3712; --on-warn-c: #F8DCA8;
+      --err-c: #54191C; --on-err-c: #F5B4B7; --info-c: #1D3560; --on-info-c: #C2D7FB;
+      --neu-c: #24355C; --on-neu-c: #A9BAD4;
+      --s0: #4A85EC; --s1: #C67F14; --s2: #9A6FE0; --s3: #2AA866; --s4: #2E9FD0; --s5: #D9636F;
+      --grid: #2A3B5C; --axis: #8FA3C0; --proj: #4A648F; --sel: #7FB3F6; --p-normal: #6AA2F8;
+      --hero: linear-gradient(135deg, #16233A, #1B3055); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #A9BAD4; --on-prim: #06121F;
+      --track-hero: #24355C; --frame: rgba(127, 196, 245, 0.16);
+    }
+
+    .page { background: #F1F4F9; display: flex; flex-direction: column; gap: 24px; padding: 32px; }
+    .h1 { font: 600 20px/28px var(--f); color: #16233A; }
+    .h2 { font: 400 14px/20px var(--f); color: #4A5A70; }
+    .strip { background: var(--wall); border-radius: 20px; padding: 24px 32px 28px; }
+    .strip-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 14px; }
+    .row { display: flex; gap: 32px; align-items: flex-start; }
+    .size-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 8px; }
+
+    .w { background: var(--surf); border: 1px solid var(--border); border-radius: 24px; padding: 16px;
+         box-shadow: inset 0 1px 0 var(--inner); overflow: hidden; position: relative;
+         display: flex; flex-direction: column; }
+    .w.hero { background: var(--hero); }
+    .w.hero::after { content: ''; position: absolute; top: -56px; right: -56px; width: 200px; height: 200px;
+         border-radius: 50%; background: radial-gradient(circle, var(--glow), rgba(127, 196, 245, 0)); pointer-events: none; }
+    .s2x1 { width: 184px; height: 86px; } .s4x1 { width: 380px; height: 86px; }
+    .s2x2 { width: 184px; height: 184px; } .s4x2 { width: 380px; height: 184px; } .s4x4 { width: 380px; height: 380px; }
+
+    .eyebrow { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .read { font: 700 18px/24px var(--f); color: var(--on); }
+    .read-lg { font: 600 20px/28px var(--f); color: var(--on); }
+    .read-xl { font: 700 24px/32px var(--f); color: var(--on); }
+    .read-xxl { font: 700 32px/40px var(--f); color: var(--on); }
+    .sub { font: 500 11px/16px var(--f); color: var(--on-var); }
+    .lab { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .body { font: 400 14px/20px var(--f); color: var(--on); }
+    .body-var { font: 400 14px/20px var(--f); color: var(--on-var); }
+    .name { font: 500 14px/20px var(--f); color: var(--on); }
+    .title-md { font: 500 16px/22px var(--f); color: var(--on); }
+    .foot { font: 500 11px/16px var(--f); color: var(--on-var); }
+
+    .chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 8px; padding: 3px 8px; font: 500 12px/16px var(--f); }
+    .chip.sm { font: 500 11px/14px var(--f); padding: 2px 6px; }
+    .chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .chip.succ { background: var(--succ-c); color: var(--on-succ-c); } .chip.succ .dot { background: var(--succ); }
+    .chip.warn { background: var(--warn-c); color: var(--on-warn-c); } .chip.warn .dot { background: var(--warn); }
+    .chip.err { background: var(--err-c); color: var(--on-err-c); } .chip.err .dot { background: var(--err); }
+    .chip.info { background: var(--info-c); color: var(--on-info-c); } .chip.info .dot { background: var(--prim); }
+    .chip.neu { background: var(--neu-c); color: var(--on-neu-c); } .chip.neu .dot { background: var(--unk); }
+
+    .xl-row { display: flex; height: 16px; margin-top: 2px; }
+    .xl { flex: 1 1 0; text-align: center; white-space: nowrap; font: 500 9px/16px var(--f); color: var(--axis); }
+    .xl.today { color: var(--prim); font-weight: 600; }
+    .xl.end { text-align: right; }
+    .yl-col { display: flex; flex-direction: column; justify-content: space-between; width: 34px; margin-right: 6px; }
+    .yl { font: 500 10px/12px var(--f); color: var(--axis); text-align: right; }
+
+    .p-free { background: var(--succ); } .p-normal { background: var(--p-normal); }
+    .p-conserve { background: var(--warn); } .p-critical { background: var(--err); }
+    .p-unknown { background: var(--unk); }
+    .pt-free { color: var(--succ); } .pt-normal { color: var(--p-normal); }
+    .pt-conserve { color: var(--warn); } .pt-critical { color: var(--err); }
+    .pt-unknown { color: var(--unk); }
+    .ring { fill: none; stroke-linecap: round; }
+    .r-track { stroke: var(--surf-high); }
+    .r-free { stroke: var(--succ); } .r-normal { stroke: var(--p-normal); }
+    .r-conserve { stroke: var(--warn); } .r-critical { stroke: var(--err); }
+    .r-unknown { stroke: var(--unk); }
+
+    .ln { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .ln-area { fill: var(--s0); opacity: 0.14; }
+    .ln-proj { fill: none; stroke: var(--proj); stroke-width: 2; stroke-dasharray: 7 5; stroke-linecap: round; }
+    .ln-ref { fill: none; stroke: var(--on-var); stroke-width: 1.5; stroke-dasharray: 6 4; }
+    .crosshair { stroke: var(--axis); stroke-width: 1; }
+    .dot-halo { fill: var(--surf); }
+    .dot-cur { fill: var(--s0); }
+    .dot-sel { fill: var(--sel); }
+    .dot-mark { fill: var(--s5); }
+    .spark { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .spark-area { fill: var(--s0); opacity: 0.16; }
+    .spark-b { fill: none; stroke: var(--s1); stroke-width: 2; stroke-linecap: round; }
+    .spark-b-area { fill: var(--s1); opacity: 0.16; }
+    .mark-lab { position: absolute; white-space: nowrap; font: 600 9px/12px var(--f); color: var(--s5); }
+
+    .av { border-radius: 28%; display: flex; align-items: center; justify-content: center;
+          font-weight: 700; flex-shrink: 0; }
+    .r-row { border-radius: 8px; padding: 4px 8px; margin: 0 -8px; }
+    .r-row.on { background: var(--surf-low); }
+
+    .bar-bot { fill: var(--s0); } .bar-bot.sel { fill: var(--sel); }
+    .bar-top { fill: var(--s1); }
+    .gridline { stroke: var(--grid); stroke-width: 1; }
+    .hit { cursor: pointer; fill: transparent; }
+    .dot9 { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .track { background: var(--surf-high); border-radius: 999px; overflow: hidden; }
+    .w.hero .track { background: var(--track-hero); }
+    .divider { height: 1px; background: var(--outline); }
+    .vdiv { width: 1px; background: var(--outline); align-self: stretch; }
+    .gate-on { color: var(--prim); }
+    .gate-off { color: var(--on-var); }
+    .mname { font: 500 14px/20px var(--f); color: var(--on); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  </style>
+</helmet>
+<div class="page" style="width: 1156px">
+
+  <div>
+    <div class="h1">AiGate — статус шлюза и скорость</div>
+    <div class="h2">Компактный ярус 2×1 и 4×1 · оба состояния шлюза · тап переключает состояние и метрику</div>
+  </div>
+
+  <div class="light strip">
+    <div class="strip-cap">Светлая тема</div>
+    <div class="row">
+
+      <div>
+        <div class="size-cap">2×1 · 184 × 86 · статус</div>
+        <div class="w s2x1" style="cursor: pointer">
+          <div style="display: flex; align-items: center; gap: 8px; height: 54px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="gate-on">
+              <path d="M4 21 L4 11 A8 8 0 0 1 20 11 L20 21"></path>
+              <path d="M12 21 L12 13"></path>
+            </svg>
+            <div>
+              <div style="display: flex; align-items: center; gap: 6px">
+                <div class="dot9" style="background: var(--succ)"></div>
+                <div class="read">Работает</div>
+              </div>
+              <div class="sub">порт 8889</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×1 · 380 × 86 · шлюз работает</div>
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="gate-on">
+              <path d="M4 21 L4 11 A8 8 0 0 1 20 11 L20 21"></path>
+              <path d="M12 21 L12 13"></path>
+            </svg>
+            <div style="width: 104px">
+              <div style="display: flex; align-items: center; gap: 6px">
+                <div class="dot9" style="background: var(--succ)"></div>
+                <div class="read">Работает</div>
+              </div>
+              <div class="sub">порт 8889</div>
+            </div>
+            <div class="vdiv"></div>
+            <div style="flex-grow: 1; overflow: hidden">
+              <div class="eyebrow">Следующий запрос обслужит</div>
+              <div class="mname">claude-sonnet-4-5</div>
+              <div class="sub">Claude · быстрейшая по замерам</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×1 · 380 × 86 · шлюз остановлен</div>
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="gate-off">
+              <path d="M4 21 L4 11 A8 8 0 0 1 20 11 L20 21"></path>
+              <path d="M12 21 L12 13"></path>
+            </svg>
+            <div style="width: 104px">
+              <div style="display: flex; align-items: center; gap: 6px">
+                <div class="dot9" style="background: var(--err)"></div>
+                <div class="read">Остановлен</div>
+              </div>
+              <div class="sub">порт 8889 · не слушает</div>
+            </div>
+            <div class="vdiv"></div>
+            <div style="flex-grow: 1; overflow: hidden">
+              <div class="eyebrow">Следующий запрос обслужит</div>
+              <div class="mname">—</div>
+              <div class="sub">запросы не принимаются</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="row" style="margin-top: 20px">
+      <div>
+        <div class="size-cap">2×1 · 184 × 86 · скорость</div>
+        <div class="w s2x1">
+          <div style="display: flex; align-items: center; gap: 8px; height: 54px">
+            <div style="flex-grow: 1">
+              <div class="read">812 мс</div>
+              <div class="sub">TTFT · медиана</div>
+            </div>
+            <svg width="60" height="26" viewBox="0 0 60 26" style="flex-shrink: 0">
+              <path class="spark-area" d="M2,24 L6.307692307692308,17.4 L10.615384615384617,9.92 L14.923076923076923,4.199999999999999 L19.230769230769234,11.899999999999999 L23.53846153846154,8.05 L27.846153846153847,16.3 L32.15384615384615,9.92 L36.46153846153847,2 L40.76923076923077,20.15 L45.07692307692308,15.2 L49.38461538461539,6.399999999999999 L53.69230769230769,9.92 L58,8.600000000000001 L58,26 L2,26 Z"></path>
+              <path class="spark" d="M2,24 L6.307692307692308,17.4 L10.615384615384617,9.92 L14.923076923076923,4.199999999999999 L19.230769230769234,11.899999999999999 L23.53846153846154,8.05 L27.846153846153847,16.3 L32.15384615384615,9.92 L36.46153846153847,2 L40.76923076923077,20.15 L45.07692307692308,15.2 L49.38461538461539,6.399999999999999 L53.69230769230769,9.92 L58,8.600000000000001"></path>
+              <circle class="dot-halo" cx="58" cy="8.600000000000001" r="4.5"></circle>
+              <circle class="dot-cur" cx="58" cy="8.600000000000001" r="3"></circle>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×1 · 380 × 86 · скорость</div>
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <div style="display: flex; align-items: center; gap: 8px; flex-grow: 1; cursor: pointer; opacity: 1">
+              <div style="flex-grow: 1">
+                <div class="read">812 мс</div>
+                <div class="sub">TTFT · медиана</div>
+              </div>
+              <svg width="96" height="26" viewBox="0 0 96 26" style="flex-shrink: 0">
+                <path class="spark-area" d="M2,24 L9.076923076923077,17.4 L16.153846153846153,9.92 L23.230769230769234,4.199999999999999 L30.30769230769231,11.899999999999999 L37.38461538461539,8.05 L44.46153846153847,16.3 L51.53846153846153,9.92 L58.61538461538462,2 L65.6923076923077,20.15 L72.76923076923077,15.2 L79.84615384615384,6.399999999999999 L86.92307692307693,9.92 L94,8.600000000000001 L94,26 L2,26 Z"></path>
+                <path class="spark" d="M2,24 L9.076923076923077,17.4 L16.153846153846153,9.92 L23.230769230769234,4.199999999999999 L30.30769230769231,11.899999999999999 L37.38461538461539,8.05 L44.46153846153847,16.3 L51.53846153846153,9.92 L58.61538461538462,2 L65.6923076923077,20.15 L72.76923076923077,15.2 L79.84615384615384,6.399999999999999 L86.92307692307693,9.92 L94,8.600000000000001"></path>
+              </svg>
+            </div>
+            <div class="vdiv"></div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-grow: 1; cursor: pointer; opacity: 0.55">
+              <div style="flex-grow: 1">
+                <div class="read">42,6 ток/с</div>
+                <div class="sub">TPS · медиана</div>
+              </div>
+              <svg width="52" height="26" viewBox="0 0 52 26" style="flex-shrink: 0">
+                <path class="spark-b-area" d="M2,23.070422535211254 L5.6923076923076925,14.394366197183096 L9.384615384615385,9.436619718309855 L13.076923076923077,4.788732394366193 L16.76923076923077,15.943661971830982 L20.461538461538463,7.577464788732385 L24.153846153846153,18.11267605633803 L27.846153846153847,9.436619718309855 L31.53846153846154,2 L35.230769230769226,24 L38.92307692307693,13.154929577464792 L42.61538461538461,5.718309859154935 L46.30769230769231,9.436619718309855 L50,9.436619718309855 L50,26 L2,26 Z"></path>
+                <path class="spark-b" d="M2,23.070422535211254 L5.6923076923076925,14.394366197183096 L9.384615384615385,9.436619718309855 L13.076923076923077,4.788732394366193 L16.76923076923077,15.943661971830982 L20.461538461538463,7.577464788732385 L24.153846153846153,18.11267605633803 L27.846153846153847,9.436619718309855 L31.53846153846154,2 L35.230769230769226,24 L38.92307692307693,13.154929577464792 L42.61538461538461,5.718309859154935 L46.30769230769231,9.436619718309855 L50,9.436619718309855"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dark strip">
+    <div class="strip-cap">Тёмная тема</div>
+    <div class="row">
+
+      <div>
+        <div class="size-cap">2×1 · 184 × 86 · статус</div>
+        <div class="w s2x1" style="cursor: pointer">
+          <div style="display: flex; align-items: center; gap: 8px; height: 54px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="gate-on">
+              <path d="M4 21 L4 11 A8 8 0 0 1 20 11 L20 21"></path>
+              <path d="M12 21 L12 13"></path>
+            </svg>
+            <div>
+              <div style="display: flex; align-items: center; gap: 6px">
+                <div class="dot9" style="background: var(--succ)"></div>
+                <div class="read">Работает</div>
+              </div>
+              <div class="sub">порт 8889</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×1 · 380 × 86 · шлюз работает</div>
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="gate-on">
+              <path d="M4 21 L4 11 A8 8 0 0 1 20 11 L20 21"></path>
+              <path d="M12 21 L12 13"></path>
+            </svg>
+            <div style="width: 104px">
+              <div style="display: flex; align-items: center; gap: 6px">
+                <div class="dot9" style="background: var(--succ)"></div>
+                <div class="read">Работает</div>
+              </div>
+              <div class="sub">порт 8889</div>
+            </div>
+            <div class="vdiv"></div>
+            <div style="flex-grow: 1; overflow: hidden">
+              <div class="eyebrow">Следующий запрос обслужит</div>
+              <div class="mname">claude-sonnet-4-5</div>
+              <div class="sub">Claude · быстрейшая по замерам</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×1 · 380 × 86 · шлюз остановлен</div>
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="gate-off">
+              <path d="M4 21 L4 11 A8 8 0 0 1 20 11 L20 21"></path>
+              <path d="M12 21 L12 13"></path>
+            </svg>
+            <div style="width: 104px">
+              <div style="display: flex; align-items: center; gap: 6px">
+                <div class="dot9" style="background: var(--err)"></div>
+                <div class="read">Остановлен</div>
+              </div>
+              <div class="sub">порт 8889 · не слушает</div>
+            </div>
+            <div class="vdiv"></div>
+            <div style="flex-grow: 1; overflow: hidden">
+              <div class="eyebrow">Следующий запрос обслужит</div>
+              <div class="mname">—</div>
+              <div class="sub">запросы не принимаются</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="row" style="margin-top: 20px">
+      <div>
+        <div class="size-cap">2×1 · 184 × 86 · скорость</div>
+        <div class="w s2x1">
+          <div style="display: flex; align-items: center; gap: 8px; height: 54px">
+            <div style="flex-grow: 1">
+              <div class="read">812 мс</div>
+              <div class="sub">TTFT · медиана</div>
+            </div>
+            <svg width="60" height="26" viewBox="0 0 60 26" style="flex-shrink: 0">
+              <path class="spark-area" d="M2,24 L6.307692307692308,17.4 L10.615384615384617,9.92 L14.923076923076923,4.199999999999999 L19.230769230769234,11.899999999999999 L23.53846153846154,8.05 L27.846153846153847,16.3 L32.15384615384615,9.92 L36.46153846153847,2 L40.76923076923077,20.15 L45.07692307692308,15.2 L49.38461538461539,6.399999999999999 L53.69230769230769,9.92 L58,8.600000000000001 L58,26 L2,26 Z"></path>
+              <path class="spark" d="M2,24 L6.307692307692308,17.4 L10.615384615384617,9.92 L14.923076923076923,4.199999999999999 L19.230769230769234,11.899999999999999 L23.53846153846154,8.05 L27.846153846153847,16.3 L32.15384615384615,9.92 L36.46153846153847,2 L40.76923076923077,20.15 L45.07692307692308,15.2 L49.38461538461539,6.399999999999999 L53.69230769230769,9.92 L58,8.600000000000001"></path>
+              <circle class="dot-halo" cx="58" cy="8.600000000000001" r="4.5"></circle>
+              <circle class="dot-cur" cx="58" cy="8.600000000000001" r="3"></circle>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×1 · 380 × 86 · скорость</div>
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <div style="display: flex; align-items: center; gap: 8px; flex-grow: 1; cursor: pointer; opacity: 1">
+              <div style="flex-grow: 1">
+                <div class="read">812 мс</div>
+                <div class="sub">TTFT · медиана</div>
+              </div>
+              <svg width="96" height="26" viewBox="0 0 96 26" style="flex-shrink: 0">
+                <path class="spark-area" d="M2,24 L9.076923076923077,17.4 L16.153846153846153,9.92 L23.230769230769234,4.199999999999999 L30.30769230769231,11.899999999999999 L37.38461538461539,8.05 L44.46153846153847,16.3 L51.53846153846153,9.92 L58.61538461538462,2 L65.6923076923077,20.15 L72.76923076923077,15.2 L79.84615384615384,6.399999999999999 L86.92307692307693,9.92 L94,8.600000000000001 L94,26 L2,26 Z"></path>
+                <path class="spark" d="M2,24 L9.076923076923077,17.4 L16.153846153846153,9.92 L23.230769230769234,4.199999999999999 L30.30769230769231,11.899999999999999 L37.38461538461539,8.05 L44.46153846153847,16.3 L51.53846153846153,9.92 L58.61538461538462,2 L65.6923076923077,20.15 L72.76923076923077,15.2 L79.84615384615384,6.399999999999999 L86.92307692307693,9.92 L94,8.600000000000001"></path>
+              </svg>
+            </div>
+            <div class="vdiv"></div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-grow: 1; cursor: pointer; opacity: 0.55">
+              <div style="flex-grow: 1">
+                <div class="read">42,6 ток/с</div>
+                <div class="sub">TPS · медиана</div>
+              </div>
+              <svg width="52" height="26" viewBox="0 0 52 26" style="flex-shrink: 0">
+                <path class="spark-b-area" d="M2,23.070422535211254 L5.6923076923076925,14.394366197183096 L9.384615384615385,9.436619718309855 L13.076923076923077,4.788732394366193 L16.76923076923077,15.943661971830982 L20.461538461538463,7.577464788732385 L24.153846153846153,18.11267605633803 L27.846153846153847,9.436619718309855 L31.53846153846154,2 L35.230769230769226,24 L38.92307692307693,13.154929577464792 L42.61538461538461,5.718309859154935 L46.30769230769231,9.436619718309855 L50,9.436619718309855 L50,26 L2,26 Z"></path>
+                <path class="spark-b" d="M2,23.070422535211254 L5.6923076923076925,14.394366197183096 L9.384615384615385,9.436619718309855 L13.076923076923077,4.788732394366193 L16.76923076923077,15.943661971830982 L20.461538461538463,7.577464788732385 L24.153846153846153,18.11267605633803 L27.846153846153847,9.436619718309855 L31.53846153846154,2 L35.230769230769226,24 L38.92307692307693,13.154929577464792 L42.61538461538461,5.718309859154935 L46.30769230769231,9.436619718309855 L50,9.436619718309855"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

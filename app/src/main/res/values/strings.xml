@@ -4,4 +4,30 @@
     <string name="channel_description">Держит AI-шлюз запущенным в фоне</string>
     <string name="service_running">AI-шлюз работает</string>
     <string name="notification_text">Порт 8889 · Нажмите, чтобы открыть управление</string>
+
+    <!-- Комплект домашних виджетов: подписи для списка виджетов лаунчера -->
+    <string name="w_label_resources">AiGate — ресурсы</string>
+    <string name="w_desc_resources">Квоты и балансы провайдеров: остаток, давление и сброс</string>
+    <string name="w_label_tokens">AiGate — токены по дням</string>
+    <string name="w_desc_tokens">Входные и выходные токены стопкой за две недели</string>
+    <string name="w_label_spend">AiGate — расход за месяц</string>
+    <string name="w_desc_spend">Расход в долларах с прогнозом до конца месяца</string>
+    <string name="w_label_shares">AiGate — доли провайдеров</string>
+    <string name="w_desc_shares">Донат расхода токенов по провайдерам</string>
+    <string name="w_label_calls">AiGate — последние вызовы</string>
+    <string name="w_desc_calls">Таблица вызовов: время, модель, токены и расход</string>
+    <string name="w_label_status">AiGate — статус шлюза</string>
+    <string name="w_desc_status">Работает шлюз или остановлен и какая модель обслужит запрос</string>
+    <string name="w_label_windows">AiGate — окна квоты</string>
+    <string name="w_desc_windows">Два окна лимита одновременно: сессия и неделя</string>
+    <string name="w_label_burn">AiGate — темп расхода</string>
+    <string name="w_desc_burn">Линия остатка квоты и вердикт: хватит до сброса или сгорит</string>
+    <string name="w_label_traffic">AiGate — трафик</string>
+    <string name="w_desc_traffic">Сколько получено и отправлено через шлюз</string>
+    <string name="w_label_models">AiGate — топ моделей</string>
+    <string name="w_desc_models">Ранжирование моделей по расходу токенов</string>
+    <string name="w_label_keys">AiGate — расход по ключам</string>
+    <string name="w_desc_keys">Какой API-ключ сколько израсходовал</string>
+    <string name="w_label_speed">AiGate — скорость</string>
+    <string name="w_desc_speed">Медианы времени первого токена и потока токенов</string>
 </resources>

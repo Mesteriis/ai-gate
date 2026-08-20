@@ -1,0 +1,344 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+/*BASE_CSS*/
+    .vdiv { width: 1px; background: var(--outline); align-self: stretch; }
+    .gate-on { color: var(--prim); }
+    .gate-off { color: var(--on-var); }
+    .mname { font: 500 14px/20px var(--f); color: var(--on); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  </style>
+</helmet>
+<div class="page" style="width: 1156px">
+
+  <div>
+    <div class="h1">AiGate — статус шлюза и скорость</div>
+    <div class="h2">Компактный ярус 2×1 и 4×1 · оба состояния шлюза · тап переключает состояние и метрику</div>
+  </div>
+
+  <div class="light strip">
+    <div class="strip-cap">Светлая тема</div>
+    <div class="row">
+
+      <div>
+        <div class="size-cap">2×1 · 184 × 86 · статус</div>
+        <div class="w s2x1" onClick="{{gate.toggle}}" style="cursor: pointer">
+          <div style="display: flex; align-items: center; gap: 8px; height: 54px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="{{gate.glyphCls}}">
+              <path d="M4 21 L4 11 A8 8 0 0 1 20 11 L20 21"></path>
+              <path d="M12 21 L12 13"></path>
+            </svg>
+            <div>
+              <div style="display: flex; align-items: center; gap: 6px">
+                <div class="dot9" style="background: {{gate.dot}}"></div>
+                <div class="read">{{gate.state}}</div>
+              </div>
+              <div class="sub">{{gate.port}}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×1 · 380 × 86 · шлюз работает</div>
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="gate-on">
+              <path d="M4 21 L4 11 A8 8 0 0 1 20 11 L20 21"></path>
+              <path d="M12 21 L12 13"></path>
+            </svg>
+            <div style="width: 104px">
+              <div style="display: flex; align-items: center; gap: 6px">
+                <div class="dot9" style="background: var(--succ)"></div>
+                <div class="read">Работает</div>
+              </div>
+              <div class="sub">порт 8889</div>
+            </div>
+            <div class="vdiv"></div>
+            <div style="flex-grow: 1; overflow: hidden">
+              <div class="eyebrow">Следующий запрос обслужит</div>
+              <div class="mname">claude-sonnet-4-5</div>
+              <div class="sub">Claude · быстрейшая по замерам</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×1 · 380 × 86 · шлюз остановлен</div>
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="gate-off">
+              <path d="M4 21 L4 11 A8 8 0 0 1 20 11 L20 21"></path>
+              <path d="M12 21 L12 13"></path>
+            </svg>
+            <div style="width: 104px">
+              <div style="display: flex; align-items: center; gap: 6px">
+                <div class="dot9" style="background: var(--err)"></div>
+                <div class="read">Остановлен</div>
+              </div>
+              <div class="sub">порт 8889 · не слушает</div>
+            </div>
+            <div class="vdiv"></div>
+            <div style="flex-grow: 1; overflow: hidden">
+              <div class="eyebrow">Следующий запрос обслужит</div>
+              <div class="mname">—</div>
+              <div class="sub">запросы не принимаются</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="row" style="margin-top: 20px">
+      <div>
+        <div class="size-cap">2×1 · 184 × 86 · скорость</div>
+        <div class="w s2x1">
+          <div style="display: flex; align-items: center; gap: 8px; height: 54px">
+            <div style="flex-grow: 1">
+              <div class="read">{{speed.mainValue}}</div>
+              <div class="sub">{{speed.mainLabel}}</div>
+            </div>
+            <svg width="60" height="26" viewBox="0 0 60 26" style="flex-shrink: 0">
+              <path class="spark-area" d="{{speed.smallArea}}"></path>
+              <path class="spark" d="{{speed.smallLine}}"></path>
+              <circle class="dot-halo" cx="{{speed.smallX}}" cy="{{speed.smallY}}" r="4.5"></circle>
+              <circle class="dot-cur" cx="{{speed.smallX}}" cy="{{speed.smallY}}" r="3"></circle>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×1 · 380 × 86 · скорость</div>
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <div onClick="{{speed.pickTtft}}" style="display: flex; align-items: center; gap: 8px; flex-grow: 1; cursor: pointer; opacity: {{speed.opTtft}}">
+              <div style="flex-grow: 1">
+                <div class="read">{{speed.ttftValue}}</div>
+                <div class="sub">TTFT · медиана</div>
+              </div>
+              <svg width="{{speed.ttftW}}" height="26" viewBox="{{speed.ttftVb}}" style="flex-shrink: 0">
+                <path class="spark-area" d="{{speed.ttftArea}}"></path>
+                <path class="spark" d="{{speed.ttftLine}}"></path>
+              </svg>
+            </div>
+            <div class="vdiv"></div>
+            <div onClick="{{speed.pickTps}}" style="display: flex; align-items: center; gap: 8px; flex-grow: 1; cursor: pointer; opacity: {{speed.opTps}}">
+              <div style="flex-grow: 1">
+                <div class="read">{{speed.tpsValue}}</div>
+                <div class="sub">TPS · медиана</div>
+              </div>
+              <svg width="{{speed.tpsW}}" height="26" viewBox="{{speed.tpsVb}}" style="flex-shrink: 0">
+                <path class="spark-b-area" d="{{speed.tpsArea}}"></path>
+                <path class="spark-b" d="{{speed.tpsLine}}"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dark strip">
+    <div class="strip-cap">Тёмная тема</div>
+    <div class="row">
+
+      <div>
+        <div class="size-cap">2×1 · 184 × 86 · статус</div>
+        <div class="w s2x1" onClick="{{gate.toggle}}" style="cursor: pointer">
+          <div style="display: flex; align-items: center; gap: 8px; height: 54px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="{{gate.glyphCls}}">
+              <path d="M4 21 L4 11 A8 8 0 0 1 20 11 L20 21"></path>
+              <path d="M12 21 L12 13"></path>
+            </svg>
+            <div>
+              <div style="display: flex; align-items: center; gap: 6px">
+                <div class="dot9" style="background: {{gate.dot}}"></div>
+                <div class="read">{{gate.state}}</div>
+              </div>
+              <div class="sub">{{gate.port}}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×1 · 380 × 86 · шлюз работает</div>
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="gate-on">
+              <path d="M4 21 L4 11 A8 8 0 0 1 20 11 L20 21"></path>
+              <path d="M12 21 L12 13"></path>
+            </svg>
+            <div style="width: 104px">
+              <div style="display: flex; align-items: center; gap: 6px">
+                <div class="dot9" style="background: var(--succ)"></div>
+                <div class="read">Работает</div>
+              </div>
+              <div class="sub">порт 8889</div>
+            </div>
+            <div class="vdiv"></div>
+            <div style="flex-grow: 1; overflow: hidden">
+              <div class="eyebrow">Следующий запрос обслужит</div>
+              <div class="mname">claude-sonnet-4-5</div>
+              <div class="sub">Claude · быстрейшая по замерам</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×1 · 380 × 86 · шлюз остановлен</div>
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="gate-off">
+              <path d="M4 21 L4 11 A8 8 0 0 1 20 11 L20 21"></path>
+              <path d="M12 21 L12 13"></path>
+            </svg>
+            <div style="width: 104px">
+              <div style="display: flex; align-items: center; gap: 6px">
+                <div class="dot9" style="background: var(--err)"></div>
+                <div class="read">Остановлен</div>
+              </div>
+              <div class="sub">порт 8889 · не слушает</div>
+            </div>
+            <div class="vdiv"></div>
+            <div style="flex-grow: 1; overflow: hidden">
+              <div class="eyebrow">Следующий запрос обслужит</div>
+              <div class="mname">—</div>
+              <div class="sub">запросы не принимаются</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="row" style="margin-top: 20px">
+      <div>
+        <div class="size-cap">2×1 · 184 × 86 · скорость</div>
+        <div class="w s2x1">
+          <div style="display: flex; align-items: center; gap: 8px; height: 54px">
+            <div style="flex-grow: 1">
+              <div class="read">{{speed.mainValue}}</div>
+              <div class="sub">{{speed.mainLabel}}</div>
+            </div>
+            <svg width="60" height="26" viewBox="0 0 60 26" style="flex-shrink: 0">
+              <path class="spark-area" d="{{speed.smallArea}}"></path>
+              <path class="spark" d="{{speed.smallLine}}"></path>
+              <circle class="dot-halo" cx="{{speed.smallX}}" cy="{{speed.smallY}}" r="4.5"></circle>
+              <circle class="dot-cur" cx="{{speed.smallX}}" cy="{{speed.smallY}}" r="3"></circle>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×1 · 380 × 86 · скорость</div>
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <div onClick="{{speed.pickTtft}}" style="display: flex; align-items: center; gap: 8px; flex-grow: 1; cursor: pointer; opacity: {{speed.opTtft}}">
+              <div style="flex-grow: 1">
+                <div class="read">{{speed.ttftValue}}</div>
+                <div class="sub">TTFT · медиана</div>
+              </div>
+              <svg width="{{speed.ttftW}}" height="26" viewBox="{{speed.ttftVb}}" style="flex-shrink: 0">
+                <path class="spark-area" d="{{speed.ttftArea}}"></path>
+                <path class="spark" d="{{speed.ttftLine}}"></path>
+              </svg>
+            </div>
+            <div class="vdiv"></div>
+            <div onClick="{{speed.pickTps}}" style="display: flex; align-items: center; gap: 8px; flex-grow: 1; cursor: pointer; opacity: {{speed.opTps}}">
+              <div style="flex-grow: 1">
+                <div class="read">{{speed.tpsValue}}</div>
+                <div class="sub">TPS · медиана</div>
+              </div>
+              <svg width="{{speed.tpsW}}" height="26" viewBox="{{speed.tpsVb}}" style="flex-shrink: 0">
+                <path class="spark-b-area" d="{{speed.tpsArea}}"></path>
+                <path class="spark-b" d="{{speed.tpsLine}}"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1156,"height":820}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { run: true, metric: 'ttft' };
+  }
+
+/*HELPERS*/
+
+  median(arr) {
+    const s = arr.slice().sort((a, b) => a - b);
+    const m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+
+  sparkPaths(vals, w, h, invert) {
+    const max = Math.max.apply(null, vals);
+    const min = Math.min.apply(null, vals);
+    const span = max - min || 1;
+    const pts = vals.map((v, i) => {
+      const t = (v - min) / span;
+      return [(i / (vals.length - 1)) * (w - 4) + 2, h - 2 - (invert ? 1 - t : t) * (h - 4)];
+    });
+    return { line: this.linePath(pts), area: this.areaPath(pts, h), last: pts[pts.length - 1] };
+  }
+
+  renderVals() {
+    const ttft = [940, 880, 812, 760, 830, 795, 870, 812, 740, 905, 860, 780, 812, 800];
+    const tps = [38.2, 41.0, 42.6, 44.1, 40.5, 43.2, 39.8, 42.6, 45.0, 37.9, 41.4, 43.8, 42.6, 42.6];
+    const run = this.state.run;
+    const isTtft = this.state.metric === 'ttft';
+
+    // TTFT: меньше — лучше, поэтому спарклайн инвертирован — вверх значит быстрее.
+    const small = this.sparkPaths(ttft, 60, 26, true);
+    const bigTtft = this.sparkPaths(ttft, isTtft ? 96 : 52, 26, true);
+    const bigTps = this.sparkPaths(tps, isTtft ? 52 : 96, 26, false);
+
+    return {
+      gate: {
+        state: run ? 'Работает' : 'Остановлен',
+        port: run ? 'порт 8889' : 'порт 8889 · не слушает',
+        dot: run ? 'var(--succ)' : 'var(--err)',
+        glyphCls: run ? 'gate-on' : 'gate-off',
+        toggle: () => this.setState({ run: !run }),
+      },
+      speed: {
+        mainValue: this.median(ttft) + ' мс',
+        ttftValue: this.median(ttft) + ' мс',
+        mainLabel: 'TTFT · медиана',
+        smallLine: small.line, smallArea: small.area,
+        smallX: small.last[0], smallY: small.last[1],
+        tpsValue: this.dec(this.median(tps)) + ' ток/с',
+        ttftLine: bigTtft.line, ttftArea: bigTtft.area,
+        tpsLine: bigTps.line, tpsArea: bigTps.area,
+        ttftW: isTtft ? 96 : 52, ttftVb: '0 0 ' + (isTtft ? 96 : 52) + ' 26',
+        tpsW: isTtft ? 52 : 96, tpsVb: '0 0 ' + (isTtft ? 52 : 96) + ' 26',
+        opTtft: isTtft ? 1 : 0.55,
+        opTps: isTtft ? 0.55 : 1,
+        pickTtft: () => this.setState({ metric: 'ttft' }),
+        pickTps: () => this.setState({ metric: 'tps' }),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

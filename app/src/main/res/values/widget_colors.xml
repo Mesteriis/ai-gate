@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Палитра домашних виджетов «морозные врата», светлая тема.
+
+  RemoteViews не видит Compose-темы (ui/theme/Theme.kt), поэтому токены дублируются
+  здесь ресурсами — единственный способ дать виджету автоматическое переключение
+  светлой и тёмной темы вслед за системой (values-night/widget_colors.xml).
+  Значения обязаны совпадать с ui/theme/Color.kt и ui/design/Tokens.kt.
+-->
+<resources>
+    <!-- Поверхности и рамка -->
+    <color name="w_surface">#FFFFFFFF</color>
+    <color name="w_surface_low">#FFF4F8FE</color>
+    <color name="w_surface_high">#FFE4EDFA</color>
+    <color name="w_border">#1A2E6FE0</color>
+    <color name="w_outline">#FFDBE6F5</color>
+    <color name="w_hero_start">#FFFFFFFF</color>
+    <color name="w_hero_end">#FFE7F0FC</color>
+
+    <!-- Текст -->
+    <color name="w_on">#FF16233A</color>
+    <color name="w_on_var">#FF4A5A70</color>
+    <color name="w_on_prim">#FFFFFFFF</color>
+
+    <!-- Акцент и семантика -->
+    <color name="w_prim">#FF2E6FE0</color>
+    <color name="w_succ">#FF23B26A</color>
+    <color name="w_warn">#FFF0A020</color>
+    <color name="w_err">#FFE5484D</color>
+    <color name="w_unk">#FF94A3B8</color>
+    <color name="w_p_normal">#FF2E6FE0</color>
+
+    <!-- Контейнеры чипов -->
+    <color name="w_succ_c">#FFDCF5E7</color>
+    <color name="w_on_succ_c">#FF115B36</color>
+    <color name="w_warn_c">#FFFDF0D8</color>
+    <color name="w_on_warn_c">#FF7A5510</color>
+    <color name="w_err_c">#FFFBE0E1</color>
+    <color name="w_on_err_c">#FF8F2327</color>
+    <color name="w_info_c">#FFDFEAFC</color>
+    <color name="w_on_info_c">#FF1E50B5</color>
+    <color name="w_neu_c">#FFE4EDFA</color>
+    <color name="w_on_neu_c">#FF4A5A70</color>
+
+    <!-- Графики: порядок серий закреплён за сущностью -->
+    <color name="w_s0">#FF2E6FE0</color>
+    <color name="w_s1">#FFC07E12</color>
+    <color name="w_s2">#FF8F62DE</color>
+    <color name="w_s3">#FF1D9A5E</color>
+    <color name="w_s4">#FF2492C8</color>
+    <color name="w_s5">#FFD25A68</color>
+    <color name="w_grid">#FFDBE6F5</color>
+    <color name="w_axis">#FF7E90A8</color>
+    <color name="w_proj">#FF9DB8DF</color>
+</resources>

@@ -1,10 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  «AiGate — ресурсы». Обновлений от системы не просим (updatePeriodMillis=0):
-  виджет будит тот, кто принёс данные — QuotaRefresher и WorkManager.
--->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="180dp"
+    android:minWidth="250dp"
     android:minHeight="110dp"
     android:minResizeWidth="110dp"
     android:minResizeHeight="40dp"
@@ -14,7 +10,7 @@
     android:targetCellHeight="2"
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="0"
-    android:initialLayout="@layout/widget_preview_resources"
-    android:previewLayout="@layout/widget_preview_resources"
-    android:description="@string/w_desc_resources"
+    android:initialLayout="@layout/widget_preview_burn"
+    android:previewLayout="@layout/widget_preview_burn"
+    android:description="@string/w_desc_burn"
     android:widgetCategory="home_screen" />

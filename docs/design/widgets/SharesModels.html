@@ -1,0 +1,809 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AiGate — доли провайдеров и топ моделей</title>
+<style>
+    :root { --f: Roboto, "Helvetica Neue", system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--f); }
+    a { color: #2E6FE0; } a:hover { color: #1E50B5; }
+
+    .light {
+      --wall: linear-gradient(155deg, #DCE9FA, #EDF3FC 60%, #E4EDFA);
+      --surf: #FFFFFF; --surf-low: #F4F8FE; --surf-high: #E4EDFA; --prim: #2E6FE0;
+      --on: #16233A; --on-var: #4A5A70; --outline: #DBE6F5;
+      --border: rgba(46, 111, 224, 0.102); --inner: rgba(255, 255, 255, 0);
+      --succ: #23B26A; --warn: #F0A020; --err: #E5484D; --unk: #94A3B8;
+      --succ-c: #DCF5E7; --on-succ-c: #115B36; --warn-c: #FDF0D8; --on-warn-c: #7A5510;
+      --err-c: #FBE0E1; --on-err-c: #8F2327; --info-c: #DFEAFC; --on-info-c: #1E50B5;
+      --neu-c: #E4EDFA; --on-neu-c: #4A5A70;
+      --s0: #2E6FE0; --s1: #C07E12; --s2: #8F62DE; --s3: #1D9A5E; --s4: #2492C8; --s5: #D25A68;
+      --grid: #DBE6F5; --axis: #7E90A8; --proj: #9DB8DF; --sel: #1E50B5; --p-normal: #2E6FE0;
+      --hero: linear-gradient(135deg, #FFFFFF, #E7F0FC); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #4A5A70; --on-prim: #FFFFFF;
+      --track-hero: #DCE6F5; --frame: rgba(22, 35, 58, 0.10);
+    }
+    .dark {
+      --wall: linear-gradient(155deg, #0A1220, #101B30 60%, #16233A);
+      --surf: #16233A; --surf-low: #1A2A45; --surf-high: #24355C; --prim: #56B6E8;
+      --on: #E6EEF9; --on-var: #A9BAD4; --outline: #2A3B5C;
+      --border: rgba(127, 196, 245, 0.141); --inner: rgba(255, 255, 255, 0.06);
+      --succ: #3BCB82; --warn: #F3B04E; --err: #F06A6F; --unk: #64748B;
+      --succ-c: #14402B; --on-succ-c: #A4E8C6; --warn-c: #4A3712; --on-warn-c: #F8DCA8;
+      --err-c: #54191C; --on-err-c: #F5B4B7; --info-c: #1D3560; --on-info-c: #C2D7FB;
+      --neu-c: #24355C; --on-neu-c: #A9BAD4;
+      --s0: #4A85EC; --s1: #C67F14; --s2: #9A6FE0; --s3: #2AA866; --s4: #2E9FD0; --s5: #D9636F;
+      --grid: #2A3B5C; --axis: #8FA3C0; --proj: #4A648F; --sel: #7FB3F6; --p-normal: #6AA2F8;
+      --hero: linear-gradient(135deg, #16233A, #1B3055); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #A9BAD4; --on-prim: #06121F;
+      --track-hero: #24355C; --frame: rgba(127, 196, 245, 0.16);
+    }
+
+    .page { background: #F1F4F9; display: flex; flex-direction: column; gap: 24px; padding: 32px; }
+    .h1 { font: 600 20px/28px var(--f); color: #16233A; }
+    .h2 { font: 400 14px/20px var(--f); color: #4A5A70; }
+    .strip { background: var(--wall); border-radius: 20px; padding: 24px 32px 28px; }
+    .strip-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 14px; }
+    .row { display: flex; gap: 32px; align-items: flex-start; }
+    .size-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 8px; }
+
+    .w { background: var(--surf); border: 1px solid var(--border); border-radius: 24px; padding: 16px;
+         box-shadow: inset 0 1px 0 var(--inner); overflow: hidden; position: relative;
+         display: flex; flex-direction: column; }
+    .w.hero { background: var(--hero); }
+    .w.hero::after { content: ''; position: absolute; top: -56px; right: -56px; width: 200px; height: 200px;
+         border-radius: 50%; background: radial-gradient(circle, var(--glow), rgba(127, 196, 245, 0)); pointer-events: none; }
+    .s2x1 { width: 184px; height: 86px; } .s4x1 { width: 380px; height: 86px; }
+    .s2x2 { width: 184px; height: 184px; } .s4x2 { width: 380px; height: 184px; } .s4x4 { width: 380px; height: 380px; }
+
+    .eyebrow { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .read { font: 700 18px/24px var(--f); color: var(--on); }
+    .read-lg { font: 600 20px/28px var(--f); color: var(--on); }
+    .read-xl { font: 700 24px/32px var(--f); color: var(--on); }
+    .read-xxl { font: 700 32px/40px var(--f); color: var(--on); }
+    .sub { font: 500 11px/16px var(--f); color: var(--on-var); }
+    .lab { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .body { font: 400 14px/20px var(--f); color: var(--on); }
+    .body-var { font: 400 14px/20px var(--f); color: var(--on-var); }
+    .name { font: 500 14px/20px var(--f); color: var(--on); }
+    .title-md { font: 500 16px/22px var(--f); color: var(--on); }
+    .foot { font: 500 11px/16px var(--f); color: var(--on-var); }
+
+    .chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 8px; padding: 3px 8px; font: 500 12px/16px var(--f); }
+    .chip.sm { font: 500 11px/14px var(--f); padding: 2px 6px; }
+    .chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .chip.succ { background: var(--succ-c); color: var(--on-succ-c); } .chip.succ .dot { background: var(--succ); }
+    .chip.warn { background: var(--warn-c); color: var(--on-warn-c); } .chip.warn .dot { background: var(--warn); }
+    .chip.err { background: var(--err-c); color: var(--on-err-c); } .chip.err .dot { background: var(--err); }
+    .chip.info { background: var(--info-c); color: var(--on-info-c); } .chip.info .dot { background: var(--prim); }
+    .chip.neu { background: var(--neu-c); color: var(--on-neu-c); } .chip.neu .dot { background: var(--unk); }
+
+    .xl-row { display: flex; height: 16px; margin-top: 2px; }
+    .xl { flex: 1 1 0; text-align: center; white-space: nowrap; font: 500 9px/16px var(--f); color: var(--axis); }
+    .xl.today { color: var(--prim); font-weight: 600; }
+    .xl.end { text-align: right; }
+    .yl-col { display: flex; flex-direction: column; justify-content: space-between; width: 34px; margin-right: 6px; }
+    .yl { font: 500 10px/12px var(--f); color: var(--axis); text-align: right; }
+
+    .p-free { background: var(--succ); } .p-normal { background: var(--p-normal); }
+    .p-conserve { background: var(--warn); } .p-critical { background: var(--err); }
+    .p-unknown { background: var(--unk); }
+    .pt-free { color: var(--succ); } .pt-normal { color: var(--p-normal); }
+    .pt-conserve { color: var(--warn); } .pt-critical { color: var(--err); }
+    .pt-unknown { color: var(--unk); }
+    .ring { fill: none; stroke-linecap: round; }
+    .r-track { stroke: var(--surf-high); }
+    .r-free { stroke: var(--succ); } .r-normal { stroke: var(--p-normal); }
+    .r-conserve { stroke: var(--warn); } .r-critical { stroke: var(--err); }
+    .r-unknown { stroke: var(--unk); }
+
+    .ln { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .ln-area { fill: var(--s0); opacity: 0.14; }
+    .ln-proj { fill: none; stroke: var(--proj); stroke-width: 2; stroke-dasharray: 7 5; stroke-linecap: round; }
+    .ln-ref { fill: none; stroke: var(--on-var); stroke-width: 1.5; stroke-dasharray: 6 4; }
+    .crosshair { stroke: var(--axis); stroke-width: 1; }
+    .dot-halo { fill: var(--surf); }
+    .dot-cur { fill: var(--s0); }
+    .dot-sel { fill: var(--sel); }
+    .dot-mark { fill: var(--s5); }
+    .spark { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .spark-area { fill: var(--s0); opacity: 0.16; }
+    .spark-b { fill: none; stroke: var(--s1); stroke-width: 2; stroke-linecap: round; }
+    .spark-b-area { fill: var(--s1); opacity: 0.16; }
+    .mark-lab { position: absolute; white-space: nowrap; font: 600 9px/12px var(--f); color: var(--s5); }
+
+    .av { border-radius: 28%; display: flex; align-items: center; justify-content: center;
+          font-weight: 700; flex-shrink: 0; }
+    .r-row { border-radius: 8px; padding: 4px 8px; margin: 0 -8px; }
+    .r-row.on { background: var(--surf-low); }
+
+    .bar-bot { fill: var(--s0); } .bar-bot.sel { fill: var(--sel); }
+    .bar-top { fill: var(--s1); }
+    .gridline { stroke: var(--grid); stroke-width: 1; }
+    .hit { cursor: pointer; fill: transparent; }
+    .dot9 { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .track { background: var(--surf-high); border-radius: 999px; overflow: hidden; }
+    .w.hero .track { background: var(--track-hero); }
+    .divider { height: 1px; background: var(--outline); }
+    .lg-name { font: 500 12px/16px var(--f); color: var(--on); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lg-val { font: 500 12px/16px var(--f); color: var(--on); white-space: nowrap; }
+    .rank { font: 500 11px/16px var(--f); color: var(--axis); width: 12px; flex-shrink: 0; }
+    .mdl { font: 400 12px/16px var(--f); color: var(--on); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mdl-lg { font: 400 14px/20px var(--f); color: var(--on); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .out-c { color: var(--outline); }
+  
+    html { background: #F1F4F9; }
+    body { display: flex; justify-content: center; }
+</style>
+</head>
+<body>
+
+<helmet>
+  <style>
+    :root { --f: Roboto, "Helvetica Neue", system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--f); }
+    a { color: #2E6FE0; } a:hover { color: #1E50B5; }
+
+    .light {
+      --wall: linear-gradient(155deg, #DCE9FA, #EDF3FC 60%, #E4EDFA);
+      --surf: #FFFFFF; --surf-low: #F4F8FE; --surf-high: #E4EDFA; --prim: #2E6FE0;
+      --on: #16233A; --on-var: #4A5A70; --outline: #DBE6F5;
+      --border: rgba(46, 111, 224, 0.102); --inner: rgba(255, 255, 255, 0);
+      --succ: #23B26A; --warn: #F0A020; --err: #E5484D; --unk: #94A3B8;
+      --succ-c: #DCF5E7; --on-succ-c: #115B36; --warn-c: #FDF0D8; --on-warn-c: #7A5510;
+      --err-c: #FBE0E1; --on-err-c: #8F2327; --info-c: #DFEAFC; --on-info-c: #1E50B5;
+      --neu-c: #E4EDFA; --on-neu-c: #4A5A70;
+      --s0: #2E6FE0; --s1: #C07E12; --s2: #8F62DE; --s3: #1D9A5E; --s4: #2492C8; --s5: #D25A68;
+      --grid: #DBE6F5; --axis: #7E90A8; --proj: #9DB8DF; --sel: #1E50B5; --p-normal: #2E6FE0;
+      --hero: linear-gradient(135deg, #FFFFFF, #E7F0FC); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #4A5A70; --on-prim: #FFFFFF;
+      --track-hero: #DCE6F5; --frame: rgba(22, 35, 58, 0.10);
+    }
+    .dark {
+      --wall: linear-gradient(155deg, #0A1220, #101B30 60%, #16233A);
+      --surf: #16233A; --surf-low: #1A2A45; --surf-high: #24355C; --prim: #56B6E8;
+      --on: #E6EEF9; --on-var: #A9BAD4; --outline: #2A3B5C;
+      --border: rgba(127, 196, 245, 0.141); --inner: rgba(255, 255, 255, 0.06);
+      --succ: #3BCB82; --warn: #F3B04E; --err: #F06A6F; --unk: #64748B;
+      --succ-c: #14402B; --on-succ-c: #A4E8C6; --warn-c: #4A3712; --on-warn-c: #F8DCA8;
+      --err-c: #54191C; --on-err-c: #F5B4B7; --info-c: #1D3560; --on-info-c: #C2D7FB;
+      --neu-c: #24355C; --on-neu-c: #A9BAD4;
+      --s0: #4A85EC; --s1: #C67F14; --s2: #9A6FE0; --s3: #2AA866; --s4: #2E9FD0; --s5: #D9636F;
+      --grid: #2A3B5C; --axis: #8FA3C0; --proj: #4A648F; --sel: #7FB3F6; --p-normal: #6AA2F8;
+      --hero: linear-gradient(135deg, #16233A, #1B3055); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #A9BAD4; --on-prim: #06121F;
+      --track-hero: #24355C; --frame: rgba(127, 196, 245, 0.16);
+    }
+
+    .page { background: #F1F4F9; display: flex; flex-direction: column; gap: 24px; padding: 32px; }
+    .h1 { font: 600 20px/28px var(--f); color: #16233A; }
+    .h2 { font: 400 14px/20px var(--f); color: #4A5A70; }
+    .strip { background: var(--wall); border-radius: 20px; padding: 24px 32px 28px; }
+    .strip-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 14px; }
+    .row { display: flex; gap: 32px; align-items: flex-start; }
+    .size-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 8px; }
+
+    .w { background: var(--surf); border: 1px solid var(--border); border-radius: 24px; padding: 16px;
+         box-shadow: inset 0 1px 0 var(--inner); overflow: hidden; position: relative;
+         display: flex; flex-direction: column; }
+    .w.hero { background: var(--hero); }
+    .w.hero::after { content: ''; position: absolute; top: -56px; right: -56px; width: 200px; height: 200px;
+         border-radius: 50%; background: radial-gradient(circle, var(--glow), rgba(127, 196, 245, 0)); pointer-events: none; }
+    .s2x1 { width: 184px; height: 86px; } .s4x1 { width: 380px; height: 86px; }
+    .s2x2 { width: 184px; height: 184px; } .s4x2 { width: 380px; height: 184px; } .s4x4 { width: 380px; height: 380px; }
+
+    .eyebrow { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .read { font: 700 18px/24px var(--f); color: var(--on); }
+    .read-lg { font: 600 20px/28px var(--f); color: var(--on); }
+    .read-xl { font: 700 24px/32px var(--f); color: var(--on); }
+    .read-xxl { font: 700 32px/40px var(--f); color: var(--on); }
+    .sub { font: 500 11px/16px var(--f); color: var(--on-var); }
+    .lab { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .body { font: 400 14px/20px var(--f); color: var(--on); }
+    .body-var { font: 400 14px/20px var(--f); color: var(--on-var); }
+    .name { font: 500 14px/20px var(--f); color: var(--on); }
+    .title-md { font: 500 16px/22px var(--f); color: var(--on); }
+    .foot { font: 500 11px/16px var(--f); color: var(--on-var); }
+
+    .chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 8px; padding: 3px 8px; font: 500 12px/16px var(--f); }
+    .chip.sm { font: 500 11px/14px var(--f); padding: 2px 6px; }
+    .chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .chip.succ { background: var(--succ-c); color: var(--on-succ-c); } .chip.succ .dot { background: var(--succ); }
+    .chip.warn { background: var(--warn-c); color: var(--on-warn-c); } .chip.warn .dot { background: var(--warn); }
+    .chip.err { background: var(--err-c); color: var(--on-err-c); } .chip.err .dot { background: var(--err); }
+    .chip.info { background: var(--info-c); color: var(--on-info-c); } .chip.info .dot { background: var(--prim); }
+    .chip.neu { background: var(--neu-c); color: var(--on-neu-c); } .chip.neu .dot { background: var(--unk); }
+
+    .xl-row { display: flex; height: 16px; margin-top: 2px; }
+    .xl { flex: 1 1 0; text-align: center; white-space: nowrap; font: 500 9px/16px var(--f); color: var(--axis); }
+    .xl.today { color: var(--prim); font-weight: 600; }
+    .xl.end { text-align: right; }
+    .yl-col { display: flex; flex-direction: column; justify-content: space-between; width: 34px; margin-right: 6px; }
+    .yl { font: 500 10px/12px var(--f); color: var(--axis); text-align: right; }
+
+    .p-free { background: var(--succ); } .p-normal { background: var(--p-normal); }
+    .p-conserve { background: var(--warn); } .p-critical { background: var(--err); }
+    .p-unknown { background: var(--unk); }
+    .pt-free { color: var(--succ); } .pt-normal { color: var(--p-normal); }
+    .pt-conserve { color: var(--warn); } .pt-critical { color: var(--err); }
+    .pt-unknown { color: var(--unk); }
+    .ring { fill: none; stroke-linecap: round; }
+    .r-track { stroke: var(--surf-high); }
+    .r-free { stroke: var(--succ); } .r-normal { stroke: var(--p-normal); }
+    .r-conserve { stroke: var(--warn); } .r-critical { stroke: var(--err); }
+    .r-unknown { stroke: var(--unk); }
+
+    .ln { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .ln-area { fill: var(--s0); opacity: 0.14; }
+    .ln-proj { fill: none; stroke: var(--proj); stroke-width: 2; stroke-dasharray: 7 5; stroke-linecap: round; }
+    .ln-ref { fill: none; stroke: var(--on-var); stroke-width: 1.5; stroke-dasharray: 6 4; }
+    .crosshair { stroke: var(--axis); stroke-width: 1; }
+    .dot-halo { fill: var(--surf); }
+    .dot-cur { fill: var(--s0); }
+    .dot-sel { fill: var(--sel); }
+    .dot-mark { fill: var(--s5); }
+    .spark { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .spark-area { fill: var(--s0); opacity: 0.16; }
+    .spark-b { fill: none; stroke: var(--s1); stroke-width: 2; stroke-linecap: round; }
+    .spark-b-area { fill: var(--s1); opacity: 0.16; }
+    .mark-lab { position: absolute; white-space: nowrap; font: 600 9px/12px var(--f); color: var(--s5); }
+
+    .av { border-radius: 28%; display: flex; align-items: center; justify-content: center;
+          font-weight: 700; flex-shrink: 0; }
+    .r-row { border-radius: 8px; padding: 4px 8px; margin: 0 -8px; }
+    .r-row.on { background: var(--surf-low); }
+
+    .bar-bot { fill: var(--s0); } .bar-bot.sel { fill: var(--sel); }
+    .bar-top { fill: var(--s1); }
+    .gridline { stroke: var(--grid); stroke-width: 1; }
+    .hit { cursor: pointer; fill: transparent; }
+    .dot9 { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .track { background: var(--surf-high); border-radius: 999px; overflow: hidden; }
+    .w.hero .track { background: var(--track-hero); }
+    .divider { height: 1px; background: var(--outline); }
+    .lg-name { font: 500 12px/16px var(--f); color: var(--on); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lg-val { font: 500 12px/16px var(--f); color: var(--on); white-space: nowrap; }
+    .rank { font: 500 11px/16px var(--f); color: var(--axis); width: 12px; flex-shrink: 0; }
+    .mdl { font: 400 12px/16px var(--f); color: var(--on); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mdl-lg { font: 400 14px/20px var(--f); color: var(--on); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .out-c { color: var(--outline); }
+  </style>
+</helmet>
+<div class="page" style="width: 1156px">
+
+  <div>
+    <div class="h1">AiGate — доли провайдеров и топ моделей</div>
+    <div class="h2">Донат (2×2, 4×2) и ранжирование моделей (4×2, 4×4) · тап по сектору и по строке подменяет вывод</div>
+  </div>
+
+  <div class="light strip">
+    <div class="strip-cap">Светлая тема</div>
+    <div class="row">
+      <div>
+        <div class="size-cap">2×2 · 184 × 184 · доли</div>
+        <div class="w s2x2">
+          <div class="eyebrow">Доли провайдеров</div>
+          <div style="display: flex; justify-content: center; margin-top: 2px">
+            <div style="position: relative; width: 108px; height: 108px">
+              <svg width="108" height="108" viewBox="0 0 108 108">
+                
+                  <path d="M55.23031657047004,7.016105726148808 A47,47 0 0 1 66.75674454960975,99.23566588982638" fill="none" stroke="#D97757" stroke-width="14" opacity="1"></path>
+                
+                  <path d="M64.37181004392934,99.84130840642146 A47,47 0 0 1 11.994409868952566,75.08388953069263" fill="none" stroke="#5786FE" stroke-width="14" opacity="1"></path>
+                
+                  <path d="M10.94853155043139,72.8565920657949 A47,47 0 0 1 10.948531550431412,35.14340793420508" fill="none" stroke="#10A37F" stroke-width="14" opacity="1"></path>
+                
+                  <path d="M11.99440986895258,32.91611046930734 A47,47 0 0 1 32.80958359603717,12.048048285846548" fill="none" stroke="#64748B" stroke-width="14" opacity="1"></path>
+                
+                  <path d="M35.03421983447295,10.996521271961022 A47,47 0 0 1 52.76968342952995,7.016105726148808" fill="none" stroke="#8E75B2" stroke-width="14" opacity="1"></path>
+                
+              </svg>
+              <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center">
+                <div class="title-md" style="font-weight: 700">$12,38</div>
+                <div class="lab">за август</div>
+              </div>
+            </div>
+          </div>
+          <div class="foot" style="margin-top: auto">за август · обновлено 14:32</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184 · доли</div>
+        <div class="w s4x2">
+          <div class="eyebrow">Доли провайдеров</div>
+          <div style="display: flex; gap: 12px; margin-top: 2px">
+            <div style="position: relative; width: 132px; height: 132px; flex-shrink: 0">
+              <svg width="132" height="132" viewBox="0 0 132 132">
+                
+                  <path d="M67.49208605354877,9.019532476393238 A57,57 0 0 1 81.47094551761182,120.86027565361923" fill="none" stroke="#D97757" stroke-width="18" opacity="1" style="cursor: pointer"></path>
+                
+                  <path d="M78.5785781383824,121.59477828012814 A57,57 0 0 1 15.057050266602047,91.5698234733932" fill="none" stroke="#5786FE" stroke-width="18" opacity="1" style="cursor: pointer"></path>
+                
+                  <path d="M13.788644646267862,88.86863293085764 A57,57 0 0 1 13.788644646267876,43.13136706914233" fill="none" stroke="#10A37F" stroke-width="18" opacity="1" style="cursor: pointer"></path>
+                
+                  <path d="M15.057050266602069,40.43017652660677 A57,57 0 0 1 40.300984361151464,15.12210111262241" fill="none" stroke="#64748B" stroke-width="18" opacity="1" style="cursor: pointer"></path>
+                
+                  <path d="M42.998947458828894,13.846844946846346 A57,57 0 0 1 64.50791394645121,9.019532476393238" fill="none" stroke="#8E75B2" stroke-width="18" opacity="1" style="cursor: pointer"></path>
+                
+              </svg>
+              <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none">
+                <div class="read" style="font-size: 18px">$12,38</div>
+                <div class="lab">за август</div>
+                <div class="lab out-c"></div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1">
+              
+                <div style="display: flex; align-items: center; gap: 8px; cursor: pointer; opacity: 1">
+                  <div class="dot9" style="background: #D97757"></div>
+                  <div class="lg-name" style="flex-grow: 1">Claude</div>
+                  <div class="lg-val">$5,70</div>
+                  <div class="lab" style="width: 30px; text-align: right">46%</div>
+                </div>
+              
+                <div style="display: flex; align-items: center; gap: 8px; cursor: pointer; opacity: 1">
+                  <div class="dot9" style="background: #5786FE"></div>
+                  <div class="lg-name" style="flex-grow: 1">DeepSeek</div>
+                  <div class="lg-val">$2,72</div>
+                  <div class="lab" style="width: 30px; text-align: right">22%</div>
+                </div>
+              
+                <div style="display: flex; align-items: center; gap: 8px; cursor: pointer; opacity: 1">
+                  <div class="dot9" style="background: #10A37F"></div>
+                  <div class="lg-name" style="flex-grow: 1">Codex</div>
+                  <div class="lg-val">$1,73</div>
+                  <div class="lab" style="width: 30px; text-align: right">14%</div>
+                </div>
+              
+                <div style="display: flex; align-items: center; gap: 8px; cursor: pointer; opacity: 1">
+                  <div class="dot9" style="background: #64748B"></div>
+                  <div class="lg-name" style="flex-grow: 1">OpenRouter</div>
+                  <div class="lg-val">$1,36</div>
+                  <div class="lab" style="width: 30px; text-align: right">11%</div>
+                </div>
+              
+                <div style="display: flex; align-items: center; gap: 8px; cursor: pointer; opacity: 1">
+                  <div class="dot9" style="background: #8E75B2"></div>
+                  <div class="lg-name" style="flex-grow: 1">Gemini</div>
+                  <div class="lg-val">$0,87</div>
+                  <div class="lab" style="width: 30px; text-align: right">7%</div>
+                </div>
+              
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184 · топ моделей</div>
+        <div class="w s4x2">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Топ моделей · цвет — провайдер</div>
+            <div class="sub">14:32</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px">
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <div class="rank">1</div>
+                  <div class="av" style="width: 16px; height: 16px; font-size: 6px; background: #D97757; color: #FFFFFF">Cl</div>
+                  <div class="mdl" style="flex-grow: 1">claude-sonnet-4-5</div>
+                  <div class="lg-val">65,8K</div>
+                  <div class="lab" style="width: 30px; text-align: right">41%</div>
+                </div>
+                <div class="track" style="height: 8px; margin-top: 3px">
+                  <div style="width: 100%; height: 8px; border-radius: 999px; background: #D97757"></div>
+                </div>
+              </div>
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <div class="rank">2</div>
+                  <div class="av" style="width: 16px; height: 16px; font-size: 6px; background: #5786FE; color: #FFFFFF">Ds</div>
+                  <div class="mdl" style="flex-grow: 1">deepseek-chat</div>
+                  <div class="lg-val">35,3K</div>
+                  <div class="lab" style="width: 30px; text-align: right">22%</div>
+                </div>
+                <div class="track" style="height: 8px; margin-top: 3px">
+                  <div style="width: 54%; height: 8px; border-radius: 999px; background: #5786FE"></div>
+                </div>
+              </div>
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <div class="rank">3</div>
+                  <div class="av" style="width: 16px; height: 16px; font-size: 6px; background: #10A37F; color: #FFFFFF">Cx</div>
+                  <div class="mdl" style="flex-grow: 1">gpt-5-codex</div>
+                  <div class="lg-val">22,5K</div>
+                  <div class="lab" style="width: 30px; text-align: right">14%</div>
+                </div>
+                <div class="track" style="height: 8px; margin-top: 3px">
+                  <div style="width: 34%; height: 8px; border-radius: 999px; background: #10A37F"></div>
+                </div>
+              </div>
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <div class="rank">4</div>
+                  <div class="av" style="width: 16px; height: 16px; font-size: 6px; background: #1F2937; color: #FFFFFF">Ol</div>
+                  <div class="mdl" style="flex-grow: 1">qwen2.5-7b</div>
+                  <div class="lg-val">14,4K</div>
+                  <div class="lab" style="width: 30px; text-align: right">9%</div>
+                </div>
+                <div class="track" style="height: 8px; margin-top: 3px">
+                  <div style="width: 22%; height: 8px; border-radius: 999px; background: #1F2937"></div>
+                </div>
+              </div>
+            
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top: 20px">
+      <div>
+        <div class="size-cap">4×4 · 380 × 380 · топ моделей</div>
+        <div class="w s4x4">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Топ моделей · цвет — провайдер</div>
+            <div class="sub">14:32</div>
+          </div>
+          <div class="read-lg" style="margin-top: 2px">160,4K</div>
+          <div class="sub">6 моделей · за 14 дней</div>
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px">
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <div class="rank">1</div>
+                  <div class="av" style="width: 20px; height: 20px; font-size: 7px; background: #D97757; color: #FFFFFF">Cl</div>
+                  <div class="mdl-lg" style="flex-grow: 1">claude-sonnet-4-5</div>
+                  <div class="name">65,8K</div>
+                  <div class="lab" style="width: 34px; text-align: right">41%</div>
+                </div>
+                <div class="track" style="height: 10px; margin-top: 4px">
+                  <div style="width: 100%; height: 10px; border-radius: 999px; background: #D97757"></div>
+                </div>
+              </div>
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <div class="rank">2</div>
+                  <div class="av" style="width: 20px; height: 20px; font-size: 7px; background: #5786FE; color: #FFFFFF">Ds</div>
+                  <div class="mdl-lg" style="flex-grow: 1">deepseek-chat</div>
+                  <div class="name">35,3K</div>
+                  <div class="lab" style="width: 34px; text-align: right">22%</div>
+                </div>
+                <div class="track" style="height: 10px; margin-top: 4px">
+                  <div style="width: 54%; height: 10px; border-radius: 999px; background: #5786FE"></div>
+                </div>
+              </div>
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <div class="rank">3</div>
+                  <div class="av" style="width: 20px; height: 20px; font-size: 7px; background: #10A37F; color: #FFFFFF">Cx</div>
+                  <div class="mdl-lg" style="flex-grow: 1">gpt-5-codex</div>
+                  <div class="name">22,5K</div>
+                  <div class="lab" style="width: 34px; text-align: right">14%</div>
+                </div>
+                <div class="track" style="height: 10px; margin-top: 4px">
+                  <div style="width: 34%; height: 10px; border-radius: 999px; background: #10A37F"></div>
+                </div>
+              </div>
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <div class="rank">4</div>
+                  <div class="av" style="width: 20px; height: 20px; font-size: 7px; background: #1F2937; color: #FFFFFF">Ol</div>
+                  <div class="mdl-lg" style="flex-grow: 1">qwen2.5-7b</div>
+                  <div class="name">14,4K</div>
+                  <div class="lab" style="width: 34px; text-align: right">9%</div>
+                </div>
+                <div class="track" style="height: 10px; margin-top: 4px">
+                  <div style="width: 22%; height: 10px; border-radius: 999px; background: #1F2937"></div>
+                </div>
+              </div>
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <div class="rank">5</div>
+                  <div class="av" style="width: 20px; height: 20px; font-size: 7px; background: #D97757; color: #FFFFFF">Cl</div>
+                  <div class="mdl-lg" style="flex-grow: 1">claude-haiku-4-5</div>
+                  <div class="name">12,8K</div>
+                  <div class="lab" style="width: 34px; text-align: right">8%</div>
+                </div>
+                <div class="track" style="height: 10px; margin-top: 4px">
+                  <div style="width: 19%; height: 10px; border-radius: 999px; background: #D97757"></div>
+                </div>
+              </div>
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <div class="rank">6</div>
+                  <div class="av" style="width: 20px; height: 20px; font-size: 7px; background: #8E75B2; color: #FFFFFF">Gm</div>
+                  <div class="mdl-lg" style="flex-grow: 1">gemini-2.0-flash</div>
+                  <div class="name">9,6K</div>
+                  <div class="lab" style="width: 34px; text-align: right">6%</div>
+                </div>
+                <div class="track" style="height: 10px; margin-top: 4px">
+                  <div style="width: 15%; height: 10px; border-radius: 999px; background: #8E75B2"></div>
+                </div>
+              </div>
+            
+          </div>
+          <div class="foot" style="margin-top: auto">по локальному подсчёту — только через шлюз</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dark strip">
+    <div class="strip-cap">Тёмная тема</div>
+    <div class="row">
+      <div>
+        <div class="size-cap">2×2 · 184 × 184 · доли</div>
+        <div class="w s2x2">
+          <div class="eyebrow">Доли провайдеров</div>
+          <div style="display: flex; justify-content: center; margin-top: 2px">
+            <div style="position: relative; width: 108px; height: 108px">
+              <svg width="108" height="108" viewBox="0 0 108 108">
+                
+                  <path d="M55.23031657047004,7.016105726148808 A47,47 0 0 1 66.75674454960975,99.23566588982638" fill="none" stroke="#D97757" stroke-width="14" opacity="1"></path>
+                
+                  <path d="M64.37181004392934,99.84130840642146 A47,47 0 0 1 11.994409868952566,75.08388953069263" fill="none" stroke="#5786FE" stroke-width="14" opacity="1"></path>
+                
+                  <path d="M10.94853155043139,72.8565920657949 A47,47 0 0 1 10.948531550431412,35.14340793420508" fill="none" stroke="#10A37F" stroke-width="14" opacity="1"></path>
+                
+                  <path d="M11.99440986895258,32.91611046930734 A47,47 0 0 1 32.80958359603717,12.048048285846548" fill="none" stroke="#64748B" stroke-width="14" opacity="1"></path>
+                
+                  <path d="M35.03421983447295,10.996521271961022 A47,47 0 0 1 52.76968342952995,7.016105726148808" fill="none" stroke="#8E75B2" stroke-width="14" opacity="1"></path>
+                
+              </svg>
+              <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center">
+                <div class="title-md" style="font-weight: 700">$12,38</div>
+                <div class="lab">за август</div>
+              </div>
+            </div>
+          </div>
+          <div class="foot" style="margin-top: auto">за август · обновлено 14:32</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184 · доли</div>
+        <div class="w s4x2">
+          <div class="eyebrow">Доли провайдеров</div>
+          <div style="display: flex; gap: 12px; margin-top: 2px">
+            <div style="position: relative; width: 132px; height: 132px; flex-shrink: 0">
+              <svg width="132" height="132" viewBox="0 0 132 132">
+                
+                  <path d="M67.49208605354877,9.019532476393238 A57,57 0 0 1 81.47094551761182,120.86027565361923" fill="none" stroke="#D97757" stroke-width="18" opacity="1" style="cursor: pointer"></path>
+                
+                  <path d="M78.5785781383824,121.59477828012814 A57,57 0 0 1 15.057050266602047,91.5698234733932" fill="none" stroke="#5786FE" stroke-width="18" opacity="1" style="cursor: pointer"></path>
+                
+                  <path d="M13.788644646267862,88.86863293085764 A57,57 0 0 1 13.788644646267876,43.13136706914233" fill="none" stroke="#10A37F" stroke-width="18" opacity="1" style="cursor: pointer"></path>
+                
+                  <path d="M15.057050266602069,40.43017652660677 A57,57 0 0 1 40.300984361151464,15.12210111262241" fill="none" stroke="#64748B" stroke-width="18" opacity="1" style="cursor: pointer"></path>
+                
+                  <path d="M42.998947458828894,13.846844946846346 A57,57 0 0 1 64.50791394645121,9.019532476393238" fill="none" stroke="#8E75B2" stroke-width="18" opacity="1" style="cursor: pointer"></path>
+                
+              </svg>
+              <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none">
+                <div class="read" style="font-size: 18px">$12,38</div>
+                <div class="lab">за август</div>
+                <div class="lab out-c"></div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1">
+              
+                <div style="display: flex; align-items: center; gap: 8px; cursor: pointer; opacity: 1">
+                  <div class="dot9" style="background: #D97757"></div>
+                  <div class="lg-name" style="flex-grow: 1">Claude</div>
+                  <div class="lg-val">$5,70</div>
+                  <div class="lab" style="width: 30px; text-align: right">46%</div>
+                </div>
+              
+                <div style="display: flex; align-items: center; gap: 8px; cursor: pointer; opacity: 1">
+                  <div class="dot9" style="background: #5786FE"></div>
+                  <div class="lg-name" style="flex-grow: 1">DeepSeek</div>
+                  <div class="lg-val">$2,72</div>
+                  <div class="lab" style="width: 30px; text-align: right">22%</div>
+                </div>
+              
+                <div style="display: flex; align-items: center; gap: 8px; cursor: pointer; opacity: 1">
+                  <div class="dot9" style="background: #10A37F"></div>
+                  <div class="lg-name" style="flex-grow: 1">Codex</div>
+                  <div class="lg-val">$1,73</div>
+                  <div class="lab" style="width: 30px; text-align: right">14%</div>
+                </div>
+              
+                <div style="display: flex; align-items: center; gap: 8px; cursor: pointer; opacity: 1">
+                  <div class="dot9" style="background: #64748B"></div>
+                  <div class="lg-name" style="flex-grow: 1">OpenRouter</div>
+                  <div class="lg-val">$1,36</div>
+                  <div class="lab" style="width: 30px; text-align: right">11%</div>
+                </div>
+              
+                <div style="display: flex; align-items: center; gap: 8px; cursor: pointer; opacity: 1">
+                  <div class="dot9" style="background: #8E75B2"></div>
+                  <div class="lg-name" style="flex-grow: 1">Gemini</div>
+                  <div class="lg-val">$0,87</div>
+                  <div class="lab" style="width: 30px; text-align: right">7%</div>
+                </div>
+              
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184 · топ моделей</div>
+        <div class="w s4x2">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Топ моделей · цвет — провайдер</div>
+            <div class="sub">14:32</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px">
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <div class="rank">1</div>
+                  <div class="av" style="width: 16px; height: 16px; font-size: 6px; background: #D97757; color: #FFFFFF">Cl</div>
+                  <div class="mdl" style="flex-grow: 1">claude-sonnet-4-5</div>
+                  <div class="lg-val">65,8K</div>
+                  <div class="lab" style="width: 30px; text-align: right">41%</div>
+                </div>
+                <div class="track" style="height: 8px; margin-top: 3px">
+                  <div style="width: 100%; height: 8px; border-radius: 999px; background: #D97757"></div>
+                </div>
+              </div>
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <div class="rank">2</div>
+                  <div class="av" style="width: 16px; height: 16px; font-size: 6px; background: #5786FE; color: #FFFFFF">Ds</div>
+                  <div class="mdl" style="flex-grow: 1">deepseek-chat</div>
+                  <div class="lg-val">35,3K</div>
+                  <div class="lab" style="width: 30px; text-align: right">22%</div>
+                </div>
+                <div class="track" style="height: 8px; margin-top: 3px">
+                  <div style="width: 54%; height: 8px; border-radius: 999px; background: #5786FE"></div>
+                </div>
+              </div>
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <div class="rank">3</div>
+                  <div class="av" style="width: 16px; height: 16px; font-size: 6px; background: #10A37F; color: #FFFFFF">Cx</div>
+                  <div class="mdl" style="flex-grow: 1">gpt-5-codex</div>
+                  <div class="lg-val">22,5K</div>
+                  <div class="lab" style="width: 30px; text-align: right">14%</div>
+                </div>
+                <div class="track" style="height: 8px; margin-top: 3px">
+                  <div style="width: 34%; height: 8px; border-radius: 999px; background: #10A37F"></div>
+                </div>
+              </div>
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <div class="rank">4</div>
+                  <div class="av" style="width: 16px; height: 16px; font-size: 6px; background: #AAAEB3; color: #06121F">Ol</div>
+                  <div class="mdl" style="flex-grow: 1">qwen2.5-7b</div>
+                  <div class="lg-val">14,4K</div>
+                  <div class="lab" style="width: 30px; text-align: right">9%</div>
+                </div>
+                <div class="track" style="height: 8px; margin-top: 3px">
+                  <div style="width: 22%; height: 8px; border-radius: 999px; background: #AAAEB3"></div>
+                </div>
+              </div>
+            
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top: 20px">
+      <div>
+        <div class="size-cap">4×4 · 380 × 380 · топ моделей</div>
+        <div class="w s4x4">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Топ моделей · цвет — провайдер</div>
+            <div class="sub">14:32</div>
+          </div>
+          <div class="read-lg" style="margin-top: 2px">160,4K</div>
+          <div class="sub">6 моделей · за 14 дней</div>
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px">
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <div class="rank">1</div>
+                  <div class="av" style="width: 20px; height: 20px; font-size: 7px; background: #D97757; color: #FFFFFF">Cl</div>
+                  <div class="mdl-lg" style="flex-grow: 1">claude-sonnet-4-5</div>
+                  <div class="name">65,8K</div>
+                  <div class="lab" style="width: 34px; text-align: right">41%</div>
+                </div>
+                <div class="track" style="height: 10px; margin-top: 4px">
+                  <div style="width: 100%; height: 10px; border-radius: 999px; background: #D97757"></div>
+                </div>
+              </div>
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <div class="rank">2</div>
+                  <div class="av" style="width: 20px; height: 20px; font-size: 7px; background: #5786FE; color: #FFFFFF">Ds</div>
+                  <div class="mdl-lg" style="flex-grow: 1">deepseek-chat</div>
+                  <div class="name">35,3K</div>
+                  <div class="lab" style="width: 34px; text-align: right">22%</div>
+                </div>
+                <div class="track" style="height: 10px; margin-top: 4px">
+                  <div style="width: 54%; height: 10px; border-radius: 999px; background: #5786FE"></div>
+                </div>
+              </div>
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <div class="rank">3</div>
+                  <div class="av" style="width: 20px; height: 20px; font-size: 7px; background: #10A37F; color: #FFFFFF">Cx</div>
+                  <div class="mdl-lg" style="flex-grow: 1">gpt-5-codex</div>
+                  <div class="name">22,5K</div>
+                  <div class="lab" style="width: 34px; text-align: right">14%</div>
+                </div>
+                <div class="track" style="height: 10px; margin-top: 4px">
+                  <div style="width: 34%; height: 10px; border-radius: 999px; background: #10A37F"></div>
+                </div>
+              </div>
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <div class="rank">4</div>
+                  <div class="av" style="width: 20px; height: 20px; font-size: 7px; background: #AAAEB3; color: #06121F">Ol</div>
+                  <div class="mdl-lg" style="flex-grow: 1">qwen2.5-7b</div>
+                  <div class="name">14,4K</div>
+                  <div class="lab" style="width: 34px; text-align: right">9%</div>
+                </div>
+                <div class="track" style="height: 10px; margin-top: 4px">
+                  <div style="width: 22%; height: 10px; border-radius: 999px; background: #AAAEB3"></div>
+                </div>
+              </div>
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <div class="rank">5</div>
+                  <div class="av" style="width: 20px; height: 20px; font-size: 7px; background: #D97757; color: #FFFFFF">Cl</div>
+                  <div class="mdl-lg" style="flex-grow: 1">claude-haiku-4-5</div>
+                  <div class="name">12,8K</div>
+                  <div class="lab" style="width: 34px; text-align: right">8%</div>
+                </div>
+                <div class="track" style="height: 10px; margin-top: 4px">
+                  <div style="width: 19%; height: 10px; border-radius: 999px; background: #D97757"></div>
+                </div>
+              </div>
+            
+              <div style="cursor: pointer; opacity: 1">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <div class="rank">6</div>
+                  <div class="av" style="width: 20px; height: 20px; font-size: 7px; background: #8E75B2; color: #FFFFFF">Gm</div>
+                  <div class="mdl-lg" style="flex-grow: 1">gemini-2.0-flash</div>
+                  <div class="name">9,6K</div>
+                  <div class="lab" style="width: 34px; text-align: right">6%</div>
+                </div>
+                <div class="track" style="height: 10px; margin-top: 4px">
+                  <div style="width: 15%; height: 10px; border-radius: 999px; background: #8E75B2"></div>
+                </div>
+              </div>
+            
+          </div>
+          <div class="foot" style="margin-top: auto">по локальному подсчёту — только через шлюз</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

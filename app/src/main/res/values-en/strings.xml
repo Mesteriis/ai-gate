@@ -5,4 +5,30 @@
     <string name="channel_description">Keeps the AI gateway running in the background</string>
     <string name="service_running">AI gateway is running</string>
     <string name="notification_text">Port 8889 · Tap to open management</string>
+
+    <!-- Home-screen widget kit: labels for the launcher widget picker -->
+    <string name="w_label_resources">AiGate — resources</string>
+    <string name="w_desc_resources">Provider quotas and balances: remaining, pressure and reset</string>
+    <string name="w_label_tokens">AiGate — tokens by day</string>
+    <string name="w_desc_tokens">Input and output tokens stacked over two weeks</string>
+    <string name="w_label_spend">AiGate — monthly spend</string>
+    <string name="w_desc_spend">Spend in dollars with a forecast to month end</string>
+    <string name="w_label_shares">AiGate — provider shares</string>
+    <string name="w_desc_shares">Donut of token spend by provider</string>
+    <string name="w_label_calls">AiGate — recent calls</string>
+    <string name="w_desc_calls">Call table: time, model, tokens and spend</string>
+    <string name="w_label_status">AiGate — gateway status</string>
+    <string name="w_desc_status">Whether the gateway runs and which model serves the next request</string>
+    <string name="w_label_windows">AiGate — quota windows</string>
+    <string name="w_desc_windows">Two limit windows at once: session and week</string>
+    <string name="w_label_burn">AiGate — burn rate</string>
+    <string name="w_desc_burn">Quota remaining over time and the verdict: lasts or expires unused</string>
+    <string name="w_label_traffic">AiGate — traffic</string>
+    <string name="w_desc_traffic">How much was received and sent through the gateway</string>
+    <string name="w_label_models">AiGate — top models</string>
+    <string name="w_desc_models">Models ranked by token spend</string>
+    <string name="w_label_keys">AiGate — spend by key</string>
+    <string name="w_desc_keys">How much each API key has spent</string>
+    <string name="w_label_speed">AiGate — speed</string>
+    <string name="w_desc_speed">Median time to first token and token throughput</string>
 </resources>

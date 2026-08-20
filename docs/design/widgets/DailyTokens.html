@@ -1,0 +1,995 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AiGate — токены по дням</title>
+<style>
+    :root { --f: Roboto, "Helvetica Neue", system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--f); }
+    a { color: #2E6FE0; } a:hover { color: #1E50B5; }
+
+    .light {
+      --wall: linear-gradient(155deg, #DCE9FA, #EDF3FC 60%, #E4EDFA);
+      --surf: #FFFFFF; --surf-low: #F4F8FE; --surf-high: #E4EDFA; --prim: #2E6FE0;
+      --on: #16233A; --on-var: #4A5A70; --outline: #DBE6F5;
+      --border: rgba(46, 111, 224, 0.102); --inner: rgba(255, 255, 255, 0);
+      --succ: #23B26A; --warn: #F0A020; --err: #E5484D; --unk: #94A3B8;
+      --succ-c: #DCF5E7; --on-succ-c: #115B36; --warn-c: #FDF0D8; --on-warn-c: #7A5510;
+      --err-c: #FBE0E1; --on-err-c: #8F2327; --info-c: #DFEAFC; --on-info-c: #1E50B5;
+      --neu-c: #E4EDFA; --on-neu-c: #4A5A70;
+      --s0: #2E6FE0; --s1: #C07E12; --s2: #8F62DE; --s3: #1D9A5E; --s4: #2492C8; --s5: #D25A68;
+      --grid: #DBE6F5; --axis: #7E90A8; --proj: #9DB8DF; --sel: #1E50B5; --p-normal: #2E6FE0;
+      --hero: linear-gradient(135deg, #FFFFFF, #E7F0FC); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #4A5A70; --on-prim: #FFFFFF;
+      --track-hero: #DCE6F5; --frame: rgba(22, 35, 58, 0.10);
+    }
+    .dark {
+      --wall: linear-gradient(155deg, #0A1220, #101B30 60%, #16233A);
+      --surf: #16233A; --surf-low: #1A2A45; --surf-high: #24355C; --prim: #56B6E8;
+      --on: #E6EEF9; --on-var: #A9BAD4; --outline: #2A3B5C;
+      --border: rgba(127, 196, 245, 0.141); --inner: rgba(255, 255, 255, 0.06);
+      --succ: #3BCB82; --warn: #F3B04E; --err: #F06A6F; --unk: #64748B;
+      --succ-c: #14402B; --on-succ-c: #A4E8C6; --warn-c: #4A3712; --on-warn-c: #F8DCA8;
+      --err-c: #54191C; --on-err-c: #F5B4B7; --info-c: #1D3560; --on-info-c: #C2D7FB;
+      --neu-c: #24355C; --on-neu-c: #A9BAD4;
+      --s0: #4A85EC; --s1: #C67F14; --s2: #9A6FE0; --s3: #2AA866; --s4: #2E9FD0; --s5: #D9636F;
+      --grid: #2A3B5C; --axis: #8FA3C0; --proj: #4A648F; --sel: #7FB3F6; --p-normal: #6AA2F8;
+      --hero: linear-gradient(135deg, #16233A, #1B3055); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #A9BAD4; --on-prim: #06121F;
+      --track-hero: #24355C; --frame: rgba(127, 196, 245, 0.16);
+    }
+
+    .page { background: #F1F4F9; display: flex; flex-direction: column; gap: 24px; padding: 32px; }
+    .h1 { font: 600 20px/28px var(--f); color: #16233A; }
+    .h2 { font: 400 14px/20px var(--f); color: #4A5A70; }
+    .strip { background: var(--wall); border-radius: 20px; padding: 24px 32px 28px; }
+    .strip-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 14px; }
+    .row { display: flex; gap: 32px; align-items: flex-start; }
+    .size-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 8px; }
+
+    .w { background: var(--surf); border: 1px solid var(--border); border-radius: 24px; padding: 16px;
+         box-shadow: inset 0 1px 0 var(--inner); overflow: hidden; position: relative;
+         display: flex; flex-direction: column; }
+    .w.hero { background: var(--hero); }
+    .w.hero::after { content: ''; position: absolute; top: -56px; right: -56px; width: 200px; height: 200px;
+         border-radius: 50%; background: radial-gradient(circle, var(--glow), rgba(127, 196, 245, 0)); pointer-events: none; }
+    .s2x1 { width: 184px; height: 86px; } .s4x1 { width: 380px; height: 86px; }
+    .s2x2 { width: 184px; height: 184px; } .s4x2 { width: 380px; height: 184px; } .s4x4 { width: 380px; height: 380px; }
+
+    .eyebrow { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .read { font: 700 18px/24px var(--f); color: var(--on); }
+    .read-lg { font: 600 20px/28px var(--f); color: var(--on); }
+    .read-xl { font: 700 24px/32px var(--f); color: var(--on); }
+    .read-xxl { font: 700 32px/40px var(--f); color: var(--on); }
+    .sub { font: 500 11px/16px var(--f); color: var(--on-var); }
+    .lab { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .body { font: 400 14px/20px var(--f); color: var(--on); }
+    .body-var { font: 400 14px/20px var(--f); color: var(--on-var); }
+    .name { font: 500 14px/20px var(--f); color: var(--on); }
+    .title-md { font: 500 16px/22px var(--f); color: var(--on); }
+    .foot { font: 500 11px/16px var(--f); color: var(--on-var); }
+
+    .chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 8px; padding: 3px 8px; font: 500 12px/16px var(--f); }
+    .chip.sm { font: 500 11px/14px var(--f); padding: 2px 6px; }
+    .chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .chip.succ { background: var(--succ-c); color: var(--on-succ-c); } .chip.succ .dot { background: var(--succ); }
+    .chip.warn { background: var(--warn-c); color: var(--on-warn-c); } .chip.warn .dot { background: var(--warn); }
+    .chip.err { background: var(--err-c); color: var(--on-err-c); } .chip.err .dot { background: var(--err); }
+    .chip.info { background: var(--info-c); color: var(--on-info-c); } .chip.info .dot { background: var(--prim); }
+    .chip.neu { background: var(--neu-c); color: var(--on-neu-c); } .chip.neu .dot { background: var(--unk); }
+
+    .xl-row { display: flex; height: 16px; margin-top: 2px; }
+    .xl { flex: 1 1 0; text-align: center; white-space: nowrap; font: 500 9px/16px var(--f); color: var(--axis); }
+    .xl.today { color: var(--prim); font-weight: 600; }
+    .xl.end { text-align: right; }
+    .yl-col { display: flex; flex-direction: column; justify-content: space-between; width: 34px; margin-right: 6px; }
+    .yl { font: 500 10px/12px var(--f); color: var(--axis); text-align: right; }
+
+    .p-free { background: var(--succ); } .p-normal { background: var(--p-normal); }
+    .p-conserve { background: var(--warn); } .p-critical { background: var(--err); }
+    .p-unknown { background: var(--unk); }
+    .pt-free { color: var(--succ); } .pt-normal { color: var(--p-normal); }
+    .pt-conserve { color: var(--warn); } .pt-critical { color: var(--err); }
+    .pt-unknown { color: var(--unk); }
+    .ring { fill: none; stroke-linecap: round; }
+    .r-track { stroke: var(--surf-high); }
+    .r-free { stroke: var(--succ); } .r-normal { stroke: var(--p-normal); }
+    .r-conserve { stroke: var(--warn); } .r-critical { stroke: var(--err); }
+    .r-unknown { stroke: var(--unk); }
+
+    .ln { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .ln-area { fill: var(--s0); opacity: 0.14; }
+    .ln-proj { fill: none; stroke: var(--proj); stroke-width: 2; stroke-dasharray: 7 5; stroke-linecap: round; }
+    .ln-ref { fill: none; stroke: var(--on-var); stroke-width: 1.5; stroke-dasharray: 6 4; }
+    .crosshair { stroke: var(--axis); stroke-width: 1; }
+    .dot-halo { fill: var(--surf); }
+    .dot-cur { fill: var(--s0); }
+    .dot-sel { fill: var(--sel); }
+    .dot-mark { fill: var(--s5); }
+    .spark { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .spark-area { fill: var(--s0); opacity: 0.16; }
+    .spark-b { fill: none; stroke: var(--s1); stroke-width: 2; stroke-linecap: round; }
+    .spark-b-area { fill: var(--s1); opacity: 0.16; }
+    .mark-lab { position: absolute; white-space: nowrap; font: 600 9px/12px var(--f); color: var(--s5); }
+
+    .av { border-radius: 28%; display: flex; align-items: center; justify-content: center;
+          font-weight: 700; flex-shrink: 0; }
+    .r-row { border-radius: 8px; padding: 4px 8px; margin: 0 -8px; }
+    .r-row.on { background: var(--surf-low); }
+
+    .bar-bot { fill: var(--s0); } .bar-bot.sel { fill: var(--sel); }
+    .bar-top { fill: var(--s1); }
+    .gridline { stroke: var(--grid); stroke-width: 1; }
+    .hit { cursor: pointer; fill: transparent; }
+    .dot9 { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .track { background: var(--surf-high); border-radius: 999px; overflow: hidden; }
+    .w.hero .track { background: var(--track-hero); }
+    .divider { height: 1px; background: var(--outline); }
+  
+    html { background: #F1F4F9; }
+    body { display: flex; justify-content: center; }
+</style>
+</head>
+<body>
+
+<helmet>
+  <style>
+    :root { --f: Roboto, "Helvetica Neue", system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--f); }
+    a { color: #2E6FE0; } a:hover { color: #1E50B5; }
+
+    .light {
+      --wall: linear-gradient(155deg, #DCE9FA, #EDF3FC 60%, #E4EDFA);
+      --surf: #FFFFFF; --surf-low: #F4F8FE; --surf-high: #E4EDFA; --prim: #2E6FE0;
+      --on: #16233A; --on-var: #4A5A70; --outline: #DBE6F5;
+      --border: rgba(46, 111, 224, 0.102); --inner: rgba(255, 255, 255, 0);
+      --succ: #23B26A; --warn: #F0A020; --err: #E5484D; --unk: #94A3B8;
+      --succ-c: #DCF5E7; --on-succ-c: #115B36; --warn-c: #FDF0D8; --on-warn-c: #7A5510;
+      --err-c: #FBE0E1; --on-err-c: #8F2327; --info-c: #DFEAFC; --on-info-c: #1E50B5;
+      --neu-c: #E4EDFA; --on-neu-c: #4A5A70;
+      --s0: #2E6FE0; --s1: #C07E12; --s2: #8F62DE; --s3: #1D9A5E; --s4: #2492C8; --s5: #D25A68;
+      --grid: #DBE6F5; --axis: #7E90A8; --proj: #9DB8DF; --sel: #1E50B5; --p-normal: #2E6FE0;
+      --hero: linear-gradient(135deg, #FFFFFF, #E7F0FC); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #4A5A70; --on-prim: #FFFFFF;
+      --track-hero: #DCE6F5; --frame: rgba(22, 35, 58, 0.10);
+    }
+    .dark {
+      --wall: linear-gradient(155deg, #0A1220, #101B30 60%, #16233A);
+      --surf: #16233A; --surf-low: #1A2A45; --surf-high: #24355C; --prim: #56B6E8;
+      --on: #E6EEF9; --on-var: #A9BAD4; --outline: #2A3B5C;
+      --border: rgba(127, 196, 245, 0.141); --inner: rgba(255, 255, 255, 0.06);
+      --succ: #3BCB82; --warn: #F3B04E; --err: #F06A6F; --unk: #64748B;
+      --succ-c: #14402B; --on-succ-c: #A4E8C6; --warn-c: #4A3712; --on-warn-c: #F8DCA8;
+      --err-c: #54191C; --on-err-c: #F5B4B7; --info-c: #1D3560; --on-info-c: #C2D7FB;
+      --neu-c: #24355C; --on-neu-c: #A9BAD4;
+      --s0: #4A85EC; --s1: #C67F14; --s2: #9A6FE0; --s3: #2AA866; --s4: #2E9FD0; --s5: #D9636F;
+      --grid: #2A3B5C; --axis: #8FA3C0; --proj: #4A648F; --sel: #7FB3F6; --p-normal: #6AA2F8;
+      --hero: linear-gradient(135deg, #16233A, #1B3055); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #A9BAD4; --on-prim: #06121F;
+      --track-hero: #24355C; --frame: rgba(127, 196, 245, 0.16);
+    }
+
+    .page { background: #F1F4F9; display: flex; flex-direction: column; gap: 24px; padding: 32px; }
+    .h1 { font: 600 20px/28px var(--f); color: #16233A; }
+    .h2 { font: 400 14px/20px var(--f); color: #4A5A70; }
+    .strip { background: var(--wall); border-radius: 20px; padding: 24px 32px 28px; }
+    .strip-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 14px; }
+    .row { display: flex; gap: 32px; align-items: flex-start; }
+    .size-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 8px; }
+
+    .w { background: var(--surf); border: 1px solid var(--border); border-radius: 24px; padding: 16px;
+         box-shadow: inset 0 1px 0 var(--inner); overflow: hidden; position: relative;
+         display: flex; flex-direction: column; }
+    .w.hero { background: var(--hero); }
+    .w.hero::after { content: ''; position: absolute; top: -56px; right: -56px; width: 200px; height: 200px;
+         border-radius: 50%; background: radial-gradient(circle, var(--glow), rgba(127, 196, 245, 0)); pointer-events: none; }
+    .s2x1 { width: 184px; height: 86px; } .s4x1 { width: 380px; height: 86px; }
+    .s2x2 { width: 184px; height: 184px; } .s4x2 { width: 380px; height: 184px; } .s4x4 { width: 380px; height: 380px; }
+
+    .eyebrow { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .read { font: 700 18px/24px var(--f); color: var(--on); }
+    .read-lg { font: 600 20px/28px var(--f); color: var(--on); }
+    .read-xl { font: 700 24px/32px var(--f); color: var(--on); }
+    .read-xxl { font: 700 32px/40px var(--f); color: var(--on); }
+    .sub { font: 500 11px/16px var(--f); color: var(--on-var); }
+    .lab { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .body { font: 400 14px/20px var(--f); color: var(--on); }
+    .body-var { font: 400 14px/20px var(--f); color: var(--on-var); }
+    .name { font: 500 14px/20px var(--f); color: var(--on); }
+    .title-md { font: 500 16px/22px var(--f); color: var(--on); }
+    .foot { font: 500 11px/16px var(--f); color: var(--on-var); }
+
+    .chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 8px; padding: 3px 8px; font: 500 12px/16px var(--f); }
+    .chip.sm { font: 500 11px/14px var(--f); padding: 2px 6px; }
+    .chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .chip.succ { background: var(--succ-c); color: var(--on-succ-c); } .chip.succ .dot { background: var(--succ); }
+    .chip.warn { background: var(--warn-c); color: var(--on-warn-c); } .chip.warn .dot { background: var(--warn); }
+    .chip.err { background: var(--err-c); color: var(--on-err-c); } .chip.err .dot { background: var(--err); }
+    .chip.info { background: var(--info-c); color: var(--on-info-c); } .chip.info .dot { background: var(--prim); }
+    .chip.neu { background: var(--neu-c); color: var(--on-neu-c); } .chip.neu .dot { background: var(--unk); }
+
+    .xl-row { display: flex; height: 16px; margin-top: 2px; }
+    .xl { flex: 1 1 0; text-align: center; white-space: nowrap; font: 500 9px/16px var(--f); color: var(--axis); }
+    .xl.today { color: var(--prim); font-weight: 600; }
+    .xl.end { text-align: right; }
+    .yl-col { display: flex; flex-direction: column; justify-content: space-between; width: 34px; margin-right: 6px; }
+    .yl { font: 500 10px/12px var(--f); color: var(--axis); text-align: right; }
+
+    .p-free { background: var(--succ); } .p-normal { background: var(--p-normal); }
+    .p-conserve { background: var(--warn); } .p-critical { background: var(--err); }
+    .p-unknown { background: var(--unk); }
+    .pt-free { color: var(--succ); } .pt-normal { color: var(--p-normal); }
+    .pt-conserve { color: var(--warn); } .pt-critical { color: var(--err); }
+    .pt-unknown { color: var(--unk); }
+    .ring { fill: none; stroke-linecap: round; }
+    .r-track { stroke: var(--surf-high); }
+    .r-free { stroke: var(--succ); } .r-normal { stroke: var(--p-normal); }
+    .r-conserve { stroke: var(--warn); } .r-critical { stroke: var(--err); }
+    .r-unknown { stroke: var(--unk); }
+
+    .ln { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .ln-area { fill: var(--s0); opacity: 0.14; }
+    .ln-proj { fill: none; stroke: var(--proj); stroke-width: 2; stroke-dasharray: 7 5; stroke-linecap: round; }
+    .ln-ref { fill: none; stroke: var(--on-var); stroke-width: 1.5; stroke-dasharray: 6 4; }
+    .crosshair { stroke: var(--axis); stroke-width: 1; }
+    .dot-halo { fill: var(--surf); }
+    .dot-cur { fill: var(--s0); }
+    .dot-sel { fill: var(--sel); }
+    .dot-mark { fill: var(--s5); }
+    .spark { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .spark-area { fill: var(--s0); opacity: 0.16; }
+    .spark-b { fill: none; stroke: var(--s1); stroke-width: 2; stroke-linecap: round; }
+    .spark-b-area { fill: var(--s1); opacity: 0.16; }
+    .mark-lab { position: absolute; white-space: nowrap; font: 600 9px/12px var(--f); color: var(--s5); }
+
+    .av { border-radius: 28%; display: flex; align-items: center; justify-content: center;
+          font-weight: 700; flex-shrink: 0; }
+    .r-row { border-radius: 8px; padding: 4px 8px; margin: 0 -8px; }
+    .r-row.on { background: var(--surf-low); }
+
+    .bar-bot { fill: var(--s0); } .bar-bot.sel { fill: var(--sel); }
+    .bar-top { fill: var(--s1); }
+    .gridline { stroke: var(--grid); stroke-width: 1; }
+    .hit { cursor: pointer; fill: transparent; }
+    .dot9 { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .track { background: var(--surf-high); border-radius: 999px; overflow: hidden; }
+    .w.hero .track { background: var(--track-hero); }
+    .divider { height: 1px; background: var(--outline); }
+  </style>
+</helmet>
+<div class="page" style="width: 936px">
+
+  <div>
+    <div class="h1">AiGate — токены по дням</div>
+    <div class="h2">Ярусы 4×2 и 4×4 · тап по колонке подменяет строку-вывод</div>
+  </div>
+
+  <div class="light strip">
+    <div class="strip-cap">Светлая тема</div>
+    <div class="row">
+      
+        <div>
+          <div class="size-cap">4×2 · 380 × 184</div>
+          <div class="w s4x2">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+              <div class="eyebrow">Токены по дням</div>
+              
+                <div class="sub">14:32</div>
+              
+            </div>
+            <div class="read" style="margin-top: 2px">160,4K</div>
+            <div class="sub">за 14 дней · в среднем 11,5K в день</div>
+
+            <div style="display: flex; margin-top: 8px">
+              
+              <div style="flex-grow: 1">
+                <svg width="348" height="60" viewBox="0 0 348 60">
+                  
+                    <line class="gridline" x1="0" y1="4" x2="348" y2="4"></line>
+                  
+                    <line class="gridline" x1="0" y1="31.5" x2="348" y2="31.5"></line>
+                  
+                    <line class="gridline" x1="0" y1="59" x2="348" y2="59"></line>
+                  
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="4.722857142857143" y="45.36" width="15.411428571428571" height="13.64"></rect>
+                      <path class="bar-top" d="M4.722857142857143,43.36 L4.722857142857143,43.36 Q4.722857142857143,40.739999999999995 7.342857142857148,40.739999999999995 L17.51428571428571,40.739999999999995 Q20.134285714285713,40.739999999999995 20.134285714285713,43.36 L20.134285714285713,43.36 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="29.58" y="38.32" width="15.411428571428571" height="20.68"></rect>
+                      <path class="bar-top" d="M29.58,36.32 L29.58,34.84 Q29.58,30.84 33.58,30.84 L40.99142857142857,30.84 Q44.99142857142857,30.84 44.99142857142857,34.84 L44.99142857142857,36.32 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="54.43714285714286" y="49.980000000000004" width="15.411428571428571" height="9.019999999999996"></rect>
+                      <path class="bar-top" d="M54.43714285714286,47.980000000000004 L54.43714285714286,47.980000000000004 Q54.43714285714286,46.68 55.737142857142864,46.68 L68.54857142857142,46.68 Q69.84857142857143,46.68 69.84857142857143,47.980000000000004 L69.84857142857143,47.980000000000004 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="79.29428571428572" y="52.84" width="15.411428571428571" height="6.159999999999997"></rect>
+                      <path class="bar-top" d="M79.29428571428572,51.36 L79.29428571428572,51.36 Q79.29428571428572,50.86 79.79428571428572,50.86 L94.2057142857143,50.86 Q94.7057142857143,50.86 94.7057142857143,51.36 L94.7057142857143,51.36 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="104.15142857142858" y="34.36" width="15.411428571428571" height="24.64"></rect>
+                      <path class="bar-top" d="M104.15142857142858,32.36 L104.15142857142858,29.340000000000003 Q104.15142857142858,25.340000000000003 108.15142857142858,25.340000000000003 L115.56285714285715,25.340000000000003 Q119.56285714285715,25.340000000000003 119.56285714285715,29.340000000000003 L119.56285714285715,32.36 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="129.00857142857143" y="29.08" width="15.411428571428571" height="29.92"></rect>
+                      <path class="bar-top" d="M129.00857142857143,27.08 L129.00857142857143,21.64 Q129.00857142857143,17.64 133.00857142857143,17.64 L140.42,17.64 Q144.42,17.64 144.42,21.64 L144.42,27.08 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="153.86571428571426" y="39.42" width="15.411428571428571" height="19.58"></rect>
+                      <path class="bar-top" d="M153.86571428571426,37.42 L153.86571428571426,36.6 Q153.86571428571426,32.6 157.86571428571426,32.6 L165.27714285714282,32.6 Q169.27714285714282,32.6 169.27714285714282,36.6 L169.27714285714282,37.42 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="178.72285714285712" y="36.12" width="15.411428571428571" height="22.880000000000003"></rect>
+                      <path class="bar-top" d="M178.72285714285712,34.12 L178.72285714285712,31.76 Q178.72285714285712,27.76 182.72285714285712,27.76 L190.13428571428568,27.76 Q194.13428571428568,27.76 194.13428571428568,31.76 L194.13428571428568,34.12 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="203.57999999999998" y="42.94" width="15.411428571428571" height="16.060000000000002"></rect>
+                      <path class="bar-top" d="M203.57999999999998,40.94 L203.57999999999998,40.94 Q203.57999999999998,37.22 207.29999999999998,37.22 L215.27142857142854,37.22 Q218.99142857142854,37.22 218.99142857142854,40.94 L218.99142857142854,40.94 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="228.43714285714285" y="51.96" width="15.411428571428571" height="7.039999999999999"></rect>
+                      <path class="bar-top" d="M228.43714285714285,50.04 L228.43714285714285,50.04 Q228.43714285714285,49.54 228.93714285714285,49.54 L243.3485714285714,49.54 Q243.8485714285714,49.54 243.8485714285714,50.04 L243.8485714285714,50.04 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="253.2942857142857" y="46.68" width="15.411428571428571" height="12.32"></rect>
+                      <path class="bar-top" d="M253.2942857142857,44.68 L253.2942857142857,44.68 Q253.2942857142857,42.28 255.6942857142857,42.28 L266.3057142857143,42.28 Q268.7057142857143,42.28 268.7057142857143,44.68 L268.7057142857143,44.68 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="278.1514285714286" y="23.58" width="15.411428571428571" height="35.42"></rect>
+                      <path class="bar-top" d="M278.1514285714286,21.58 L278.1514285714286,14.380000000000003 Q278.1514285714286,10.380000000000003 282.1514285714286,10.380000000000003 L289.5628571428572,10.380000000000003 Q293.5628571428572,10.380000000000003 293.5628571428572,14.380000000000003 L293.5628571428572,21.58 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="303.00857142857143" y="37.44" width="15.411428571428571" height="21.560000000000002"></rect>
+                      <path class="bar-top" d="M303.00857142857143,35.44 L303.00857142857143,33.519999999999996 Q303.00857142857143,29.52 307.00857142857143,29.52 L314.42,29.52 Q318.42,29.52 318.42,33.519999999999996 L318.42,35.44 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="327.8657142857143" y="38.980000000000004" width="15.411428571428571" height="20.019999999999996"></rect>
+                      <path class="bar-top" d="M327.8657142857143,36.980000000000004 L327.8657142857143,35.72 Q327.8657142857143,31.720000000000002 331.8657142857143,31.720000000000002 L339.2771428571429,31.720000000000002 Q343.2771428571429,31.720000000000002 343.2771428571429,35.72 L343.2771428571429,36.980000000000004 Z"></path>
+                    </g>
+                  
+                  
+                    <rect class="hit" x="0" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="24.857142857142858" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="49.714285714285715" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="74.57142857142857" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="99.42857142857143" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="124.28571428571429" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="149.14285714285714" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="174" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="198.85714285714286" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="223.71428571428572" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="248.57142857142858" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="273.42857142857144" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="298.2857142857143" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="323.14285714285717" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                </svg>
+                <div class="xl-row">
+                  
+                    <div class="xl">07.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">09.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">11.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">13.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">15.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">17.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl today end">сегодня</div>
+                  
+                </div>
+              </div>
+            </div>
+
+            
+          </div>
+        </div>
+      
+        <div>
+          <div class="size-cap">4×4 · 380 × 380</div>
+          <div class="w s4x4">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+              <div class="eyebrow">Токены по дням</div>
+              
+            </div>
+            <div class="read-lg" style="margin-top: 2px">160,4K</div>
+            <div class="sub">за 14 дней · пик 18.08 (22,1K) · в среднем 11,5K в день</div>
+
+            <div style="display: flex; margin-top: 8px">
+              
+                <div class="yl-col" style="height: 155px">
+                  
+                    <div class="yl">25K</div>
+                  
+                    <div class="yl">12,5K</div>
+                  
+                    <div class="yl">0</div>
+                  
+                </div>
+              
+              <div style="flex-grow: 1">
+                <svg width="308" height="150" viewBox="0 0 308 150">
+                  
+                    <line class="gridline" x1="0" y1="4" x2="308" y2="4"></line>
+                  
+                    <line class="gridline" x1="0" y1="76.5" x2="308" y2="76.5"></line>
+                  
+                    <line class="gridline" x1="0" y1="149" x2="308" y2="149"></line>
+                  
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="4.18" y="113.03999999999999" width="13.64" height="35.96000000000001"></rect>
+                      <path class="bar-top" d="M4.18,111.03999999999999 L4.18,104.86 Q4.18,100.86 8.18,100.86 L13.82,100.86 Q17.82,100.86 17.82,104.86 L17.82,111.03999999999999 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="26.18" y="94.47999999999999" width="13.64" height="54.52000000000001"></rect>
+                      <path class="bar-top" d="M26.18,92.47999999999999 L26.18,78.76 Q26.18,74.76 30.18,74.76 L35.82,74.76 Q39.82,74.76 39.82,78.76 L39.82,92.47999999999999 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="48.18" y="125.22" width="13.64" height="23.78"></rect>
+                      <path class="bar-top" d="M48.18,123.22 L48.18,120.52000000000001 Q48.18,116.52000000000001 52.18,116.52000000000001 L57.82,116.52000000000001 Q61.82,116.52000000000001 61.82,120.52000000000001 L61.82,123.22 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="70.18" y="132.76" width="13.64" height="16.24000000000001"></rect>
+                      <path class="bar-top" d="M70.18,130.76 L70.18,130.76 Q70.18,127.54 73.39999999999999,127.54 L80.60000000000002,127.54 Q83.82000000000001,127.54 83.82000000000001,130.76 L83.82000000000001,130.76 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="92.18" y="84.04" width="13.64" height="64.96"></rect>
+                      <path class="bar-top" d="M92.18,82.04 L92.18,64.26 Q92.18,60.260000000000005 96.18,60.260000000000005 L101.82000000000001,60.260000000000005 Q105.82000000000001,60.260000000000005 105.82000000000001,64.26 L105.82000000000001,82.04 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="114.18" y="70.11999999999999" width="13.64" height="78.88000000000001"></rect>
+                      <path class="bar-top" d="M114.18,68.11999999999999 L114.18,43.959999999999994 Q114.18,39.959999999999994 118.18,39.959999999999994 L123.82000000000001,39.959999999999994 Q127.82000000000001,39.959999999999994 127.82000000000001,43.959999999999994 L127.82000000000001,68.11999999999999 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="136.18" y="97.38" width="13.64" height="51.620000000000005"></rect>
+                      <path class="bar-top" d="M136.18,95.38 L136.18,83.4 Q136.18,79.4 140.18,79.4 L145.82,79.4 Q149.82,79.4 149.82,83.4 L149.82,95.38 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="158.18" y="88.67999999999999" width="13.64" height="60.32000000000001"></rect>
+                      <path class="bar-top" d="M158.18,86.67999999999999 L158.18,70.64 Q158.18,66.64 162.18,66.64 L167.82,66.64 Q171.82,66.64 171.82,70.64 L171.82,86.67999999999999 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="180.18" y="106.66" width="13.64" height="42.34"></rect>
+                      <path class="bar-top" d="M180.18,104.66 L180.18,95.58 Q180.18,91.58 184.18,91.58 L189.82,91.58 Q193.82,91.58 193.82,95.58 L193.82,104.66 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="202.18" y="130.44" width="13.64" height="18.560000000000002"></rect>
+                      <path class="bar-top" d="M202.18,128.44 L202.18,128.06 Q202.18,124.06 206.18,124.06 L211.82,124.06 Q215.82,124.06 215.82,128.06 L215.82,128.44 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="224.18" y="116.52000000000001" width="13.64" height="32.47999999999999"></rect>
+                      <path class="bar-top" d="M224.18,114.52000000000001 L224.18,108.92 Q224.18,104.92 228.18,104.92 L233.82,104.92 Q237.82,104.92 237.82,108.92 L237.82,114.52000000000001 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="246.18" y="55.620000000000005" width="13.64" height="93.38"></rect>
+                      <path class="bar-top" d="M246.18,53.620000000000005 L246.18,24.819999999999993 Q246.18,20.819999999999993 250.18,20.819999999999993 L255.82,20.819999999999993 Q259.82,20.819999999999993 259.82,24.819999999999993 L259.82,53.620000000000005 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="268.18" y="92.16" width="13.64" height="56.84"></rect>
+                      <path class="bar-top" d="M268.18,90.16 L268.18,75.28 Q268.18,71.28 272.18,71.28 L277.82,71.28 Q281.82,71.28 281.82,75.28 L281.82,90.16 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="290.18" y="96.22" width="13.64" height="52.78"></rect>
+                      <path class="bar-top" d="M290.18,94.22 L290.18,81.08000000000001 Q290.18,77.08000000000001 294.18,77.08000000000001 L299.82,77.08000000000001 Q303.82,77.08000000000001 303.82,81.08000000000001 L303.82,94.22 Z"></path>
+                    </g>
+                  
+                  
+                    <rect class="hit" x="0" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="22" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="44" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="66" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="88" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="110" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="132" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="154" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="176" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="198" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="220" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="242" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="264" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="286" y="0" width="22" height="150"></rect>
+                  
+                </svg>
+                <div class="xl-row">
+                  
+                    <div class="xl">07.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">09.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">11.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">13.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">15.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">17.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl today end">сегодня</div>
+                  
+                </div>
+              </div>
+            </div>
+
+            
+              <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 12px; flex-grow: 1">
+                <div style="display: flex; height: 12px; gap: 2px">
+                  <div style="flex-grow: 734; background: var(--s0); border-radius: 6px 0 0 6px; display: flex; align-items: center; justify-content: center; font: 600 10px/12px var(--f); color: var(--on-prim)">73%</div>
+                  <div style="flex-grow: 266; background: var(--s1); border-radius: 0 6px 6px 0; display: flex; align-items: center; justify-content: center; font: 600 10px/12px var(--f); color: var(--on-prim)">27%</div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <div class="dot9" style="background: var(--s0)"></div>
+                    <div class="body" style="flex-grow: 1">Входные</div>
+                    <div class="name">117,7K</div>
+                    <div class="lab" style="width: 36px; text-align: right">73%</div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <div class="dot9" style="background: var(--s1)"></div>
+                    <div class="body" style="flex-grow: 1">Выходные</div>
+                    <div class="name">42,7K</div>
+                    <div class="lab" style="width: 36px; text-align: right">27%</div>
+                  </div>
+                </div>
+                <div class="foot" style="margin-top: auto">обновлено 14:32</div>
+              </div>
+            
+          </div>
+        </div>
+      
+    </div>
+  </div>
+
+  <div class="dark strip">
+    <div class="strip-cap">Тёмная тема</div>
+    <div class="row">
+      
+        <div>
+          <div class="size-cap">4×2 · 380 × 184</div>
+          <div class="w s4x2">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+              <div class="eyebrow">Токены по дням</div>
+              
+                <div class="sub">14:32</div>
+              
+            </div>
+            <div class="read" style="margin-top: 2px">160,4K</div>
+            <div class="sub">за 14 дней · в среднем 11,5K в день</div>
+
+            <div style="display: flex; margin-top: 8px">
+              
+              <div style="flex-grow: 1">
+                <svg width="348" height="60" viewBox="0 0 348 60">
+                  
+                    <line class="gridline" x1="0" y1="4" x2="348" y2="4"></line>
+                  
+                    <line class="gridline" x1="0" y1="31.5" x2="348" y2="31.5"></line>
+                  
+                    <line class="gridline" x1="0" y1="59" x2="348" y2="59"></line>
+                  
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="4.722857142857143" y="45.36" width="15.411428571428571" height="13.64"></rect>
+                      <path class="bar-top" d="M4.722857142857143,43.36 L4.722857142857143,43.36 Q4.722857142857143,40.739999999999995 7.342857142857148,40.739999999999995 L17.51428571428571,40.739999999999995 Q20.134285714285713,40.739999999999995 20.134285714285713,43.36 L20.134285714285713,43.36 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="29.58" y="38.32" width="15.411428571428571" height="20.68"></rect>
+                      <path class="bar-top" d="M29.58,36.32 L29.58,34.84 Q29.58,30.84 33.58,30.84 L40.99142857142857,30.84 Q44.99142857142857,30.84 44.99142857142857,34.84 L44.99142857142857,36.32 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="54.43714285714286" y="49.980000000000004" width="15.411428571428571" height="9.019999999999996"></rect>
+                      <path class="bar-top" d="M54.43714285714286,47.980000000000004 L54.43714285714286,47.980000000000004 Q54.43714285714286,46.68 55.737142857142864,46.68 L68.54857142857142,46.68 Q69.84857142857143,46.68 69.84857142857143,47.980000000000004 L69.84857142857143,47.980000000000004 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="79.29428571428572" y="52.84" width="15.411428571428571" height="6.159999999999997"></rect>
+                      <path class="bar-top" d="M79.29428571428572,51.36 L79.29428571428572,51.36 Q79.29428571428572,50.86 79.79428571428572,50.86 L94.2057142857143,50.86 Q94.7057142857143,50.86 94.7057142857143,51.36 L94.7057142857143,51.36 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="104.15142857142858" y="34.36" width="15.411428571428571" height="24.64"></rect>
+                      <path class="bar-top" d="M104.15142857142858,32.36 L104.15142857142858,29.340000000000003 Q104.15142857142858,25.340000000000003 108.15142857142858,25.340000000000003 L115.56285714285715,25.340000000000003 Q119.56285714285715,25.340000000000003 119.56285714285715,29.340000000000003 L119.56285714285715,32.36 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="129.00857142857143" y="29.08" width="15.411428571428571" height="29.92"></rect>
+                      <path class="bar-top" d="M129.00857142857143,27.08 L129.00857142857143,21.64 Q129.00857142857143,17.64 133.00857142857143,17.64 L140.42,17.64 Q144.42,17.64 144.42,21.64 L144.42,27.08 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="153.86571428571426" y="39.42" width="15.411428571428571" height="19.58"></rect>
+                      <path class="bar-top" d="M153.86571428571426,37.42 L153.86571428571426,36.6 Q153.86571428571426,32.6 157.86571428571426,32.6 L165.27714285714282,32.6 Q169.27714285714282,32.6 169.27714285714282,36.6 L169.27714285714282,37.42 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="178.72285714285712" y="36.12" width="15.411428571428571" height="22.880000000000003"></rect>
+                      <path class="bar-top" d="M178.72285714285712,34.12 L178.72285714285712,31.76 Q178.72285714285712,27.76 182.72285714285712,27.76 L190.13428571428568,27.76 Q194.13428571428568,27.76 194.13428571428568,31.76 L194.13428571428568,34.12 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="203.57999999999998" y="42.94" width="15.411428571428571" height="16.060000000000002"></rect>
+                      <path class="bar-top" d="M203.57999999999998,40.94 L203.57999999999998,40.94 Q203.57999999999998,37.22 207.29999999999998,37.22 L215.27142857142854,37.22 Q218.99142857142854,37.22 218.99142857142854,40.94 L218.99142857142854,40.94 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="228.43714285714285" y="51.96" width="15.411428571428571" height="7.039999999999999"></rect>
+                      <path class="bar-top" d="M228.43714285714285,50.04 L228.43714285714285,50.04 Q228.43714285714285,49.54 228.93714285714285,49.54 L243.3485714285714,49.54 Q243.8485714285714,49.54 243.8485714285714,50.04 L243.8485714285714,50.04 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="253.2942857142857" y="46.68" width="15.411428571428571" height="12.32"></rect>
+                      <path class="bar-top" d="M253.2942857142857,44.68 L253.2942857142857,44.68 Q253.2942857142857,42.28 255.6942857142857,42.28 L266.3057142857143,42.28 Q268.7057142857143,42.28 268.7057142857143,44.68 L268.7057142857143,44.68 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="278.1514285714286" y="23.58" width="15.411428571428571" height="35.42"></rect>
+                      <path class="bar-top" d="M278.1514285714286,21.58 L278.1514285714286,14.380000000000003 Q278.1514285714286,10.380000000000003 282.1514285714286,10.380000000000003 L289.5628571428572,10.380000000000003 Q293.5628571428572,10.380000000000003 293.5628571428572,14.380000000000003 L293.5628571428572,21.58 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="303.00857142857143" y="37.44" width="15.411428571428571" height="21.560000000000002"></rect>
+                      <path class="bar-top" d="M303.00857142857143,35.44 L303.00857142857143,33.519999999999996 Q303.00857142857143,29.52 307.00857142857143,29.52 L314.42,29.52 Q318.42,29.52 318.42,33.519999999999996 L318.42,35.44 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="327.8657142857143" y="38.980000000000004" width="15.411428571428571" height="20.019999999999996"></rect>
+                      <path class="bar-top" d="M327.8657142857143,36.980000000000004 L327.8657142857143,35.72 Q327.8657142857143,31.720000000000002 331.8657142857143,31.720000000000002 L339.2771428571429,31.720000000000002 Q343.2771428571429,31.720000000000002 343.2771428571429,35.72 L343.2771428571429,36.980000000000004 Z"></path>
+                    </g>
+                  
+                  
+                    <rect class="hit" x="0" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="24.857142857142858" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="49.714285714285715" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="74.57142857142857" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="99.42857142857143" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="124.28571428571429" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="149.14285714285714" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="174" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="198.85714285714286" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="223.71428571428572" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="248.57142857142858" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="273.42857142857144" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="298.2857142857143" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                    <rect class="hit" x="323.14285714285717" y="0" width="24.857142857142858" height="60"></rect>
+                  
+                </svg>
+                <div class="xl-row">
+                  
+                    <div class="xl">07.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">09.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">11.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">13.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">15.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">17.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl today end">сегодня</div>
+                  
+                </div>
+              </div>
+            </div>
+
+            
+          </div>
+        </div>
+      
+        <div>
+          <div class="size-cap">4×4 · 380 × 380</div>
+          <div class="w s4x4">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+              <div class="eyebrow">Токены по дням</div>
+              
+            </div>
+            <div class="read-lg" style="margin-top: 2px">160,4K</div>
+            <div class="sub">за 14 дней · пик 18.08 (22,1K) · в среднем 11,5K в день</div>
+
+            <div style="display: flex; margin-top: 8px">
+              
+                <div class="yl-col" style="height: 155px">
+                  
+                    <div class="yl">25K</div>
+                  
+                    <div class="yl">12,5K</div>
+                  
+                    <div class="yl">0</div>
+                  
+                </div>
+              
+              <div style="flex-grow: 1">
+                <svg width="308" height="150" viewBox="0 0 308 150">
+                  
+                    <line class="gridline" x1="0" y1="4" x2="308" y2="4"></line>
+                  
+                    <line class="gridline" x1="0" y1="76.5" x2="308" y2="76.5"></line>
+                  
+                    <line class="gridline" x1="0" y1="149" x2="308" y2="149"></line>
+                  
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="4.18" y="113.03999999999999" width="13.64" height="35.96000000000001"></rect>
+                      <path class="bar-top" d="M4.18,111.03999999999999 L4.18,104.86 Q4.18,100.86 8.18,100.86 L13.82,100.86 Q17.82,100.86 17.82,104.86 L17.82,111.03999999999999 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="26.18" y="94.47999999999999" width="13.64" height="54.52000000000001"></rect>
+                      <path class="bar-top" d="M26.18,92.47999999999999 L26.18,78.76 Q26.18,74.76 30.18,74.76 L35.82,74.76 Q39.82,74.76 39.82,78.76 L39.82,92.47999999999999 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="48.18" y="125.22" width="13.64" height="23.78"></rect>
+                      <path class="bar-top" d="M48.18,123.22 L48.18,120.52000000000001 Q48.18,116.52000000000001 52.18,116.52000000000001 L57.82,116.52000000000001 Q61.82,116.52000000000001 61.82,120.52000000000001 L61.82,123.22 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="70.18" y="132.76" width="13.64" height="16.24000000000001"></rect>
+                      <path class="bar-top" d="M70.18,130.76 L70.18,130.76 Q70.18,127.54 73.39999999999999,127.54 L80.60000000000002,127.54 Q83.82000000000001,127.54 83.82000000000001,130.76 L83.82000000000001,130.76 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="92.18" y="84.04" width="13.64" height="64.96"></rect>
+                      <path class="bar-top" d="M92.18,82.04 L92.18,64.26 Q92.18,60.260000000000005 96.18,60.260000000000005 L101.82000000000001,60.260000000000005 Q105.82000000000001,60.260000000000005 105.82000000000001,64.26 L105.82000000000001,82.04 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="114.18" y="70.11999999999999" width="13.64" height="78.88000000000001"></rect>
+                      <path class="bar-top" d="M114.18,68.11999999999999 L114.18,43.959999999999994 Q114.18,39.959999999999994 118.18,39.959999999999994 L123.82000000000001,39.959999999999994 Q127.82000000000001,39.959999999999994 127.82000000000001,43.959999999999994 L127.82000000000001,68.11999999999999 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="136.18" y="97.38" width="13.64" height="51.620000000000005"></rect>
+                      <path class="bar-top" d="M136.18,95.38 L136.18,83.4 Q136.18,79.4 140.18,79.4 L145.82,79.4 Q149.82,79.4 149.82,83.4 L149.82,95.38 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="158.18" y="88.67999999999999" width="13.64" height="60.32000000000001"></rect>
+                      <path class="bar-top" d="M158.18,86.67999999999999 L158.18,70.64 Q158.18,66.64 162.18,66.64 L167.82,66.64 Q171.82,66.64 171.82,70.64 L171.82,86.67999999999999 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="180.18" y="106.66" width="13.64" height="42.34"></rect>
+                      <path class="bar-top" d="M180.18,104.66 L180.18,95.58 Q180.18,91.58 184.18,91.58 L189.82,91.58 Q193.82,91.58 193.82,95.58 L193.82,104.66 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="202.18" y="130.44" width="13.64" height="18.560000000000002"></rect>
+                      <path class="bar-top" d="M202.18,128.44 L202.18,128.06 Q202.18,124.06 206.18,124.06 L211.82,124.06 Q215.82,124.06 215.82,128.06 L215.82,128.44 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="224.18" y="116.52000000000001" width="13.64" height="32.47999999999999"></rect>
+                      <path class="bar-top" d="M224.18,114.52000000000001 L224.18,108.92 Q224.18,104.92 228.18,104.92 L233.82,104.92 Q237.82,104.92 237.82,108.92 L237.82,114.52000000000001 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="246.18" y="55.620000000000005" width="13.64" height="93.38"></rect>
+                      <path class="bar-top" d="M246.18,53.620000000000005 L246.18,24.819999999999993 Q246.18,20.819999999999993 250.18,20.819999999999993 L255.82,20.819999999999993 Q259.82,20.819999999999993 259.82,24.819999999999993 L259.82,53.620000000000005 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="268.18" y="92.16" width="13.64" height="56.84"></rect>
+                      <path class="bar-top" d="M268.18,90.16 L268.18,75.28 Q268.18,71.28 272.18,71.28 L277.82,71.28 Q281.82,71.28 281.82,75.28 L281.82,90.16 Z"></path>
+                    </g>
+                  
+                    <g opacity="1">
+                      <rect class="bar-bot " x="290.18" y="96.22" width="13.64" height="52.78"></rect>
+                      <path class="bar-top" d="M290.18,94.22 L290.18,81.08000000000001 Q290.18,77.08000000000001 294.18,77.08000000000001 L299.82,77.08000000000001 Q303.82,77.08000000000001 303.82,81.08000000000001 L303.82,94.22 Z"></path>
+                    </g>
+                  
+                  
+                    <rect class="hit" x="0" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="22" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="44" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="66" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="88" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="110" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="132" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="154" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="176" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="198" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="220" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="242" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="264" y="0" width="22" height="150"></rect>
+                  
+                    <rect class="hit" x="286" y="0" width="22" height="150"></rect>
+                  
+                </svg>
+                <div class="xl-row">
+                  
+                    <div class="xl">07.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">09.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">11.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">13.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">15.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl">17.08</div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl"></div>
+                  
+                    <div class="xl today end">сегодня</div>
+                  
+                </div>
+              </div>
+            </div>
+
+            
+              <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 12px; flex-grow: 1">
+                <div style="display: flex; height: 12px; gap: 2px">
+                  <div style="flex-grow: 734; background: var(--s0); border-radius: 6px 0 0 6px; display: flex; align-items: center; justify-content: center; font: 600 10px/12px var(--f); color: var(--on-prim)">73%</div>
+                  <div style="flex-grow: 266; background: var(--s1); border-radius: 0 6px 6px 0; display: flex; align-items: center; justify-content: center; font: 600 10px/12px var(--f); color: var(--on-prim)">27%</div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <div class="dot9" style="background: var(--s0)"></div>
+                    <div class="body" style="flex-grow: 1">Входные</div>
+                    <div class="name">117,7K</div>
+                    <div class="lab" style="width: 36px; text-align: right">73%</div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <div class="dot9" style="background: var(--s1)"></div>
+                    <div class="body" style="flex-grow: 1">Выходные</div>
+                    <div class="name">42,7K</div>
+                    <div class="lab" style="width: 36px; text-align: right">27%</div>
+                  </div>
+                </div>
+                <div class="foot" style="margin-top: auto">обновлено 14:32</div>
+              </div>
+            
+          </div>
+        </div>
+      
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Полоса графика. Растр рисуется в WidgetDraw с плотностью, подобранной под
+  бюджет пикселей: подписи осей остаются настоящими TextView, поэтому в растр
+  попадают только линии и столбцы, и лёгкая мягкость краёв незаметна.
+-->
+<ImageView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_chart"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="8dp"
+    android:adjustViewBounds="true"
+    android:scaleType="fitXY"
+    android:importantForAccessibility="no" />

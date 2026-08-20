@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Бар давления как ProgressBar, а не растр.
+
+  В прокручиваемом списке растровые бары не годятся: каждый элемент уезжает в
+  лаунчер через Binder, и десяток картинок во всю ширину выходит за размер
+  транзакции. Заливка белая намеренно — цвет задаётся тонированием
+  (setProgressTintList), поэтому одна фигура обслуживает все состояния давления.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background">
+        <shape android:shape="rectangle">
+            <corners android:radius="999dp" />
+            <solid android:color="@color/w_surface_high" />
+        </shape>
+    </item>
+    <item android:id="@android:id/progress">
+        <clip android:clipOrientation="horizontal" android:gravity="left">
+            <shape android:shape="rectangle">
+                <corners android:radius="999dp" />
+                <solid android:color="@android:color/white" />
+            </shape>
+        </clip>
+    </item>
+</layer-list>

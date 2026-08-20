@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Палитра домашних виджетов «морозные врата», тёмная тема.
+  Парная к values/widget_colors.xml; значения из ui/theme/Theme.kt (DarkColorScheme)
+  и ui/design/Tokens.kt (darkGatewayColors).
+-->
+<resources>
+    <color name="w_surface">#FF16233A</color>
+    <color name="w_surface_low">#FF1A2A45</color>
+    <color name="w_surface_high">#FF24355C</color>
+    <color name="w_border">#247FC4F5</color>
+    <color name="w_outline">#FF2A3B5C</color>
+    <color name="w_hero_start">#FF16233A</color>
+    <color name="w_hero_end">#FF1B3055</color>
+
+    <color name="w_on">#FFE6EEF9</color>
+    <color name="w_on_var">#FFA9BAD4</color>
+    <color name="w_on_prim">#FF06121F</color>
+
+    <color name="w_prim">#FF56B6E8</color>
+    <color name="w_succ">#FF3BCB82</color>
+    <color name="w_warn">#FFF3B04E</color>
+    <color name="w_err">#FFF06A6F</color>
+    <color name="w_unk">#FF64748B</color>
+    <color name="w_p_normal">#FF6AA2F8</color>
+
+    <color name="w_succ_c">#FF14402B</color>
+    <color name="w_on_succ_c">#FFA4E8C6</color>
+    <color name="w_warn_c">#FF4A3712</color>
+    <color name="w_on_warn_c">#FFF8DCA8</color>
+    <color name="w_err_c">#FF54191C</color>
+    <color name="w_on_err_c">#FFF5B4B7</color>
+    <color name="w_info_c">#FF1D3560</color>
+    <color name="w_on_info_c">#FFC2D7FB</color>
+    <color name="w_neu_c">#FF24355C</color>
+    <color name="w_on_neu_c">#FFA9BAD4</color>
+
+    <color name="w_s0">#FF4A85EC</color>
+    <color name="w_s1">#FFC67F14</color>
+    <color name="w_s2">#FF9A6FE0</color>
+    <color name="w_s3">#FF2AA866</color>
+    <color name="w_s4">#FF2E9FD0</color>
+    <color name="w_s5">#FFD9636F</color>
+    <color name="w_grid">#FF2A3B5C</color>
+    <color name="w_axis">#FF8FA3C0</color>
+    <color name="w_proj">#FF4A648F</color>
+</resources>

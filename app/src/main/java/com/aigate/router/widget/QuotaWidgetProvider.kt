@@ -1,183 +1,180 @@
 package com.aigate.router.widget
 
-import android.app.PendingIntent
-import android.appwidget.AppWidgetManager
-import android.appwidget.AppWidgetProvider
-import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
-import android.view.View
 import android.widget.RemoteViews
-import com.aigate.router.MainActivity
-import com.aigate.router.R
-import com.aigate.router.quota.QuotaRepository
-import com.aigate.router.quota.ResourcePressure
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.aigate.router.data.db.AppDatabase
+import com.aigate.router.ui.design.Fmt
 
 /**
- * Домашний виджет квот «AiGate».
+ * Витрина комплекта: «AiGate — ресурсы».
  *
- * Рендерит ЛОКАЛЬНЫЙ снимок квот (без сетевого опроса): читает последний снимок из БД
- * через [QuotaRepository.latest] и показывает до трёх самых «горящих» пулов. Обновления
- * гонит WorkManager (QuotaRefreshWorker) через [refresh]; систему об обновлениях не просим
- * (updatePeriodMillis=0 в quota_widget_info.xml).
+ * Показывает пулы провайдеров, отсортированные по давлению: сначала то, что
+ * горит. Заливка бара и кольца — израсходованное, подпись всегда про остаток
+ * (тот же инвариант, что на экранах). Сети не касается: читает локальный снимок,
+ * который обновляют QuotaRefresher и WorkManager.
+ *
+ * Имя класса сохранено с первой версии виджета, чтобы уже размещённые на
+ * домашнем экране экземпляры продолжили работать после редизайна.
  */
-class QuotaWidgetProvider : AppWidgetProvider() {
+class QuotaWidgetProvider : BaseWidgetProvider<WidgetData.ResourcesData>() {
 
-    override fun onUpdate(
+    override val requestCode: Int = 1001
+    override val route: String = "resources"
+
+    override suspend fun load(context: Context, db: AppDatabase): WidgetData.ResourcesData =
+        WidgetData.resources(db)
+
+    override fun build(
         context: Context,
-        appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray
-    ) {
-        // goAsync: удерживаем ресивер живым, пока идёт асинхронное чтение БД.
-        val pending = goAsync()
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                renderAll(context, appWidgetManager, appWidgetIds)
-            } finally {
-                pending.finish()
-            }
-        }
-    }
-
-    /** Читает данные ОДИН раз и раскладывает их по всем экземплярам виджета. */
-    private suspend fun renderAll(
-        context: Context,
-        appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray
-    ) {
-        val quotas: List<QuotaRepository.PoolQuota> = try {
-            val db = com.aigate.router.GatewayApplication.getInstance().database
-            QuotaRepository.latest(db)
-        } catch (_: Exception) {
-            // БД недоступна/приложение не инициализировано — покажем «нет данных», не падаем.
-            emptyList()
-        }
-
-        for (appWidgetId in appWidgetIds) {
-            val views = buildRemoteViews(context, quotas)
-            appWidgetManager.updateAppWidget(appWidgetId, views)
-        }
-    }
-
-    /** Собирает RemoteViews из локального снимка квот. Устойчив к null-снимкам. */
-    private fun buildRemoteViews(
-        context: Context,
-        quotas: List<QuotaRepository.PoolQuota>
+        data: WidgetData.ResourcesData,
+        tier: WidgetTier,
+        contentWidthDp: Float,
+        contentHeightDp: Float,
     ): RemoteViews {
-        val views = RemoteViews(context.packageName, R.layout.widget_quota)
-        views.setTextViewText(R.id.widget_title, "AiGate — ресурсы")
+        val shell = WidgetShell(context, contentWidthDp, contentHeightDp, hero = true)
+        shell.onClick(openApp(context))
 
-        // Клик по виджету открывает MainActivity.
-        val intent = Intent(context, MainActivity::class.java)
-        val pi = PendingIntent.getActivity(
-            context,
-            0,
-            intent,
-            PendingIntent.FLAG_IMMUTABLE
-        )
-        views.setOnClickPendingIntent(R.id.widget_root, pi)
-
-        val rowIds = intArrayOf(R.id.widget_row1, R.id.widget_row2, R.id.widget_row3)
-
-        if (quotas.isEmpty()) {
-            views.setViewVisibility(R.id.widget_row1, View.VISIBLE)
-            views.setTextViewText(R.id.widget_row1, "Пока нет данных")
-            views.setViewVisibility(R.id.widget_row2, View.GONE)
-            views.setViewVisibility(R.id.widget_row3, View.GONE)
-            return views
+        if (data.pools.isEmpty()) {
+            shell.head(eyebrow = "Ресурсы провайдеров", time = Fmt.time(data.now))
+            if (tier.isRow) shell.head(eyebrow = "", read = WidgetText.DASH, sub = "снимков ещё не было")
+            else shell.empty("Пока нет данных")
+            return shell.build()
         }
 
-        // Самые «горящие» пулы первыми: CRITICAL, затем CONSERVE, затем остальные.
-        val top = quotas.sortedBy { pressureRank(it.pressure) }.take(rowIds.size)
+        val top = data.pools.first()
+        val readout = WidgetText.resourcesReadout(
+            total = data.pools.size,
+            attention = data.attention,
+            topName = top.name,
+            topPressure = top.pressure,
+        )
 
-        for (i in rowIds.indices) {
-            val id = rowIds[i]
-            if (i < top.size) {
-                views.setViewVisibility(id, View.VISIBLE)
-                views.setTextViewText(id, rowText(top[i]))
-            } else {
-                views.setViewVisibility(id, View.GONE)
+        when (tier) {
+            WidgetTier.ROW_NARROW -> {
+                shell.head(
+                    eyebrow = WidgetText.poolTitle(top.name, top.kind),
+                    read = top.value,
+                    sub = top.pressure.label.lowercase(),
+                )
+            }
+
+            WidgetTier.ROW_WIDE -> {
+                shell.head(
+                    eyebrow = "Ресурсы провайдеров",
+                    read = readout.first,
+                    sub = readout.second,
+                    time = Fmt.time(data.now),
+                )
+            }
+
+            WidgetTier.SQUARE -> {
+                shell.head(eyebrow = WidgetText.poolTitle(top.name, top.kind))
+                shell.ring(
+                    bitmap = WidgetDraw.ring(
+                        context = context,
+                        sizeDp = 86f,
+                        strokeDp = 8f,
+                        usedFraction = top.usedFraction,
+                        color = shell.theme.pressureColor(top.pressure),
+                        trackColor = shell.theme.surfaceHigh,
+                    ),
+                    center = if (top.usedFraction != null) {
+                        WidgetText.ringCenter(top.usedFraction)
+                    } else {
+                        top.value
+                    },
+                )
+                shell.chip(
+                    text = top.pressure.label,
+                    tone = top.pressure.widgetTone(),
+                    note = top.note ?: top.reset,
+                )
+            }
+
+            WidgetTier.WIDE -> {
+                shell.head(
+                    eyebrow = "Ресурсы провайдеров",
+                    read = readout.first,
+                    sub = readout.second,
+                    time = Fmt.time(data.now),
+                )
+                pools(context, shell, data.pools, large = false, reservedDp = 58f)
+            }
+
+            WidgetTier.LARGE -> {
+                shell.head(
+                    eyebrow = "Ресурсы провайдеров",
+                    read = readout.first,
+                    sub = readout.second,
+                    time = Fmt.time(data.now),
+                    readSp = 20f,
+                )
+                pools(context, shell, data.pools, large = true, reservedDp = 78f)
+                val freshest = data.pools.mapNotNull { it.updatedAt }.maxOrNull()
+                val source = data.pools.firstOrNull { it.updatedAt == freshest }?.source
+                shell.footer(WidgetText.updatedFooter(freshest, source, data.now))
             }
         }
-        return views
-    }
-
-    /** Порядок сортировки: чем меньше, тем «горячее». */
-    private fun pressureRank(pressure: ResourcePressure): Int = when (pressure) {
-        ResourcePressure.CRITICAL -> 0
-        ResourcePressure.CONSERVE -> 1
-        ResourcePressure.NORMAL -> 2
-        ResourcePressure.FREE -> 3
-        ResourcePressure.UNKNOWN -> 4
+        return shell.build()
     }
 
     /**
-     * Строка вида «{имя}: осталось 3/100% · {давление}», устойчивая к null-снимкам.
-     * Тип ресурса называется своим словом: у бесплатного нет остатка, у баланса
-     * нет процентов, сброс бывает только у квоты.
+     * Пулы строками. Если их больше, чем влезает по высоте, на Android 12+
+     * список становится прокручиваемым — иначе просто обрезается по месту.
      */
-    private fun rowText(pq: QuotaRepository.PoolQuota): String {
-        val name = pq.pool.name
-        val snap = pq.snapshot
-        val remaining = snap?.remaining
-        val limit = snap?.limit
-        val used = snap?.used
-        val unit = snap?.unit ?: ""
-        val kind = com.aigate.router.quota.ResourcePoolKind.fromName(pq.pool.kind)
-
-        if (kind == com.aigate.router.quota.ResourcePoolKind.FREE) {
-            return "$name: без лимита"
-        }
-
-        val value = when {
-            remaining != null && limit != null && kind.hasFraction ->
-                "$name: ${kind.remainingLabel.lowercase()} ${fmt(remaining)}/${fmt(limit)}${unitSuffix(unit)}"
-            remaining != null ->
-                "$name: ${kind.remainingLabel.lowercase()} ${fmt(remaining)}${unitSuffix(unit)}"
-            used != null ->
-                "$name: израсходовано ${fmt(used)}${unitSuffix(unit)}"
-            else ->
-                "$name: нет данных"
-        }.trim()
-
-        return "$value · ${pq.pressure.label}"
-    }
-
-    /** Человеческая единица: «PERCENT» на домашнем экране выглядит как ошибка. */
-    private fun unitSuffix(unit: String): String = when (unit.uppercase()) {
-        "PERCENT" -> "%"
-        "USD" -> " $"
-        "TOKENS" -> " ток."
-        "REQUESTS" -> " запр."
-        "CREDITS" -> " кред."
-        "COMPUTE_MINUTES" -> " мин"
-        "UNKNOWN", "" -> ""
-        else -> " " + unit.lowercase()
-    }
-
-    /** Компактный формат числа: без дробной части от 100 и больше, иначе два знака. */
-    private fun fmt(v: Double): String =
-        if (v >= 100) String.format("%.0f", v) else String.format("%.2f", v)
-
-    companion object {
-        /**
-         * Принудительно обновить все экземпляры виджета (вызывается из WorkManager).
-         * Локально: широковещательный ACTION_APPWIDGET_UPDATE самому провайдеру.
-         */
-        fun refresh(context: Context) {
-            val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(
-                ComponentName(context, QuotaWidgetProvider::class.java)
-            )
-            if (ids.isEmpty()) return
-            val intent = Intent(context, QuotaWidgetProvider::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+    private fun pools(
+        context: Context,
+        shell: WidgetShell,
+        pools: List<WidgetData.PoolCard>,
+        large: Boolean,
+        reservedDp: Float,
+    ) {
+        // Строки пулов разной высоты: у баланса и бесплатного пула нет бара, у
+        // квоты бывает вердикт. Поэтому набираем не «сколько-то строк», а
+        // столько, сколько реально влезает по высоте.
+        var left = shell.contentHeightDp - reservedDp
+        val fits = pools.takeWhile { card ->
+            val height = rowHeight(card, large)
+            if (height <= left) {
+                left -= height
+                true
+            } else {
+                false
             }
-            context.sendBroadcast(intent)
         }
+        if (shell.canScroll && pools.size > fits.size) {
+            shell.list(
+                pools.take(MAX_LIST).map { shell.poolRowViews(it, large, forList = true) },
+                openApp(context),
+            )
+        } else {
+            fits.forEach { shell.poolRow(it, large) }
+        }
+    }
+
+    /** Высота строки пула в dp — по тем же отступам, что в widget_row_pool.xml. */
+    private fun rowHeight(card: WidgetData.PoolCard, large: Boolean): Float {
+        var height = 4f + if (large) 20f else 16f
+        if (card.usedFraction != null) height += 4f + if (large) 8f else 6f
+        if (large && (card.note ?: card.reset).isNotEmpty()) height += 3f + 16f
+        return height
+    }
+
+    override fun buildFallback(
+        context: Context,
+        tier: WidgetTier,
+        contentWidthDp: Float,
+        contentHeightDp: Float,
+    ): RemoteViews {
+        val shell = WidgetShell(context, contentWidthDp, contentHeightDp, hero = true)
+        shell.onClick(openApp(context))
+        shell.head(eyebrow = "Ресурсы провайдеров")
+        shell.empty("Пока нет данных")
+        return shell.build()
+    }
+
+    private companion object {
+        /** Потолок списка: элементы уезжают в лаунчер через Binder. */
+        const val MAX_LIST = 24
     }
 }

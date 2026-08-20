@@ -1,0 +1,295 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+/*BASE_CSS*/
+  </style>
+</helmet>
+<div class="page" style="width: 936px">
+
+  <div>
+    <div class="h1">AiGate — токены по дням</div>
+    <div class="h2">Ярусы 4×2 и 4×4 · тап по колонке подменяет строку-вывод</div>
+  </div>
+
+  <div class="light strip">
+    <div class="strip-cap">Светлая тема</div>
+    <div class="row">
+      <sc-for list="{{tiers}}" as="w" hint-placeholder-count="2">
+        <div>
+          <div class="size-cap">{{w.sizeLabel}}</div>
+          <div class="w {{w.szCls}}">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+              <div class="eyebrow">Токены по дням</div>
+              <sc-if value="{{w.isSmall}}" hint-placeholder-val="{{true}}">
+                <div class="sub">14:32</div>
+              </sc-if>
+            </div>
+            <div class="{{w.readCls}}" style="margin-top: 2px">{{w.readMain}}</div>
+            <div class="sub">{{w.readSub}}</div>
+
+            <div style="display: flex; margin-top: 8px">
+              <sc-if value="{{w.isLarge}}" hint-placeholder-val="{{true}}">
+                <div class="yl-col" style="height: {{w.ylH}}px">
+                  <sc-for list="{{w.yLabels}}" as="y" hint-placeholder-count="3">
+                    <div class="yl">{{y.text}}</div>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <div style="flex-grow: 1">
+                <svg width="{{w.cw}}" height="{{w.ch}}" viewBox="{{w.vb}}">
+                  <sc-for list="{{w.grid}}" as="g" hint-placeholder-count="3">
+                    <line class="gridline" x1="0" y1="{{g.y}}" x2="{{w.cw}}" y2="{{g.y}}"></line>
+                  </sc-for>
+                  <sc-for list="{{w.cols}}" as="c" hint-placeholder-count="14">
+                    <g opacity="{{c.op}}">
+                      <rect class="bar-bot {{c.selCls}}" x="{{c.x}}" y="{{c.botY}}" width="{{c.w}}" height="{{c.botH}}"></rect>
+                      <path class="bar-top" d="{{c.topD}}"></path>
+                    </g>
+                  </sc-for>
+                  <sc-for list="{{w.cols}}" as="c" hint-placeholder-count="14">
+                    <rect class="hit" x="{{c.hitX}}" y="0" width="{{c.hitW}}" height="{{w.ch}}" onClick="{{c.pick}}"></rect>
+                  </sc-for>
+                </svg>
+                <div class="xl-row">
+                  <sc-for list="{{w.xLabels}}" as="l" hint-placeholder-count="14">
+                    <div class="{{l.cls}}">{{l.text}}</div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+
+            <sc-if value="{{w.isLarge}}" hint-placeholder-val="{{true}}">
+              <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 12px; flex-grow: 1">
+                <div style="display: flex; height: 12px; gap: 2px">
+                  <div style="flex-grow: {{inGrow}}; background: var(--s0); border-radius: 6px 0 0 6px; display: flex; align-items: center; justify-content: center; font: 600 10px/12px var(--f); color: var(--on-prim)">{{inShare}}</div>
+                  <div style="flex-grow: {{outGrow}}; background: var(--s1); border-radius: 0 6px 6px 0; display: flex; align-items: center; justify-content: center; font: 600 10px/12px var(--f); color: var(--on-prim)">{{outShare}}</div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <div class="dot9" style="background: var(--s0)"></div>
+                    <div class="body" style="flex-grow: 1">Входные</div>
+                    <div class="name">{{inTotal}}</div>
+                    <div class="lab" style="width: 36px; text-align: right">{{inShare}}</div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <div class="dot9" style="background: var(--s1)"></div>
+                    <div class="body" style="flex-grow: 1">Выходные</div>
+                    <div class="name">{{outTotal}}</div>
+                    <div class="lab" style="width: 36px; text-align: right">{{outShare}}</div>
+                  </div>
+                </div>
+                <div class="foot" style="margin-top: auto">обновлено 14:32</div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div class="dark strip">
+    <div class="strip-cap">Тёмная тема</div>
+    <div class="row">
+      <sc-for list="{{tiers}}" as="w" hint-placeholder-count="2">
+        <div>
+          <div class="size-cap">{{w.sizeLabel}}</div>
+          <div class="w {{w.szCls}}">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+              <div class="eyebrow">Токены по дням</div>
+              <sc-if value="{{w.isSmall}}" hint-placeholder-val="{{true}}">
+                <div class="sub">14:32</div>
+              </sc-if>
+            </div>
+            <div class="{{w.readCls}}" style="margin-top: 2px">{{w.readMain}}</div>
+            <div class="sub">{{w.readSub}}</div>
+
+            <div style="display: flex; margin-top: 8px">
+              <sc-if value="{{w.isLarge}}" hint-placeholder-val="{{true}}">
+                <div class="yl-col" style="height: {{w.ylH}}px">
+                  <sc-for list="{{w.yLabels}}" as="y" hint-placeholder-count="3">
+                    <div class="yl">{{y.text}}</div>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <div style="flex-grow: 1">
+                <svg width="{{w.cw}}" height="{{w.ch}}" viewBox="{{w.vb}}">
+                  <sc-for list="{{w.grid}}" as="g" hint-placeholder-count="3">
+                    <line class="gridline" x1="0" y1="{{g.y}}" x2="{{w.cw}}" y2="{{g.y}}"></line>
+                  </sc-for>
+                  <sc-for list="{{w.cols}}" as="c" hint-placeholder-count="14">
+                    <g opacity="{{c.op}}">
+                      <rect class="bar-bot {{c.selCls}}" x="{{c.x}}" y="{{c.botY}}" width="{{c.w}}" height="{{c.botH}}"></rect>
+                      <path class="bar-top" d="{{c.topD}}"></path>
+                    </g>
+                  </sc-for>
+                  <sc-for list="{{w.cols}}" as="c" hint-placeholder-count="14">
+                    <rect class="hit" x="{{c.hitX}}" y="0" width="{{c.hitW}}" height="{{w.ch}}" onClick="{{c.pick}}"></rect>
+                  </sc-for>
+                </svg>
+                <div class="xl-row">
+                  <sc-for list="{{w.xLabels}}" as="l" hint-placeholder-count="14">
+                    <div class="{{l.cls}}">{{l.text}}</div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+
+            <sc-if value="{{w.isLarge}}" hint-placeholder-val="{{true}}">
+              <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 12px; flex-grow: 1">
+                <div style="display: flex; height: 12px; gap: 2px">
+                  <div style="flex-grow: {{inGrow}}; background: var(--s0); border-radius: 6px 0 0 6px; display: flex; align-items: center; justify-content: center; font: 600 10px/12px var(--f); color: var(--on-prim)">{{inShare}}</div>
+                  <div style="flex-grow: {{outGrow}}; background: var(--s1); border-radius: 0 6px 6px 0; display: flex; align-items: center; justify-content: center; font: 600 10px/12px var(--f); color: var(--on-prim)">{{outShare}}</div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px">
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <div class="dot9" style="background: var(--s0)"></div>
+                    <div class="body" style="flex-grow: 1">Входные</div>
+                    <div class="name">{{inTotal}}</div>
+                    <div class="lab" style="width: 36px; text-align: right">{{inShare}}</div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px">
+                    <div class="dot9" style="background: var(--s1)"></div>
+                    <div class="body" style="flex-grow: 1">Выходные</div>
+                    <div class="name">{{outTotal}}</div>
+                    <div class="lab" style="width: 36px; text-align: right">{{outShare}}</div>
+                  </div>
+                </div>
+                <div class="foot" style="margin-top: auto">обновлено 14:32</div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"period":{"editor":"enum","options":["7","14","30"],"default":"14","section":"Данные"},"$preview":{"width":936,"height":1150}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: null };
+  }
+
+/*HELPERS*/
+
+  days() {
+    const all = [
+      ['22.07', 4.6, 1.7], ['23.07', 7.1, 2.5], ['24.07', 9.8, 3.5], ['25.07', 5.2, 1.9],
+      ['26.07', 1.9, 0.7], ['27.07', 2.4, 0.8], ['28.07', 8.6, 3.0], ['29.07', 12.1, 4.4],
+      ['30.07', 10.7, 3.9], ['31.07', 6.4, 2.3], ['01.08', 7.9, 2.8], ['02.08', 3.1, 1.1],
+      ['03.08', 2.6, 0.9], ['04.08', 9.2, 3.3], ['05.08', 11.6, 4.2], ['06.08', 8.1, 2.9],
+      ['07.08', 6.2, 2.1], ['08.08', 9.4, 3.4], ['09.08', 4.1, 1.5], ['10.08', 2.8, 0.9],
+      ['11.08', 11.2, 4.1], ['12.08', 13.6, 5.2], ['13.08', 8.9, 3.1], ['14.08', 10.4, 3.8],
+      ['15.08', 7.3, 2.6], ['16.08', 3.2, 1.1], ['17.08', 5.6, 2.0], ['18.08', 16.1, 6.0],
+      ['19.08', 9.8, 3.6], ['20.08', 9.1, 3.3],
+    ];
+    const n = Number(this.props.period || 14);
+    return all.slice(all.length - n);
+  }
+
+  tier(days, large) {
+    const n = days.length;
+    const totals = days.map((d) => d[1] + d[2]);
+    const axisMax = this.niceCeil(Math.max.apply(null, totals));
+    const cw = large ? 308 : 348;
+    const ch = large ? 150 : 60;
+    const top = 4;
+    const bottom = ch - 1;
+    const yOf = (v) => bottom - (v / axisMax) * (bottom - top);
+    const slot = cw / n;
+    const barW = Math.min(slot * 0.62, 28);
+    const sel = this.state.sel;
+    const hasSel = sel !== null && sel !== undefined && sel < n;
+
+    const cols = days.map((d, i) => {
+      const cx = slot * i + slot / 2;
+      const x = cx - barW / 2;
+      const yTop = yOf(d[1] + d[2]);
+      const yMid = yOf(d[1]);
+      const topH = Math.max(yMid - 2 - yTop, 0.5);
+      const isSel = hasSel && sel === i;
+      return {
+        x: x, w: barW, botY: yMid, botH: Math.max(bottom - yMid, 0.5),
+        topD: this.roundTop(x, yTop, barW, topH, 4),
+        selCls: isSel ? 'sel' : '',
+        op: hasSel && !isSel ? 0.3 : 1,
+        hitX: slot * i, hitW: slot,
+        pick: () => this.setState({ sel: isSel ? null : i }),
+      };
+    });
+
+    const every = Math.ceil(n / 7);
+    const xLabels = days.map((d, i) => {
+      const isLast = i === n - 1;
+      const regular = i % every === 0 && n - 1 - i >= every;
+      let cls = 'xl';
+      let text = '';
+      if (isLast) { cls = 'xl today end'; text = 'сегодня'; }
+      else if (regular) { text = d[0]; }
+      return { cls: cls, text: text };
+    });
+
+    const totalIn = days.reduce((a, d) => a + d[1], 0);
+    const totalOut = days.reduce((a, d) => a + d[2], 0);
+    const total = totalIn + totalOut;
+    const avg = total / n;
+    let peak = 0;
+    for (let i = 1; i < n; i++) if (totals[i] > totals[peak]) peak = i;
+
+    let readMain;
+    let readSub;
+    if (hasSel) {
+      const d = days[sel];
+      readMain = d[0] + ' · ' + this.compact(totals[sel] * 1000);
+      readSub = 'входные ' + this.compact(d[1] * 1000) + ' · выходные ' + this.compact(d[2] * 1000) +
+        ' · ' + this.signed((totals[sel] / avg - 1) * 100) + ' к среднему';
+    } else {
+      readMain = this.compact(total * 1000);
+      readSub = large
+        ? 'за ' + n + ' дней · пик ' + days[peak][0] + ' (' + this.compact(totals[peak] * 1000) + ') · в среднем ' + this.compact(avg * 1000) + ' в день'
+        : 'за ' + n + ' дней · в среднем ' + this.compact(avg * 1000) + ' в день';
+    }
+
+    return {
+      szCls: large ? 's4x4' : 's4x2',
+      readCls: large ? 'read-lg' : 'read',
+      isLarge: large, isSmall: !large,
+      sizeLabel: large ? '4×4 · 380 × 380' : '4×2 · 380 × 184',
+      cw: cw, ch: ch, vb: '0 0 ' + cw + ' ' + ch,
+      ylH: bottom + 6,
+      grid: [axisMax, axisMax / 2, 0].map((v) => ({ y: yOf(v) })),
+      yLabels: [axisMax, axisMax / 2, 0].map((v) => ({ text: this.compact(v * 1000) })),
+      cols: cols, xLabels: xLabels,
+      readMain: readMain, readSub: readSub,
+    };
+  }
+
+  renderVals() {
+    const days = this.days();
+    const totalIn = days.reduce((a, d) => a + d[1], 0);
+    const totalOut = days.reduce((a, d) => a + d[2], 0);
+    const total = totalIn + totalOut;
+    return {
+      tiers: [this.tier(days, false), this.tier(days, true)],
+      inTotal: this.compact(totalIn * 1000),
+      outTotal: this.compact(totalOut * 1000),
+      inShare: Math.round((totalIn / total) * 100) + '%',
+      outShare: Math.round((totalOut / total) * 100) + '%',
+      inGrow: Math.round((totalIn / total) * 1000),
+      outGrow: Math.round((totalOut / total) * 1000),
+    };
+  }
+}
+</script>
+</body>
+</html>

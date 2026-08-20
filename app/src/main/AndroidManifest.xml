@@ -86,9 +86,14 @@
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
 
-        <!-- Домашний виджет квот (локальный снимок, без сети) -->
+        <!--
+          Комплект домашних виджетов. Все читают локальный снимок из БД и никогда
+          не ходят в сеть; обновление приносит QuotaRefresher или WorkManager
+          через WidgetRefresh.refreshAll.
+        -->
         <receiver
             android:name=".widget.QuotaWidgetProvider"
+            android:label="@string/w_label_resources"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -96,6 +101,138 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/quota_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.TokensWidgetProvider"
+            android:label="@string/w_label_tokens"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/tokens_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.SpendWidgetProvider"
+            android:label="@string/w_label_spend"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/spend_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.SharesWidgetProvider"
+            android:label="@string/w_label_shares"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/shares_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.CallsWidgetProvider"
+            android:label="@string/w_label_calls"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/calls_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.StatusWidgetProvider"
+            android:label="@string/w_label_status"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/status_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.WindowsWidgetProvider"
+            android:label="@string/w_label_windows"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/windows_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BurnWidgetProvider"
+            android:label="@string/w_label_burn"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/burn_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.TrafficWidgetProvider"
+            android:label="@string/w_label_traffic"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/traffic_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.ModelsWidgetProvider"
+            android:label="@string/w_label_models"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/models_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.KeysWidgetProvider"
+            android:label="@string/w_label_keys"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/keys_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.SpeedWidgetProvider"
+            android:label="@string/w_label_speed"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/speed_widget_info" />
         </receiver>
 
     </application>

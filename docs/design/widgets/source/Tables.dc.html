@@ -1,0 +1,331 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+/*BASE_CSS*/
+    .th { font: 500 9px/14px var(--f); letter-spacing: 0.5px; color: var(--axis); }
+    .td { font: 400 12px/16px var(--f); color: var(--on); white-space: nowrap; }
+    .td-var { font: 500 12px/16px var(--f); color: var(--on-var); white-space: nowrap; }
+    .td-num { font: 500 12px/16px var(--f); color: var(--on); white-space: nowrap; text-align: right; }
+    .td-lg { font: 400 14px/20px var(--f); color: var(--on); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .td-lg-num { font: 500 14px/20px var(--f); color: var(--on); white-space: nowrap; text-align: right; }
+    .rowsel { background: var(--surf-high); }
+    .cell-model { overflow: hidden; text-overflow: ellipsis; }
+  </style>
+</helmet>
+<div class="page" style="width: 936px">
+
+  <div>
+    <div class="h1">AiGate — табличные виджеты</div>
+    <div class="h2">Последние вызовы (4×2, 4×4) и расход по API-ключам (4×2) · тап по строке подменяет строку-вывод</div>
+  </div>
+
+  <div class="light strip">
+    <div class="strip-cap">Светлая тема</div>
+    <div class="row">
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184 · последние вызовы</div>
+        <div class="w s4x2">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Последние вызовы</div>
+            <div class="sub">14:32</div>
+          </div>
+          <div class="read" style="margin-top: 2px">{{calls.readMain}}</div>
+          <div class="sub">{{calls.readSub}}</div>
+          <div style="display: flex; gap: 8px; margin-top: 6px">
+            <div class="th" style="width: 34px">Время</div>
+            <div class="th" style="flex-grow: 1">Модель</div>
+            <div class="th" style="width: 44px; text-align: right">Токены</div>
+            <div class="th" style="width: 46px; text-align: right">Расход</div>
+          </div>
+          <div class="divider" style="margin: 2px 0 3px"></div>
+          <div style="display: flex; flex-direction: column; gap: 3px">
+            <sc-for list="{{l.calls3}}" as="c" hint-placeholder-count="3">
+              <div class="{{c.rowCls}}" onClick="{{c.pick}}" style="display: flex; gap: 8px; align-items: center; cursor: pointer; border-radius: 6px; padding: 1px 4px; margin: 0 -4px">
+                <div class="td-var" style="width: 34px">{{c.time}}</div>
+                <div style="display: flex; align-items: center; gap: 6px; flex-grow: 1; overflow: hidden">
+                  <div class="dot9" style="background: {{c.brand}}"></div>
+                  <div class="td cell-model">{{c.model}}</div>
+                </div>
+                <div class="td-num" style="width: 44px">{{c.tokens}}</div>
+                <div class="td-num" style="width: 46px">{{c.usd}}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184 · расход по ключам</div>
+        <div class="w s4x2">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Расход по API-ключам</div>
+            <div class="sub">за август</div>
+          </div>
+          <div class="read" style="margin-top: 2px">{{keys.readMain}}</div>
+          <div class="sub">{{keys.readSub}}</div>
+          <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px">
+            <sc-for list="{{keys.rows}}" as="k" hint-placeholder-count="3">
+              <div onClick="{{k.pick}}" style="cursor: pointer; opacity: {{k.op}}">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <div class="td" style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis">{{k.label}}</div>
+                  <div class="td-num" style="width: 46px">{{k.usd}}</div>
+                  <div class="lab" style="width: 30px; text-align: right">{{k.share}}</div>
+                </div>
+                <div class="track" style="height: 8px; margin-top: 2px">
+                  <div class="p-normal" style="width: {{k.pct}}%; height: 8px; border-radius: 999px"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="row" style="margin-top: 20px">
+      <div>
+        <div class="size-cap">4×4 · 380 × 380 · последние вызовы</div>
+        <div class="w s4x4">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Последние вызовы</div>
+            <div class="sub">14:32</div>
+          </div>
+          <div class="read-lg" style="margin-top: 2px">{{calls.readMain}}</div>
+          <div class="sub">{{calls.readSub}}</div>
+          <div style="display: flex; gap: 8px; margin-top: 12px">
+            <div class="th" style="width: 38px">Время</div>
+            <div class="th" style="flex-grow: 1">Модель</div>
+            <div class="th" style="width: 48px; text-align: right">Токены</div>
+            <div class="th" style="width: 42px; text-align: right">Ответ</div>
+            <div class="th" style="width: 52px; text-align: right">Расход</div>
+          </div>
+          <div class="divider" style="margin: 3px 0 4px"></div>
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <sc-for list="{{l.calls8}}" as="c" hint-placeholder-count="8">
+              <div class="{{c.rowCls}}" onClick="{{c.pick}}" style="display: flex; gap: 8px; align-items: center; cursor: pointer; border-radius: 8px; padding: 2px 4px; margin: 0 -4px">
+                <div class="td-var" style="width: 38px">{{c.time}}</div>
+                <div style="display: flex; align-items: center; gap: 6px; flex-grow: 1; overflow: hidden">
+                  <div class="dot9" style="background: {{c.brand}}"></div>
+                  <div class="td-lg">{{c.model}}</div>
+                </div>
+                <div class="td-lg-num" style="width: 48px">{{c.tokens}}</div>
+                <div class="td-var" style="width: 42px; text-align: right">{{c.ms}}</div>
+                <div class="td-lg-num" style="width: 52px">{{c.usd}}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div class="foot" style="margin-top: auto">показаны 8 из 46 · обновлено 14:32</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dark strip">
+    <div class="strip-cap">Тёмная тема</div>
+    <div class="row">
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184 · последние вызовы</div>
+        <div class="w s4x2">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Последние вызовы</div>
+            <div class="sub">14:32</div>
+          </div>
+          <div class="read" style="margin-top: 2px">{{calls.readMain}}</div>
+          <div class="sub">{{calls.readSub}}</div>
+          <div style="display: flex; gap: 8px; margin-top: 6px">
+            <div class="th" style="width: 34px">Время</div>
+            <div class="th" style="flex-grow: 1">Модель</div>
+            <div class="th" style="width: 44px; text-align: right">Токены</div>
+            <div class="th" style="width: 46px; text-align: right">Расход</div>
+          </div>
+          <div class="divider" style="margin: 2px 0 3px"></div>
+          <div style="display: flex; flex-direction: column; gap: 3px">
+            <sc-for list="{{d.calls3}}" as="c" hint-placeholder-count="3">
+              <div class="{{c.rowCls}}" onClick="{{c.pick}}" style="display: flex; gap: 8px; align-items: center; cursor: pointer; border-radius: 6px; padding: 1px 4px; margin: 0 -4px">
+                <div class="td-var" style="width: 34px">{{c.time}}</div>
+                <div style="display: flex; align-items: center; gap: 6px; flex-grow: 1; overflow: hidden">
+                  <div class="dot9" style="background: {{c.brand}}"></div>
+                  <div class="td cell-model">{{c.model}}</div>
+                </div>
+                <div class="td-num" style="width: 44px">{{c.tokens}}</div>
+                <div class="td-num" style="width: 46px">{{c.usd}}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184 · расход по ключам</div>
+        <div class="w s4x2">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Расход по API-ключам</div>
+            <div class="sub">за август</div>
+          </div>
+          <div class="read" style="margin-top: 2px">{{keys.readMain}}</div>
+          <div class="sub">{{keys.readSub}}</div>
+          <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px">
+            <sc-for list="{{keys.rows}}" as="k" hint-placeholder-count="3">
+              <div onClick="{{k.pick}}" style="cursor: pointer; opacity: {{k.op}}">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <div class="td" style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis">{{k.label}}</div>
+                  <div class="td-num" style="width: 46px">{{k.usd}}</div>
+                  <div class="lab" style="width: 30px; text-align: right">{{k.share}}</div>
+                </div>
+                <div class="track" style="height: 8px; margin-top: 2px">
+                  <div class="p-normal" style="width: {{k.pct}}%; height: 8px; border-radius: 999px"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="row" style="margin-top: 20px">
+      <div>
+        <div class="size-cap">4×4 · 380 × 380 · последние вызовы</div>
+        <div class="w s4x4">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Последние вызовы</div>
+            <div class="sub">14:32</div>
+          </div>
+          <div class="read-lg" style="margin-top: 2px">{{calls.readMain}}</div>
+          <div class="sub">{{calls.readSub}}</div>
+          <div style="display: flex; gap: 8px; margin-top: 12px">
+            <div class="th" style="width: 38px">Время</div>
+            <div class="th" style="flex-grow: 1">Модель</div>
+            <div class="th" style="width: 48px; text-align: right">Токены</div>
+            <div class="th" style="width: 42px; text-align: right">Ответ</div>
+            <div class="th" style="width: 52px; text-align: right">Расход</div>
+          </div>
+          <div class="divider" style="margin: 3px 0 4px"></div>
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <sc-for list="{{d.calls8}}" as="c" hint-placeholder-count="8">
+              <div class="{{c.rowCls}}" onClick="{{c.pick}}" style="display: flex; gap: 8px; align-items: center; cursor: pointer; border-radius: 8px; padding: 2px 4px; margin: 0 -4px">
+                <div class="td-var" style="width: 38px">{{c.time}}</div>
+                <div style="display: flex; align-items: center; gap: 6px; flex-grow: 1; overflow: hidden">
+                  <div class="dot9" style="background: {{c.brand}}"></div>
+                  <div class="td-lg">{{c.model}}</div>
+                </div>
+                <div class="td-lg-num" style="width: 48px">{{c.tokens}}</div>
+                <div class="td-var" style="width: 42px; text-align: right">{{c.ms}}</div>
+                <div class="td-lg-num" style="width: 52px">{{c.usd}}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div class="foot" style="margin-top: auto">показаны 8 из 46 · обновлено 14:32</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"rows":{"editor":"enum","options":["5","8"],"default":"8","section":"Данные"},"$preview":{"width":936,"height":1600}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { call: null, key: null };
+  }
+
+/*HELPERS*/
+
+  usdApp(x) {
+    if (x > 0 && x < 0.01) return '$' + x.toFixed(4).replace(/0+$/, '').replace('.', ',');
+    return '$' + x.toFixed(2).replace('.', ',');
+  }
+
+  latency(ms) {
+    if (ms < 1000) return ms + ' мс';
+    return this.dec(ms / 1000) + ' с';
+  }
+
+  callData() {
+    return [
+      { time: '14:32', model: 'claude-sonnet-4-5', prov: 'Claude', hex: '#D97757', k: 8.4, usd: 0.094, ms: 812 },
+      { time: '14:28', model: 'deepseek-chat', prov: 'DeepSeek', hex: '#5786FE', k: 3.1, usd: 0.004, ms: 640 },
+      { time: '14:21', model: 'gpt-5-codex', prov: 'Codex', hex: '#10A37F', k: 12.7, usd: 0.131, ms: 1180 },
+      { time: '14:06', model: 'qwen2.5-7b', prov: 'Ollama', hex: '#1F2937', k: 5.2, usd: 0, ms: 340 },
+      { time: '13:58', model: 'claude-haiku-4-5', prov: 'Claude', hex: '#D97757', k: 1.9, usd: 0.008, ms: 410 },
+      { time: '13:44', model: 'gemini-2.0-flash', prov: 'Gemini', hex: '#8E75B2', k: 4.4, usd: 0.002, ms: 520 },
+      { time: '13:31', model: 'gpt-4o-mini', prov: 'Codex', hex: '#10A37F', k: 2.6, usd: 0.001, ms: 480 },
+      { time: '13:12', model: 'claude-sonnet-4-5', prov: 'Claude', hex: '#D97757', k: 9.8, usd: 0.110, ms: 870 },
+    ];
+  }
+
+  keyData() {
+    return [
+      { label: 'Рабочий ноутбук', usd: 6.20 },
+      { label: 'Скрипты', usd: 3.45 },
+      { label: 'Телефон', usd: 1.90 },
+    ];
+  }
+
+  callRows(dark, count) {
+    const sel = this.state.call;
+    const hasSel = sel !== null && sel !== undefined;
+    return this.callData().slice(0, count).map((c, i) => ({
+      time: c.time,
+      model: c.model,
+      brand: this.readable(c.hex, dark),
+      tokens: this.compact(c.k * 1000),
+      usd: this.usdApp(c.usd),
+      ms: this.latency(c.ms),
+      rowCls: hasSel && sel === i ? 'rowsel' : '',
+      pick: () => this.setState({ call: hasSel && sel === i ? null : i }),
+    }));
+  }
+
+  renderVals() {
+    const calls = this.callData();
+    const shown = Number(this.props.rows || 8);
+    const sel = this.state.call;
+    const hasSel = sel !== null && sel !== undefined;
+    const c = hasSel ? calls[sel] : null;
+
+    const keys = this.keyData();
+    const keyTotal = keys.reduce((a, k) => a + k.usd, 0);
+    const kSel = this.state.key;
+    const hasK = kSel !== null && kSel !== undefined;
+
+    return {
+      calls: {
+        readMain: c ? c.time + ' · ' + c.model : '46 вызовов',
+        readSub: c
+          ? c.prov + ' · ' + this.compact(c.k * 1000) + ' ток. · ' + this.usdApp(c.usd) + ' · ' + this.latency(c.ms)
+          : 'последний в 14:32 · за сегодня',
+      },
+      keys: {
+        readMain: hasK ? this.usdApp(keys[kSel].usd) : this.usdApp(keyTotal),
+        readSub: hasK
+          ? keys[kSel].label + ' · ' + Math.round((keys[kSel].usd / keyTotal) * 100) + '% месячного расхода'
+          : keys.length + ' ' + this.plural(keys.length, 'ключ', 'ключа', 'ключей') + ' · запросы без ключа не учтены',
+        rows: keys.map((k, i) => ({
+          label: k.label,
+          usd: this.usdApp(k.usd),
+          share: Math.round((k.usd / keyTotal) * 100) + '%',
+          pct: Math.round((k.usd / keys[0].usd) * 100),
+          op: hasK && kSel !== i ? 0.4 : 1,
+          pick: () => this.setState({ key: hasK && kSel === i ? null : i }),
+        })),
+      },
+      l: { calls3: this.callRows(false, 3), calls8: this.callRows(false, shown) },
+      d: { calls3: this.callRows(true, 3), calls8: this.callRows(true, shown) },
+    };
+  }
+}
+</script>
+</body>
+</html>

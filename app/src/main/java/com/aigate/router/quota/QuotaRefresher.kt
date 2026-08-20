@@ -6,7 +6,7 @@ import android.net.NetworkCapabilities
 import android.util.Log
 import com.aigate.router.data.db.AppDatabase
 import com.aigate.router.notify.QuotaNotifier
-import com.aigate.router.widget.QuotaWidgetProvider
+import com.aigate.router.widget.WidgetRefresh
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -81,7 +81,8 @@ object QuotaRefresher {
             )
 
             QuotaNotifier.checkAndNotify(context, db)
-            QuotaWidgetProvider.refresh(context)
+            // Данные обновились — будим весь комплект виджетов, а не только квоты.
+            WidgetRefresh.refreshAll(context)
             return true
         } catch (e: Exception) {
             Log.w(TAG, "Обновление квот не удалось: ${e.message}")

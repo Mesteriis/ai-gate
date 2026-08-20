@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AiGate — основы виджетов</title>
+<style>
+    :root { --f: Roboto, "Helvetica Neue", system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--f); }
+    a { color: #2E6FE0; } a:hover { color: #1E50B5; }
+
+    .light {
+      --wall: linear-gradient(155deg, #DCE9FA, #EDF3FC 60%, #E4EDFA);
+      --surf: #FFFFFF; --surf-low: #F4F8FE; --surf-high: #E4EDFA; --prim: #2E6FE0;
+      --on: #16233A; --on-var: #4A5A70; --outline: #DBE6F5;
+      --border: rgba(46, 111, 224, 0.102); --inner: rgba(255, 255, 255, 0);
+      --succ: #23B26A; --warn: #F0A020; --err: #E5484D; --unk: #94A3B8;
+      --succ-c: #DCF5E7; --on-succ-c: #115B36; --warn-c: #FDF0D8; --on-warn-c: #7A5510;
+      --err-c: #FBE0E1; --on-err-c: #8F2327; --info-c: #DFEAFC; --on-info-c: #1E50B5;
+      --neu-c: #E4EDFA; --on-neu-c: #4A5A70;
+      --s0: #2E6FE0; --s1: #C07E12; --s2: #8F62DE; --s3: #1D9A5E; --s4: #2492C8; --s5: #D25A68;
+      --grid: #DBE6F5; --axis: #7E90A8; --proj: #9DB8DF; --sel: #1E50B5; --p-normal: #2E6FE0;
+      --hero: linear-gradient(135deg, #FFFFFF, #E7F0FC); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #4A5A70; --on-prim: #FFFFFF;
+      --track-hero: #DCE6F5; --frame: rgba(22, 35, 58, 0.10);
+    }
+    .dark {
+      --wall: linear-gradient(155deg, #0A1220, #101B30 60%, #16233A);
+      --surf: #16233A; --surf-low: #1A2A45; --surf-high: #24355C; --prim: #56B6E8;
+      --on: #E6EEF9; --on-var: #A9BAD4; --outline: #2A3B5C;
+      --border: rgba(127, 196, 245, 0.141); --inner: rgba(255, 255, 255, 0.06);
+      --succ: #3BCB82; --warn: #F3B04E; --err: #F06A6F; --unk: #64748B;
+      --succ-c: #14402B; --on-succ-c: #A4E8C6; --warn-c: #4A3712; --on-warn-c: #F8DCA8;
+      --err-c: #54191C; --on-err-c: #F5B4B7; --info-c: #1D3560; --on-info-c: #C2D7FB;
+      --neu-c: #24355C; --on-neu-c: #A9BAD4;
+      --s0: #4A85EC; --s1: #C67F14; --s2: #9A6FE0; --s3: #2AA866; --s4: #2E9FD0; --s5: #D9636F;
+      --grid: #2A3B5C; --axis: #8FA3C0; --proj: #4A648F; --sel: #7FB3F6; --p-normal: #6AA2F8;
+      --hero: linear-gradient(135deg, #16233A, #1B3055); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #A9BAD4; --on-prim: #06121F;
+      --track-hero: #24355C; --frame: rgba(127, 196, 245, 0.16);
+    }
+
+    .page { background: #F1F4F9; display: flex; flex-direction: column; gap: 24px; padding: 32px; }
+    .h1 { font: 600 20px/28px var(--f); color: #16233A; }
+    .h2 { font: 400 14px/20px var(--f); color: #4A5A70; }
+    .strip { background: var(--wall); border-radius: 20px; padding: 24px 32px 28px; }
+    .strip-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 14px; }
+    .row { display: flex; gap: 32px; align-items: flex-start; }
+    .size-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 8px; }
+
+    .w { background: var(--surf); border: 1px solid var(--border); border-radius: 24px; padding: 16px;
+         box-shadow: inset 0 1px 0 var(--inner); overflow: hidden; position: relative;
+         display: flex; flex-direction: column; }
+    .w.hero { background: var(--hero); }
+    .w.hero::after { content: ''; position: absolute; top: -56px; right: -56px; width: 200px; height: 200px;
+         border-radius: 50%; background: radial-gradient(circle, var(--glow), rgba(127, 196, 245, 0)); pointer-events: none; }
+    .s2x1 { width: 184px; height: 86px; } .s4x1 { width: 380px; height: 86px; }
+    .s2x2 { width: 184px; height: 184px; } .s4x2 { width: 380px; height: 184px; } .s4x4 { width: 380px; height: 380px; }
+
+    .eyebrow { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .read { font: 700 18px/24px var(--f); color: var(--on); }
+    .read-lg { font: 600 20px/28px var(--f); color: var(--on); }
+    .read-xl { font: 700 24px/32px var(--f); color: var(--on); }
+    .read-xxl { font: 700 32px/40px var(--f); color: var(--on); }
+    .sub { font: 500 11px/16px var(--f); color: var(--on-var); }
+    .lab { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .body { font: 400 14px/20px var(--f); color: var(--on); }
+    .body-var { font: 400 14px/20px var(--f); color: var(--on-var); }
+    .name { font: 500 14px/20px var(--f); color: var(--on); }
+    .title-md { font: 500 16px/22px var(--f); color: var(--on); }
+    .foot { font: 500 11px/16px var(--f); color: var(--on-var); }
+
+    .chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 8px; padding: 3px 8px; font: 500 12px/16px var(--f); }
+    .chip.sm { font: 500 11px/14px var(--f); padding: 2px 6px; }
+    .chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .chip.succ { background: var(--succ-c); color: var(--on-succ-c); } .chip.succ .dot { background: var(--succ); }
+    .chip.warn { background: var(--warn-c); color: var(--on-warn-c); } .chip.warn .dot { background: var(--warn); }
+    .chip.err { background: var(--err-c); color: var(--on-err-c); } .chip.err .dot { background: var(--err); }
+    .chip.info { background: var(--info-c); color: var(--on-info-c); } .chip.info .dot { background: var(--prim); }
+    .chip.neu { background: var(--neu-c); color: var(--on-neu-c); } .chip.neu .dot { background: var(--unk); }
+
+    .xl-row { display: flex; height: 16px; margin-top: 2px; }
+    .xl { flex: 1 1 0; text-align: center; white-space: nowrap; font: 500 9px/16px var(--f); color: var(--axis); }
+    .xl.today { color: var(--prim); font-weight: 600; }
+    .xl.end { text-align: right; }
+    .yl-col { display: flex; flex-direction: column; justify-content: space-between; width: 34px; margin-right: 6px; }
+    .yl { font: 500 10px/12px var(--f); color: var(--axis); text-align: right; }
+
+    .p-free { background: var(--succ); } .p-normal { background: var(--p-normal); }
+    .p-conserve { background: var(--warn); } .p-critical { background: var(--err); }
+    .p-unknown { background: var(--unk); }
+    .pt-free { color: var(--succ); } .pt-normal { color: var(--p-normal); }
+    .pt-conserve { color: var(--warn); } .pt-critical { color: var(--err); }
+    .pt-unknown { color: var(--unk); }
+    .ring { fill: none; stroke-linecap: round; }
+    .r-track { stroke: var(--surf-high); }
+    .r-free { stroke: var(--succ); } .r-normal { stroke: var(--p-normal); }
+    .r-conserve { stroke: var(--warn); } .r-critical { stroke: var(--err); }
+    .r-unknown { stroke: var(--unk); }
+
+    .ln { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .ln-area { fill: var(--s0); opacity: 0.14; }
+    .ln-proj { fill: none; stroke: var(--proj); stroke-width: 2; stroke-dasharray: 7 5; stroke-linecap: round; }
+    .ln-ref { fill: none; stroke: var(--on-var); stroke-width: 1.5; stroke-dasharray: 6 4; }
+    .crosshair { stroke: var(--axis); stroke-width: 1; }
+    .dot-halo { fill: var(--surf); }
+    .dot-cur { fill: var(--s0); }
+    .dot-sel { fill: var(--sel); }
+    .dot-mark { fill: var(--s5); }
+    .spark { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .spark-area { fill: var(--s0); opacity: 0.16; }
+    .spark-b { fill: none; stroke: var(--s1); stroke-width: 2; stroke-linecap: round; }
+    .spark-b-area { fill: var(--s1); opacity: 0.16; }
+    .mark-lab { position: absolute; white-space: nowrap; font: 600 9px/12px var(--f); color: var(--s5); }
+
+    .av { border-radius: 28%; display: flex; align-items: center; justify-content: center;
+          font-weight: 700; flex-shrink: 0; }
+    .r-row { border-radius: 8px; padding: 4px 8px; margin: 0 -8px; }
+    .r-row.on { background: var(--surf-low); }
+
+    .bar-bot { fill: var(--s0); } .bar-bot.sel { fill: var(--sel); }
+    .bar-top { fill: var(--s1); }
+    .gridline { stroke: var(--grid); stroke-width: 1; }
+    .hit { cursor: pointer; fill: transparent; }
+    .dot9 { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .track { background: var(--surf-high); border-radius: 999px; overflow: hidden; }
+    .w.hero .track { background: var(--track-hero); }
+    .divider { height: 1px; background: var(--outline); }
+    .spec { font: 500 11px/16px var(--f); color: var(--cap); }
+    .spec b { color: var(--on); font-weight: 600; }
+    .sw-name { font: 400 12px/16px var(--f); color: var(--on); }
+    .sw-hex { font: 500 11px/16px var(--f); color: var(--on-var); }
+    .block-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 8px; }
+    .ramp-row { display: flex; align-items: baseline; gap: 12px; }
+    .ramp-note { font: 500 11px/16px var(--f); color: var(--on-var); white-space: nowrap; }
+  
+    html { background: #F1F4F9; }
+    body { display: flex; justify-content: center; }
+</style>
+</head>
+<body>
+
+<helmet>
+  <style>
+    :root { --f: Roboto, "Helvetica Neue", system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--f); }
+    a { color: #2E6FE0; } a:hover { color: #1E50B5; }
+
+    .light {
+      --wall: linear-gradient(155deg, #DCE9FA, #EDF3FC 60%, #E4EDFA);
+      --surf: #FFFFFF; --surf-low: #F4F8FE; --surf-high: #E4EDFA; --prim: #2E6FE0;
+      --on: #16233A; --on-var: #4A5A70; --outline: #DBE6F5;
+      --border: rgba(46, 111, 224, 0.102); --inner: rgba(255, 255, 255, 0);
+      --succ: #23B26A; --warn: #F0A020; --err: #E5484D; --unk: #94A3B8;
+      --succ-c: #DCF5E7; --on-succ-c: #115B36; --warn-c: #FDF0D8; --on-warn-c: #7A5510;
+      --err-c: #FBE0E1; --on-err-c: #8F2327; --info-c: #DFEAFC; --on-info-c: #1E50B5;
+      --neu-c: #E4EDFA; --on-neu-c: #4A5A70;
+      --s0: #2E6FE0; --s1: #C07E12; --s2: #8F62DE; --s3: #1D9A5E; --s4: #2492C8; --s5: #D25A68;
+      --grid: #DBE6F5; --axis: #7E90A8; --proj: #9DB8DF; --sel: #1E50B5; --p-normal: #2E6FE0;
+      --hero: linear-gradient(135deg, #FFFFFF, #E7F0FC); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #4A5A70; --on-prim: #FFFFFF;
+      --track-hero: #DCE6F5; --frame: rgba(22, 35, 58, 0.10);
+    }
+    .dark {
+      --wall: linear-gradient(155deg, #0A1220, #101B30 60%, #16233A);
+      --surf: #16233A; --surf-low: #1A2A45; --surf-high: #24355C; --prim: #56B6E8;
+      --on: #E6EEF9; --on-var: #A9BAD4; --outline: #2A3B5C;
+      --border: rgba(127, 196, 245, 0.141); --inner: rgba(255, 255, 255, 0.06);
+      --succ: #3BCB82; --warn: #F3B04E; --err: #F06A6F; --unk: #64748B;
+      --succ-c: #14402B; --on-succ-c: #A4E8C6; --warn-c: #4A3712; --on-warn-c: #F8DCA8;
+      --err-c: #54191C; --on-err-c: #F5B4B7; --info-c: #1D3560; --on-info-c: #C2D7FB;
+      --neu-c: #24355C; --on-neu-c: #A9BAD4;
+      --s0: #4A85EC; --s1: #C67F14; --s2: #9A6FE0; --s3: #2AA866; --s4: #2E9FD0; --s5: #D9636F;
+      --grid: #2A3B5C; --axis: #8FA3C0; --proj: #4A648F; --sel: #7FB3F6; --p-normal: #6AA2F8;
+      --hero: linear-gradient(135deg, #16233A, #1B3055); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #A9BAD4; --on-prim: #06121F;
+      --track-hero: #24355C; --frame: rgba(127, 196, 245, 0.16);
+    }
+
+    .page { background: #F1F4F9; display: flex; flex-direction: column; gap: 24px; padding: 32px; }
+    .h1 { font: 600 20px/28px var(--f); color: #16233A; }
+    .h2 { font: 400 14px/20px var(--f); color: #4A5A70; }
+    .strip { background: var(--wall); border-radius: 20px; padding: 24px 32px 28px; }
+    .strip-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 14px; }
+    .row { display: flex; gap: 32px; align-items: flex-start; }
+    .size-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 8px; }
+
+    .w { background: var(--surf); border: 1px solid var(--border); border-radius: 24px; padding: 16px;
+         box-shadow: inset 0 1px 0 var(--inner); overflow: hidden; position: relative;
+         display: flex; flex-direction: column; }
+    .w.hero { background: var(--hero); }
+    .w.hero::after { content: ''; position: absolute; top: -56px; right: -56px; width: 200px; height: 200px;
+         border-radius: 50%; background: radial-gradient(circle, var(--glow), rgba(127, 196, 245, 0)); pointer-events: none; }
+    .s2x1 { width: 184px; height: 86px; } .s4x1 { width: 380px; height: 86px; }
+    .s2x2 { width: 184px; height: 184px; } .s4x2 { width: 380px; height: 184px; } .s4x4 { width: 380px; height: 380px; }
+
+    .eyebrow { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .read { font: 700 18px/24px var(--f); color: var(--on); }
+    .read-lg { font: 600 20px/28px var(--f); color: var(--on); }
+    .read-xl { font: 700 24px/32px var(--f); color: var(--on); }
+    .read-xxl { font: 700 32px/40px var(--f); color: var(--on); }
+    .sub { font: 500 11px/16px var(--f); color: var(--on-var); }
+    .lab { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .body { font: 400 14px/20px var(--f); color: var(--on); }
+    .body-var { font: 400 14px/20px var(--f); color: var(--on-var); }
+    .name { font: 500 14px/20px var(--f); color: var(--on); }
+    .title-md { font: 500 16px/22px var(--f); color: var(--on); }
+    .foot { font: 500 11px/16px var(--f); color: var(--on-var); }
+
+    .chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 8px; padding: 3px 8px; font: 500 12px/16px var(--f); }
+    .chip.sm { font: 500 11px/14px var(--f); padding: 2px 6px; }
+    .chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .chip.succ { background: var(--succ-c); color: var(--on-succ-c); } .chip.succ .dot { background: var(--succ); }
+    .chip.warn { background: var(--warn-c); color: var(--on-warn-c); } .chip.warn .dot { background: var(--warn); }
+    .chip.err { background: var(--err-c); color: var(--on-err-c); } .chip.err .dot { background: var(--err); }
+    .chip.info { background: var(--info-c); color: var(--on-info-c); } .chip.info .dot { background: var(--prim); }
+    .chip.neu { background: var(--neu-c); color: var(--on-neu-c); } .chip.neu .dot { background: var(--unk); }
+
+    .xl-row { display: flex; height: 16px; margin-top: 2px; }
+    .xl { flex: 1 1 0; text-align: center; white-space: nowrap; font: 500 9px/16px var(--f); color: var(--axis); }
+    .xl.today { color: var(--prim); font-weight: 600; }
+    .xl.end { text-align: right; }
+    .yl-col { display: flex; flex-direction: column; justify-content: space-between; width: 34px; margin-right: 6px; }
+    .yl { font: 500 10px/12px var(--f); color: var(--axis); text-align: right; }
+
+    .p-free { background: var(--succ); } .p-normal { background: var(--p-normal); }
+    .p-conserve { background: var(--warn); } .p-critical { background: var(--err); }
+    .p-unknown { background: var(--unk); }
+    .pt-free { color: var(--succ); } .pt-normal { color: var(--p-normal); }
+    .pt-conserve { color: var(--warn); } .pt-critical { color: var(--err); }
+    .pt-unknown { color: var(--unk); }
+    .ring { fill: none; stroke-linecap: round; }
+    .r-track { stroke: var(--surf-high); }
+    .r-free { stroke: var(--succ); } .r-normal { stroke: var(--p-normal); }
+    .r-conserve { stroke: var(--warn); } .r-critical { stroke: var(--err); }
+    .r-unknown { stroke: var(--unk); }
+
+    .ln { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .ln-area { fill: var(--s0); opacity: 0.14; }
+    .ln-proj { fill: none; stroke: var(--proj); stroke-width: 2; stroke-dasharray: 7 5; stroke-linecap: round; }
+    .ln-ref { fill: none; stroke: var(--on-var); stroke-width: 1.5; stroke-dasharray: 6 4; }
+    .crosshair { stroke: var(--axis); stroke-width: 1; }
+    .dot-halo { fill: var(--surf); }
+    .dot-cur { fill: var(--s0); }
+    .dot-sel { fill: var(--sel); }
+    .dot-mark { fill: var(--s5); }
+    .spark { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .spark-area { fill: var(--s0); opacity: 0.16; }
+    .spark-b { fill: none; stroke: var(--s1); stroke-width: 2; stroke-linecap: round; }
+    .spark-b-area { fill: var(--s1); opacity: 0.16; }
+    .mark-lab { position: absolute; white-space: nowrap; font: 600 9px/12px var(--f); color: var(--s5); }
+
+    .av { border-radius: 28%; display: flex; align-items: center; justify-content: center;
+          font-weight: 700; flex-shrink: 0; }
+    .r-row { border-radius: 8px; padding: 4px 8px; margin: 0 -8px; }
+    .r-row.on { background: var(--surf-low); }
+
+    .bar-bot { fill: var(--s0); } .bar-bot.sel { fill: var(--sel); }
+    .bar-top { fill: var(--s1); }
+    .gridline { stroke: var(--grid); stroke-width: 1; }
+    .hit { cursor: pointer; fill: transparent; }
+    .dot9 { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .track { background: var(--surf-high); border-radius: 999px; overflow: hidden; }
+    .w.hero .track { background: var(--track-hero); }
+    .divider { height: 1px; background: var(--outline); }
+    .spec { font: 500 11px/16px var(--f); color: var(--cap); }
+    .spec b { color: var(--on); font-weight: 600; }
+    .sw-name { font: 400 12px/16px var(--f); color: var(--on); }
+    .sw-hex { font: 500 11px/16px var(--f); color: var(--on-var); }
+    .block-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 8px; }
+    .ramp-row { display: flex; align-items: baseline; gap: 12px; }
+    .ramp-note { font: 500 11px/16px var(--f); color: var(--on-var); white-space: nowrap; }
+  </style>
+</helmet>
+<div class="page" style="width: 1024px">
+
+  <div>
+    <div class="h1">AiGate — основы виджетов</div>
+    <div class="h2">Оболочка, строка-вывод, шкала давления, кольца, серии графиков, аватары и тип-рампа</div>
+  </div>
+
+  <div class="light strip">
+    <div class="strip-cap">Светлая тема</div>
+    <div style="display: flex; gap: 40px; align-items: flex-start">
+
+      <div style="width: 420px">
+        <div class="block-cap">Оболочка и строка-вывод</div>
+        <div style="display: flex; gap: 16px; align-items: flex-start">
+          <div class="w s4x2" style="width: 240px">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+              <div class="eyebrow">Токены по дням</div>
+              <div class="sub">14:32</div>
+            </div>
+            <div class="read" style="margin-top: 2px">160,4K</div>
+            <div class="sub">за 14 дней · в среднем 11,5K в день</div>
+            <div style="display: flex; gap: 4px; align-items: flex-end; margin-top: 10px; height: 44px">
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 4px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 10px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 6px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 16px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 3px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 7px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 2px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 5px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 7px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 19px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 9px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 23px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 5px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 15px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 6px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 17px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 4px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 12px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 2px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 5px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 3px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 9px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 10px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 27px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 6px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 16px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 6px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 15px; background: var(--s0)"></div>
+                </div>
+              
+            </div>
+            <div class="foot" style="margin-top: auto">обновлено 14:32</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 7px; padding-top: 2px">
+            <div class="spec"><b>Надстрочник</b> · 12/16, 500</div>
+            <div class="spec"><b>Значение</b> · 18/24, 700</div>
+            <div class="spec"><b>Подстрочник</b> · 11/16, 500</div>
+            <div class="spec"><b>График</b> · серии 0 и 1</div>
+            <div class="spec"><b>Футер</b> · 11/16, 500</div>
+            <div class="spec"><b>Оболочка</b> · радиус 24</div>
+            <div class="spec">бордер 1, отступ 16</div>
+            <div class="spec">тени нет — обои</div>
+          </div>
+        </div>
+
+        <div class="block-cap" style="margin-top: 20px">Шкала давления ресурса</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <div class="chip succ"><div class="dot"></div>Свободно</div>
+          <div class="chip info"><div class="dot"></div>Нормально</div>
+          <div class="chip warn"><div class="dot"></div>Экономить</div>
+          <div class="chip err"><div class="dot"></div>Критично</div>
+          <div class="chip neu"><div class="dot"></div>Нет данных</div>
+        </div>
+
+        <div class="block-cap" style="margin-top: 20px">Аватары провайдеров · монограмма на бренде</div>
+        <div style="display: flex; gap: 10px">
+          
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+              <div class="av" style="width: 36px; height: 36px; font-size: 13px; background: #D97757; color: #FFFFFF">Cl</div>
+              <div class="sw-hex">Claude</div>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+              <div class="av" style="width: 36px; height: 36px; font-size: 13px; background: #10A37F; color: #FFFFFF">Cx</div>
+              <div class="sw-hex">Codex</div>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+              <div class="av" style="width: 36px; height: 36px; font-size: 13px; background: #5786FE; color: #FFFFFF">Ds</div>
+              <div class="sw-hex">DeepSeek</div>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+              <div class="av" style="width: 36px; height: 36px; font-size: 13px; background: #8E75B2; color: #FFFFFF">Gm</div>
+              <div class="sw-hex">Gemini</div>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+              <div class="av" style="width: 36px; height: 36px; font-size: 13px; background: #0B0B0B; color: #FFFFFF">Cu</div>
+              <div class="sw-hex">Cursor</div>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+              <div class="av" style="width: 36px; height: 36px; font-size: 13px; background: #1F2937; color: #FFFFFF">Ol</div>
+              <div class="sw-hex">Ollama</div>
+            </div>
+          
+        </div>
+      </div>
+
+      <div style="width: 420px">
+        <div class="block-cap">Кольца квоты · заполнение — израсходованное</div>
+        <div style="display: flex; gap: 16px; align-items: flex-start">
+          
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+              <div style="position: relative; width: 86px; height: 86px">
+                <svg width="86" height="86" viewBox="0 0 86 86">
+                  <circle class="ring r-track" cx="43" cy="43" r="39" stroke-width="8"></circle>
+                  <path class="ring r-normal" d="M43,4 A39,39 0 1 1 16.30266286878115,71.42977646943505" stroke-width="8"></path>
+                </svg>
+                <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+                  <div class="title-md" style="font-weight: 700">38%</div>
+                </div>
+              </div>
+              <div class="sw-hex">нормально</div>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+              <div style="position: relative; width: 86px; height: 86px">
+                <svg width="86" height="86" viewBox="0 0 86 86">
+                  <circle class="ring r-track" cx="43" cy="43" r="39" stroke-width="8"></circle>
+                  <path class="ring r-critical" d="M43,4 A39,39 0 1 1 35.69212873115671,4.69079722158115" stroke-width="8"></path>
+                </svg>
+                <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+                  <div class="title-md" style="font-weight: 700">3%</div>
+                </div>
+              </div>
+              <div class="sw-hex">критично</div>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+              <div style="position: relative; width: 86px; height: 86px">
+                <svg width="86" height="86" viewBox="0 0 86 86">
+                  <circle class="ring r-track" cx="43" cy="43" r="39" stroke-width="8"></circle>
+                  <path class="ring r-unknown" d="" stroke-width="8"></path>
+                </svg>
+                <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+                  <div class="title-md" style="font-weight: 700">—</div>
+                </div>
+              </div>
+              <div class="sw-hex">нет данных</div>
+            </div>
+          
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+            <div style="position: relative; width: 86px; height: 86px">
+              <svg width="86" height="86" viewBox="0 0 86 86">
+                <circle class="ring r-track" cx="43" cy="43" r="39" stroke-width="8"></circle>
+                <path class="ring r-normal" d="M43,4 A39,39 0 1 1 16.30266286878115,71.42977646943505" stroke-width="8"></path>
+                <circle class="ring r-track" cx="43" cy="43" r="26.2" stroke-width="5"></circle>
+                <path class="ring r-conserve" d="M43,16.8 A26.2,26.2 0 1 1 25.06486582466835,23.901021961559024" stroke-width="5"></path>
+              </svg>
+              <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+                <div class="title-md" style="font-weight: 700">12%</div>
+              </div>
+            </div>
+            <div class="sw-hex">два окна</div>
+          </div>
+        </div>
+
+        <div class="block-cap" style="margin-top: 20px">Серии графиков · порядок закреплён за сущностью</div>
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          
+            <div style="display: flex; align-items: center; gap: 8px">
+              <div class="dot9" style="background: #2E6FE0"></div>
+              <div class="sw-name" style="flex-grow: 1">Серия 0 · азур · входные</div>
+              <div class="sw-hex">#2E6FE0</div>
+            </div>
+          
+            <div style="display: flex; align-items: center; gap: 8px">
+              <div class="dot9" style="background: #C07E12"></div>
+              <div class="sw-name" style="flex-grow: 1">Серия 1 · охра · выходные</div>
+              <div class="sw-hex">#C07E12</div>
+            </div>
+          
+            <div style="display: flex; align-items: center; gap: 8px">
+              <div class="dot9" style="background: #8F62DE"></div>
+              <div class="sw-name" style="flex-grow: 1">Серия 2 · фиолет</div>
+              <div class="sw-hex">#8F62DE</div>
+            </div>
+          
+            <div style="display: flex; align-items: center; gap: 8px">
+              <div class="dot9" style="background: #1D9A5E"></div>
+              <div class="sw-name" style="flex-grow: 1">Серия 3 · зелёный</div>
+              <div class="sw-hex">#1D9A5E</div>
+            </div>
+          
+            <div style="display: flex; align-items: center; gap: 8px">
+              <div class="dot9" style="background: #2492C8"></div>
+              <div class="sw-name" style="flex-grow: 1">Серия 4 · стальной циан</div>
+              <div class="sw-hex">#2492C8</div>
+            </div>
+          
+            <div style="display: flex; align-items: center; gap: 8px">
+              <div class="dot9" style="background: #D25A68"></div>
+              <div class="sw-name" style="flex-grow: 1">Серия 5 · коралл</div>
+              <div class="sw-hex">#D25A68</div>
+            </div>
+          
+        </div>
+
+        <div class="block-cap" style="margin-top: 20px">Тип-рампа</div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <div class="ramp-row"><div class="read-xxl">$12,38</div><div class="ramp-note">32/40, 700</div></div>
+          <div class="ramp-row"><div class="read-xl">160,4K</div><div class="ramp-note">24/32, 700</div></div>
+          <div class="ramp-row"><div class="read-lg">6 пулов</div><div class="ramp-note">20/28, 600</div></div>
+          <div class="ramp-row"><div class="read">812 мс</div><div class="ramp-note">18/24, 700</div></div>
+          <div class="ramp-row"><div class="title-md">Работает</div><div class="ramp-note">16/22, 500</div></div>
+          <div class="ramp-row"><div class="body">claude-sonnet-4-5</div><div class="ramp-note">14/20, 400</div></div>
+          <div class="ramp-row"><div class="lab">Ресурсы провайдеров</div><div class="ramp-note">12/16, 500</div></div>
+          <div class="ramp-row"><div class="sub">обновлено 14:32</div><div class="ramp-note">11/16, 500</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="dark strip">
+    <div class="strip-cap">Тёмная тема</div>
+    <div style="display: flex; gap: 40px; align-items: flex-start">
+
+      <div style="width: 420px">
+        <div class="block-cap">Оболочка и строка-вывод</div>
+        <div style="display: flex; gap: 16px; align-items: flex-start">
+          <div class="w s4x2" style="width: 240px">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+              <div class="eyebrow">Токены по дням</div>
+              <div class="sub">14:32</div>
+            </div>
+            <div class="read" style="margin-top: 2px">160,4K</div>
+            <div class="sub">за 14 дней · в среднем 11,5K в день</div>
+            <div style="display: flex; gap: 4px; align-items: flex-end; margin-top: 10px; height: 44px">
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 4px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 10px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 6px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 16px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 3px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 7px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 2px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 5px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 7px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 19px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 9px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 23px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 5px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 15px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 6px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 17px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 4px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 12px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 2px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 5px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 3px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 9px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 10px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 27px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 6px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 16px; background: var(--s0)"></div>
+                </div>
+              
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: 6px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: 15px; background: var(--s0)"></div>
+                </div>
+              
+            </div>
+            <div class="foot" style="margin-top: auto">обновлено 14:32</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 7px; padding-top: 2px">
+            <div class="spec"><b>Надстрочник</b> · 12/16, 500</div>
+            <div class="spec"><b>Значение</b> · 18/24, 700</div>
+            <div class="spec"><b>Подстрочник</b> · 11/16, 500</div>
+            <div class="spec"><b>График</b> · серии 0 и 1</div>
+            <div class="spec"><b>Футер</b> · 11/16, 500</div>
+            <div class="spec"><b>Оболочка</b> · радиус 24</div>
+            <div class="spec">бордер 1, отступ 16</div>
+            <div class="spec">внутренний блик 6%</div>
+          </div>
+        </div>
+
+        <div class="block-cap" style="margin-top: 20px">Шкала давления ресурса</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <div class="chip succ"><div class="dot"></div>Свободно</div>
+          <div class="chip info"><div class="dot"></div>Нормально</div>
+          <div class="chip warn"><div class="dot"></div>Экономить</div>
+          <div class="chip err"><div class="dot"></div>Критично</div>
+          <div class="chip neu"><div class="dot"></div>Нет данных</div>
+        </div>
+
+        <div class="block-cap" style="margin-top: 20px">Аватары провайдеров · монограмма на бренде</div>
+        <div style="display: flex; gap: 10px">
+          
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+              <div class="av" style="width: 36px; height: 36px; font-size: 13px; background: #D97757; color: #FFFFFF">Cl</div>
+              <div class="sw-hex">Claude</div>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+              <div class="av" style="width: 36px; height: 36px; font-size: 13px; background: #10A37F; color: #FFFFFF">Cx</div>
+              <div class="sw-hex">Codex</div>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+              <div class="av" style="width: 36px; height: 36px; font-size: 13px; background: #5786FE; color: #FFFFFF">Ds</div>
+              <div class="sw-hex">DeepSeek</div>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+              <div class="av" style="width: 36px; height: 36px; font-size: 13px; background: #8E75B2; color: #FFFFFF">Gm</div>
+              <div class="sw-hex">Gemini</div>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+              <div class="av" style="width: 36px; height: 36px; font-size: 13px; background: #A2A2A2; color: #FFFFFF">Cu</div>
+              <div class="sw-hex">Cursor</div>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+              <div class="av" style="width: 36px; height: 36px; font-size: 13px; background: #AAAEB3; color: #06121F">Ol</div>
+              <div class="sw-hex">Ollama</div>
+            </div>
+          
+        </div>
+      </div>
+
+      <div style="width: 420px">
+        <div class="block-cap">Кольца квоты · заполнение — израсходованное</div>
+        <div style="display: flex; gap: 16px; align-items: flex-start">
+          
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+              <div style="position: relative; width: 86px; height: 86px">
+                <svg width="86" height="86" viewBox="0 0 86 86">
+                  <circle class="ring r-track" cx="43" cy="43" r="39" stroke-width="8"></circle>
+                  <path class="ring r-normal" d="M43,4 A39,39 0 1 1 16.30266286878115,71.42977646943505" stroke-width="8"></path>
+                </svg>
+                <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+                  <div class="title-md" style="font-weight: 700">38%</div>
+                </div>
+              </div>
+              <div class="sw-hex">нормально</div>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+              <div style="position: relative; width: 86px; height: 86px">
+                <svg width="86" height="86" viewBox="0 0 86 86">
+                  <circle class="ring r-track" cx="43" cy="43" r="39" stroke-width="8"></circle>
+                  <path class="ring r-critical" d="M43,4 A39,39 0 1 1 35.69212873115671,4.69079722158115" stroke-width="8"></path>
+                </svg>
+                <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+                  <div class="title-md" style="font-weight: 700">3%</div>
+                </div>
+              </div>
+              <div class="sw-hex">критично</div>
+            </div>
+          
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+              <div style="position: relative; width: 86px; height: 86px">
+                <svg width="86" height="86" viewBox="0 0 86 86">
+                  <circle class="ring r-track" cx="43" cy="43" r="39" stroke-width="8"></circle>
+                  <path class="ring r-unknown" d="" stroke-width="8"></path>
+                </svg>
+                <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+                  <div class="title-md" style="font-weight: 700">—</div>
+                </div>
+              </div>
+              <div class="sw-hex">нет данных</div>
+            </div>
+          
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+            <div style="position: relative; width: 86px; height: 86px">
+              <svg width="86" height="86" viewBox="0 0 86 86">
+                <circle class="ring r-track" cx="43" cy="43" r="39" stroke-width="8"></circle>
+                <path class="ring r-normal" d="M43,4 A39,39 0 1 1 16.30266286878115,71.42977646943505" stroke-width="8"></path>
+                <circle class="ring r-track" cx="43" cy="43" r="26.2" stroke-width="5"></circle>
+                <path class="ring r-conserve" d="M43,16.8 A26.2,26.2 0 1 1 25.06486582466835,23.901021961559024" stroke-width="5"></path>
+              </svg>
+              <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+                <div class="title-md" style="font-weight: 700">12%</div>
+              </div>
+            </div>
+            <div class="sw-hex">два окна</div>
+          </div>
+        </div>
+
+        <div class="block-cap" style="margin-top: 20px">Серии графиков · порядок закреплён за сущностью</div>
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          
+            <div style="display: flex; align-items: center; gap: 8px">
+              <div class="dot9" style="background: #4A85EC"></div>
+              <div class="sw-name" style="flex-grow: 1">Серия 0 · азур · входные</div>
+              <div class="sw-hex">#4A85EC</div>
+            </div>
+          
+            <div style="display: flex; align-items: center; gap: 8px">
+              <div class="dot9" style="background: #C67F14"></div>
+              <div class="sw-name" style="flex-grow: 1">Серия 1 · охра · выходные</div>
+              <div class="sw-hex">#C67F14</div>
+            </div>
+          
+            <div style="display: flex; align-items: center; gap: 8px">
+              <div class="dot9" style="background: #9A6FE0"></div>
+              <div class="sw-name" style="flex-grow: 1">Серия 2 · фиолет</div>
+              <div class="sw-hex">#9A6FE0</div>
+            </div>
+          
+            <div style="display: flex; align-items: center; gap: 8px">
+              <div class="dot9" style="background: #2AA866"></div>
+              <div class="sw-name" style="flex-grow: 1">Серия 3 · зелёный</div>
+              <div class="sw-hex">#2AA866</div>
+            </div>
+          
+            <div style="display: flex; align-items: center; gap: 8px">
+              <div class="dot9" style="background: #2E9FD0"></div>
+              <div class="sw-name" style="flex-grow: 1">Серия 4 · стальной циан</div>
+              <div class="sw-hex">#2E9FD0</div>
+            </div>
+          
+            <div style="display: flex; align-items: center; gap: 8px">
+              <div class="dot9" style="background: #D9636F"></div>
+              <div class="sw-name" style="flex-grow: 1">Серия 5 · коралл</div>
+              <div class="sw-hex">#D9636F</div>
+            </div>
+          
+        </div>
+
+        <div class="block-cap" style="margin-top: 20px">Тип-рампа</div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <div class="ramp-row"><div class="read-xxl">$12,38</div><div class="ramp-note">32/40, 700</div></div>
+          <div class="ramp-row"><div class="read-xl">160,4K</div><div class="ramp-note">24/32, 700</div></div>
+          <div class="ramp-row"><div class="read-lg">6 пулов</div><div class="ramp-note">20/28, 600</div></div>
+          <div class="ramp-row"><div class="read">812 мс</div><div class="ramp-note">18/24, 700</div></div>
+          <div class="ramp-row"><div class="title-md">Работает</div><div class="ramp-note">16/22, 500</div></div>
+          <div class="ramp-row"><div class="body">claude-sonnet-4-5</div><div class="ramp-note">14/20, 400</div></div>
+          <div class="ramp-row"><div class="lab">Ресурсы провайдеров</div><div class="ramp-note">12/16, 500</div></div>
+          <div class="ramp-row"><div class="sub">обновлено 14:32</div><div class="ramp-note">11/16, 500</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

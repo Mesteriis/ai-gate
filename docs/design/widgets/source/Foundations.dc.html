@@ -1,0 +1,340 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+/*BASE_CSS*/
+    .spec { font: 500 11px/16px var(--f); color: var(--cap); }
+    .spec b { color: var(--on); font-weight: 600; }
+    .sw-name { font: 400 12px/16px var(--f); color: var(--on); }
+    .sw-hex { font: 500 11px/16px var(--f); color: var(--on-var); }
+    .block-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 8px; }
+    .ramp-row { display: flex; align-items: baseline; gap: 12px; }
+    .ramp-note { font: 500 11px/16px var(--f); color: var(--on-var); white-space: nowrap; }
+  </style>
+</helmet>
+<div class="page" style="width: 1024px">
+
+  <div>
+    <div class="h1">AiGate — основы виджетов</div>
+    <div class="h2">Оболочка, строка-вывод, шкала давления, кольца, серии графиков, аватары и тип-рампа</div>
+  </div>
+
+  <div class="light strip">
+    <div class="strip-cap">Светлая тема</div>
+    <div style="display: flex; gap: 40px; align-items: flex-start">
+
+      <div style="width: 420px">
+        <div class="block-cap">Оболочка и строка-вывод</div>
+        <div style="display: flex; gap: 16px; align-items: flex-start">
+          <div class="w s4x2" style="width: 240px">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+              <div class="eyebrow">Токены по дням</div>
+              <div class="sub">14:32</div>
+            </div>
+            <div class="read" style="margin-top: 2px">160,4K</div>
+            <div class="sub">за 14 дней · в среднем 11,5K в день</div>
+            <div style="display: flex; gap: 4px; align-items: flex-end; margin-top: 10px; height: 44px">
+              <sc-for list="{{mini}}" as="b" hint-placeholder-count="14">
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: {{b.outH}}px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: {{b.inH}}px; background: var(--s0)"></div>
+                </div>
+              </sc-for>
+            </div>
+            <div class="foot" style="margin-top: auto">обновлено 14:32</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 7px; padding-top: 2px">
+            <div class="spec"><b>Надстрочник</b> · 12/16, 500</div>
+            <div class="spec"><b>Значение</b> · 18/24, 700</div>
+            <div class="spec"><b>Подстрочник</b> · 11/16, 500</div>
+            <div class="spec"><b>График</b> · серии 0 и 1</div>
+            <div class="spec"><b>Футер</b> · 11/16, 500</div>
+            <div class="spec"><b>Оболочка</b> · радиус 24</div>
+            <div class="spec">бордер 1, отступ 16</div>
+            <div class="spec">тени нет — обои</div>
+          </div>
+        </div>
+
+        <div class="block-cap" style="margin-top: 20px">Шкала давления ресурса</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <div class="chip succ"><div class="dot"></div>Свободно</div>
+          <div class="chip info"><div class="dot"></div>Нормально</div>
+          <div class="chip warn"><div class="dot"></div>Экономить</div>
+          <div class="chip err"><div class="dot"></div>Критично</div>
+          <div class="chip neu"><div class="dot"></div>Нет данных</div>
+        </div>
+
+        <div class="block-cap" style="margin-top: 20px">Аватары провайдеров · монограмма на бренде</div>
+        <div style="display: flex; gap: 10px">
+          <sc-for list="{{l.avatars}}" as="a" hint-placeholder-count="6">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+              <div class="av" style="width: 36px; height: 36px; font-size: 13px; background: {{a.brand}}; color: {{a.ink}}">{{a.mono}}</div>
+              <div class="sw-hex">{{a.name}}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="width: 420px">
+        <div class="block-cap">Кольца квоты · заполнение — израсходованное</div>
+        <div style="display: flex; gap: 16px; align-items: flex-start">
+          <sc-for list="{{ringSamples}}" as="r" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+              <div style="position: relative; width: 86px; height: 86px">
+                <svg width="86" height="86" viewBox="0 0 86 86">
+                  <circle class="ring r-track" cx="43" cy="43" r="39" stroke-width="8"></circle>
+                  <path class="ring {{r.cls}}" d="{{r.d}}" stroke-width="8"></path>
+                </svg>
+                <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+                  <div class="title-md" style="font-weight: 700">{{r.center}}</div>
+                </div>
+              </div>
+              <div class="sw-hex">{{r.label}}</div>
+            </div>
+          </sc-for>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+            <div style="position: relative; width: 86px; height: 86px">
+              <svg width="86" height="86" viewBox="0 0 86 86">
+                <circle class="ring r-track" cx="43" cy="43" r="39" stroke-width="8"></circle>
+                <path class="ring {{dual.outerCls}}" d="{{dual.outerD}}" stroke-width="8"></path>
+                <circle class="ring r-track" cx="43" cy="43" r="26.2" stroke-width="5"></circle>
+                <path class="ring {{dual.innerCls}}" d="{{dual.innerD}}" stroke-width="5"></path>
+              </svg>
+              <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+                <div class="title-md" style="font-weight: 700">{{dual.center}}</div>
+              </div>
+            </div>
+            <div class="sw-hex">два окна</div>
+          </div>
+        </div>
+
+        <div class="block-cap" style="margin-top: 20px">Серии графиков · порядок закреплён за сущностью</div>
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <sc-for list="{{l.series}}" as="s" hint-placeholder-count="6">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <div class="dot9" style="background: {{s.hex}}"></div>
+              <div class="sw-name" style="flex-grow: 1">{{s.name}}</div>
+              <div class="sw-hex">{{s.hex}}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div class="block-cap" style="margin-top: 20px">Тип-рампа</div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <div class="ramp-row"><div class="read-xxl">$12,38</div><div class="ramp-note">32/40, 700</div></div>
+          <div class="ramp-row"><div class="read-xl">160,4K</div><div class="ramp-note">24/32, 700</div></div>
+          <div class="ramp-row"><div class="read-lg">6 пулов</div><div class="ramp-note">20/28, 600</div></div>
+          <div class="ramp-row"><div class="read">812 мс</div><div class="ramp-note">18/24, 700</div></div>
+          <div class="ramp-row"><div class="title-md">Работает</div><div class="ramp-note">16/22, 500</div></div>
+          <div class="ramp-row"><div class="body">claude-sonnet-4-5</div><div class="ramp-note">14/20, 400</div></div>
+          <div class="ramp-row"><div class="lab">Ресурсы провайдеров</div><div class="ramp-note">12/16, 500</div></div>
+          <div class="ramp-row"><div class="sub">обновлено 14:32</div><div class="ramp-note">11/16, 500</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="dark strip">
+    <div class="strip-cap">Тёмная тема</div>
+    <div style="display: flex; gap: 40px; align-items: flex-start">
+
+      <div style="width: 420px">
+        <div class="block-cap">Оболочка и строка-вывод</div>
+        <div style="display: flex; gap: 16px; align-items: flex-start">
+          <div class="w s4x2" style="width: 240px">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+              <div class="eyebrow">Токены по дням</div>
+              <div class="sub">14:32</div>
+            </div>
+            <div class="read" style="margin-top: 2px">160,4K</div>
+            <div class="sub">за 14 дней · в среднем 11,5K в день</div>
+            <div style="display: flex; gap: 4px; align-items: flex-end; margin-top: 10px; height: 44px">
+              <sc-for list="{{mini}}" as="b" hint-placeholder-count="14">
+                <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px">
+                  <div style="height: {{b.outH}}px; background: var(--s1); border-radius: 2px 2px 0 0"></div>
+                  <div style="height: {{b.inH}}px; background: var(--s0)"></div>
+                </div>
+              </sc-for>
+            </div>
+            <div class="foot" style="margin-top: auto">обновлено 14:32</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 7px; padding-top: 2px">
+            <div class="spec"><b>Надстрочник</b> · 12/16, 500</div>
+            <div class="spec"><b>Значение</b> · 18/24, 700</div>
+            <div class="spec"><b>Подстрочник</b> · 11/16, 500</div>
+            <div class="spec"><b>График</b> · серии 0 и 1</div>
+            <div class="spec"><b>Футер</b> · 11/16, 500</div>
+            <div class="spec"><b>Оболочка</b> · радиус 24</div>
+            <div class="spec">бордер 1, отступ 16</div>
+            <div class="spec">внутренний блик 6%</div>
+          </div>
+        </div>
+
+        <div class="block-cap" style="margin-top: 20px">Шкала давления ресурса</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <div class="chip succ"><div class="dot"></div>Свободно</div>
+          <div class="chip info"><div class="dot"></div>Нормально</div>
+          <div class="chip warn"><div class="dot"></div>Экономить</div>
+          <div class="chip err"><div class="dot"></div>Критично</div>
+          <div class="chip neu"><div class="dot"></div>Нет данных</div>
+        </div>
+
+        <div class="block-cap" style="margin-top: 20px">Аватары провайдеров · монограмма на бренде</div>
+        <div style="display: flex; gap: 10px">
+          <sc-for list="{{d.avatars}}" as="a" hint-placeholder-count="6">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+              <div class="av" style="width: 36px; height: 36px; font-size: 13px; background: {{a.brand}}; color: {{a.ink}}">{{a.mono}}</div>
+              <div class="sw-hex">{{a.name}}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="width: 420px">
+        <div class="block-cap">Кольца квоты · заполнение — израсходованное</div>
+        <div style="display: flex; gap: 16px; align-items: flex-start">
+          <sc-for list="{{ringSamples}}" as="r" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+              <div style="position: relative; width: 86px; height: 86px">
+                <svg width="86" height="86" viewBox="0 0 86 86">
+                  <circle class="ring r-track" cx="43" cy="43" r="39" stroke-width="8"></circle>
+                  <path class="ring {{r.cls}}" d="{{r.d}}" stroke-width="8"></path>
+                </svg>
+                <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+                  <div class="title-md" style="font-weight: 700">{{r.center}}</div>
+                </div>
+              </div>
+              <div class="sw-hex">{{r.label}}</div>
+            </div>
+          </sc-for>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+            <div style="position: relative; width: 86px; height: 86px">
+              <svg width="86" height="86" viewBox="0 0 86 86">
+                <circle class="ring r-track" cx="43" cy="43" r="39" stroke-width="8"></circle>
+                <path class="ring {{dual.outerCls}}" d="{{dual.outerD}}" stroke-width="8"></path>
+                <circle class="ring r-track" cx="43" cy="43" r="26.2" stroke-width="5"></circle>
+                <path class="ring {{dual.innerCls}}" d="{{dual.innerD}}" stroke-width="5"></path>
+              </svg>
+              <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+                <div class="title-md" style="font-weight: 700">{{dual.center}}</div>
+              </div>
+            </div>
+            <div class="sw-hex">два окна</div>
+          </div>
+        </div>
+
+        <div class="block-cap" style="margin-top: 20px">Серии графиков · порядок закреплён за сущностью</div>
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <sc-for list="{{d.series}}" as="s" hint-placeholder-count="6">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <div class="dot9" style="background: {{s.hex}}"></div>
+              <div class="sw-name" style="flex-grow: 1">{{s.name}}</div>
+              <div class="sw-hex">{{s.hex}}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div class="block-cap" style="margin-top: 20px">Тип-рампа</div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <div class="ramp-row"><div class="read-xxl">$12,38</div><div class="ramp-note">32/40, 700</div></div>
+          <div class="ramp-row"><div class="read-xl">160,4K</div><div class="ramp-note">24/32, 700</div></div>
+          <div class="ramp-row"><div class="read-lg">6 пулов</div><div class="ramp-note">20/28, 600</div></div>
+          <div class="ramp-row"><div class="read">812 мс</div><div class="ramp-note">18/24, 700</div></div>
+          <div class="ramp-row"><div class="title-md">Работает</div><div class="ramp-note">16/22, 500</div></div>
+          <div class="ramp-row"><div class="body">claude-sonnet-4-5</div><div class="ramp-note">14/20, 400</div></div>
+          <div class="ramp-row"><div class="lab">Ресурсы провайдеров</div><div class="ramp-note">12/16, 500</div></div>
+          <div class="ramp-row"><div class="sub">обновлено 14:32</div><div class="ramp-note">11/16, 500</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1024,"height":1500}}'>
+class Component extends DCLogic {
+
+/*HELPERS*/
+
+  renderVals() {
+    const days = [
+      [6.2, 2.1], [9.4, 3.4], [4.1, 1.5], [2.8, 0.9], [11.2, 4.1], [13.6, 5.2], [8.9, 3.1],
+      [10.4, 3.8], [7.3, 2.6], [3.2, 1.1], [5.6, 2.0], [16.1, 6.0], [9.8, 3.6], [9.1, 3.3],
+    ];
+    const max = 25;
+    const mini = days.map((d) => ({
+      inH: Math.max(Math.round((d[0] / max) * 42), 1),
+      outH: Math.max(Math.round((d[1] / max) * 42), 1),
+    }));
+
+    const ringSamples = [
+      { used: 0.62, center: '38%', label: 'нормально' },
+      { used: 0.97, center: '3%', label: 'критично' },
+      { used: 0, center: '—', label: 'нет данных' },
+    ].map((r, i) => ({
+      d: this.arc(43, 43, 39, 0, r.used * 360),
+      cls: i === 2 ? 'r-unknown' : 'r-' + this.pressure(1 - r.used),
+      center: r.center,
+      label: r.label,
+    }));
+
+    const dual = {
+      outerCls: 'r-' + this.pressure(1 - 0.62),
+      outerD: this.arc(43, 43, 39, 0, 0.62 * 360),
+      innerCls: 'r-' + this.pressure(1 - 0.88),
+      innerD: this.arc(43, 43, 26.2, 0, 0.88 * 360),
+      center: '12%',
+    };
+
+    const seriesL = [
+      { name: 'Серия 0 · азур · входные', hex: '#2E6FE0' },
+      { name: 'Серия 1 · охра · выходные', hex: '#C07E12' },
+      { name: 'Серия 2 · фиолет', hex: '#8F62DE' },
+      { name: 'Серия 3 · зелёный', hex: '#1D9A5E' },
+      { name: 'Серия 4 · стальной циан', hex: '#2492C8' },
+      { name: 'Серия 5 · коралл', hex: '#D25A68' },
+    ];
+    const seriesD = [
+      { name: 'Серия 0 · азур · входные', hex: '#4A85EC' },
+      { name: 'Серия 1 · охра · выходные', hex: '#C67F14' },
+      { name: 'Серия 2 · фиолет', hex: '#9A6FE0' },
+      { name: 'Серия 3 · зелёный', hex: '#2AA866' },
+      { name: 'Серия 4 · стальной циан', hex: '#2E9FD0' },
+      { name: 'Серия 5 · коралл', hex: '#D9636F' },
+    ];
+
+    const brands = [
+      { name: 'Claude', mono: 'Cl', hex: '#D97757' },
+      { name: 'Codex', mono: 'Cx', hex: '#10A37F' },
+      { name: 'DeepSeek', mono: 'Ds', hex: '#5786FE' },
+      { name: 'Gemini', mono: 'Gm', hex: '#8E75B2' },
+      { name: 'Cursor', mono: 'Cu', hex: '#0B0B0B' },
+      { name: 'Ollama', mono: 'Ol', hex: '#1F2937' },
+    ];
+    const avatars = (dark) => brands.map((b) => ({
+      name: b.name, mono: b.mono,
+      brand: this.readable(b.hex, dark),
+      ink: this.inkOn(this.readable(b.hex, dark)),
+    }));
+
+    return {
+      mini: mini,
+      ringSamples: ringSamples,
+      dual: dual,
+      l: { series: seriesL, avatars: avatars(false) },
+      d: { series: seriesD, avatars: avatars(true) },
+    };
+  }
+}
+</script>
+</body>
+</html>

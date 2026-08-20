@@ -1,0 +1,401 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+/*BASE_CSS*/
+    .lg-name { font: 500 12px/16px var(--f); color: var(--on); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lg-val { font: 500 12px/16px var(--f); color: var(--on); white-space: nowrap; }
+    .rank { font: 500 11px/16px var(--f); color: var(--axis); width: 12px; flex-shrink: 0; }
+    .mdl { font: 400 12px/16px var(--f); color: var(--on); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mdl-lg { font: 400 14px/20px var(--f); color: var(--on); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .out-c { color: var(--outline); }
+  </style>
+</helmet>
+<div class="page" style="width: 1156px">
+
+  <div>
+    <div class="h1">AiGate — доли провайдеров и топ моделей</div>
+    <div class="h2">Донат (2×2, 4×2) и ранжирование моделей (4×2, 4×4) · тап по сектору и по строке подменяет вывод</div>
+  </div>
+
+  <div class="light strip">
+    <div class="strip-cap">Светлая тема</div>
+    <div class="row">
+      <div>
+        <div class="size-cap">2×2 · 184 × 184 · доли</div>
+        <div class="w s2x2">
+          <div class="eyebrow">Доли провайдеров</div>
+          <div style="display: flex; justify-content: center; margin-top: 2px">
+            <div style="position: relative; width: 108px; height: 108px">
+              <svg width="108" height="108" viewBox="0 0 108 108">
+                <sc-for list="{{l.small}}" as="s" hint-placeholder-count="5">
+                  <path d="{{s.d}}" fill="none" stroke="{{s.color}}" stroke-width="{{s.sw}}" opacity="{{s.op}}"></path>
+                </sc-for>
+              </svg>
+              <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center">
+                <div class="title-md" style="font-weight: 700">{{center.main}}</div>
+                <div class="lab">{{center.sub}}</div>
+              </div>
+            </div>
+          </div>
+          <div class="foot" style="margin-top: auto">за август · обновлено 14:32</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184 · доли</div>
+        <div class="w s4x2">
+          <div class="eyebrow">Доли провайдеров</div>
+          <div style="display: flex; gap: 12px; margin-top: 2px">
+            <div style="position: relative; width: 132px; height: 132px; flex-shrink: 0">
+              <svg width="132" height="132" viewBox="0 0 132 132">
+                <sc-for list="{{l.big}}" as="s" hint-placeholder-count="5">
+                  <path d="{{s.d}}" fill="none" stroke="{{s.color}}" stroke-width="{{s.sw}}" opacity="{{s.op}}" onClick="{{s.pick}}" style="cursor: pointer"></path>
+                </sc-for>
+              </svg>
+              <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none">
+                <div class="read" style="font-size: 18px">{{center.main}}</div>
+                <div class="lab">{{center.sub}}</div>
+                <div class="lab out-c">{{center.third}}</div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1">
+              <sc-for list="{{l.legend}}" as="g" hint-placeholder-count="5">
+                <div onClick="{{g.pick}}" style="display: flex; align-items: center; gap: 8px; cursor: pointer; opacity: {{g.op}}">
+                  <div class="dot9" style="background: {{g.color}}"></div>
+                  <div class="lg-name" style="flex-grow: 1">{{g.name}}</div>
+                  <div class="lg-val">{{g.value}}</div>
+                  <div class="lab" style="width: 30px; text-align: right">{{g.share}}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184 · топ моделей</div>
+        <div class="w s4x2">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Топ моделей · цвет — провайдер</div>
+            <div class="sub">14:32</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px">
+            <sc-for list="{{l.models4}}" as="m" hint-placeholder-count="4">
+              <div onClick="{{m.pick}}" style="cursor: pointer; opacity: {{m.op}}">
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <div class="rank">{{m.rank}}</div>
+                  <div class="av" style="width: 16px; height: 16px; font-size: 6px; background: {{m.brand}}; color: {{m.ink}}">{{m.mono}}</div>
+                  <div class="mdl" style="flex-grow: 1">{{m.name}}</div>
+                  <div class="lg-val">{{m.value}}</div>
+                  <div class="lab" style="width: 30px; text-align: right">{{m.share}}</div>
+                </div>
+                <div class="track" style="height: 8px; margin-top: 3px">
+                  <div style="width: {{m.pct}}%; height: 8px; border-radius: 999px; background: {{m.brand}}"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top: 20px">
+      <div>
+        <div class="size-cap">4×4 · 380 × 380 · топ моделей</div>
+        <div class="w s4x4">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Топ моделей · цвет — провайдер</div>
+            <div class="sub">14:32</div>
+          </div>
+          <div class="read-lg" style="margin-top: 2px">{{models.readMain}}</div>
+          <div class="sub">{{models.readSub}}</div>
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px">
+            <sc-for list="{{l.models6}}" as="m" hint-placeholder-count="6">
+              <div onClick="{{m.pick}}" style="cursor: pointer; opacity: {{m.op}}">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <div class="rank">{{m.rank}}</div>
+                  <div class="av" style="width: 20px; height: 20px; font-size: 7px; background: {{m.brand}}; color: {{m.ink}}">{{m.mono}}</div>
+                  <div class="mdl-lg" style="flex-grow: 1">{{m.name}}</div>
+                  <div class="name">{{m.value}}</div>
+                  <div class="lab" style="width: 34px; text-align: right">{{m.share}}</div>
+                </div>
+                <div class="track" style="height: 10px; margin-top: 4px">
+                  <div style="width: {{m.pct}}%; height: 10px; border-radius: 999px; background: {{m.brand}}"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div class="foot" style="margin-top: auto">по локальному подсчёту — только через шлюз</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dark strip">
+    <div class="strip-cap">Тёмная тема</div>
+    <div class="row">
+      <div>
+        <div class="size-cap">2×2 · 184 × 184 · доли</div>
+        <div class="w s2x2">
+          <div class="eyebrow">Доли провайдеров</div>
+          <div style="display: flex; justify-content: center; margin-top: 2px">
+            <div style="position: relative; width: 108px; height: 108px">
+              <svg width="108" height="108" viewBox="0 0 108 108">
+                <sc-for list="{{d.small}}" as="s" hint-placeholder-count="5">
+                  <path d="{{s.d}}" fill="none" stroke="{{s.color}}" stroke-width="{{s.sw}}" opacity="{{s.op}}"></path>
+                </sc-for>
+              </svg>
+              <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center">
+                <div class="title-md" style="font-weight: 700">{{center.main}}</div>
+                <div class="lab">{{center.sub}}</div>
+              </div>
+            </div>
+          </div>
+          <div class="foot" style="margin-top: auto">за август · обновлено 14:32</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184 · доли</div>
+        <div class="w s4x2">
+          <div class="eyebrow">Доли провайдеров</div>
+          <div style="display: flex; gap: 12px; margin-top: 2px">
+            <div style="position: relative; width: 132px; height: 132px; flex-shrink: 0">
+              <svg width="132" height="132" viewBox="0 0 132 132">
+                <sc-for list="{{d.big}}" as="s" hint-placeholder-count="5">
+                  <path d="{{s.d}}" fill="none" stroke="{{s.color}}" stroke-width="{{s.sw}}" opacity="{{s.op}}" onClick="{{s.pick}}" style="cursor: pointer"></path>
+                </sc-for>
+              </svg>
+              <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none">
+                <div class="read" style="font-size: 18px">{{center.main}}</div>
+                <div class="lab">{{center.sub}}</div>
+                <div class="lab out-c">{{center.third}}</div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1">
+              <sc-for list="{{d.legend}}" as="g" hint-placeholder-count="5">
+                <div onClick="{{g.pick}}" style="display: flex; align-items: center; gap: 8px; cursor: pointer; opacity: {{g.op}}">
+                  <div class="dot9" style="background: {{g.color}}"></div>
+                  <div class="lg-name" style="flex-grow: 1">{{g.name}}</div>
+                  <div class="lg-val">{{g.value}}</div>
+                  <div class="lab" style="width: 30px; text-align: right">{{g.share}}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184 · топ моделей</div>
+        <div class="w s4x2">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Топ моделей · цвет — провайдер</div>
+            <div class="sub">14:32</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px">
+            <sc-for list="{{d.models4}}" as="m" hint-placeholder-count="4">
+              <div onClick="{{m.pick}}" style="cursor: pointer; opacity: {{m.op}}">
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <div class="rank">{{m.rank}}</div>
+                  <div class="av" style="width: 16px; height: 16px; font-size: 6px; background: {{m.brand}}; color: {{m.ink}}">{{m.mono}}</div>
+                  <div class="mdl" style="flex-grow: 1">{{m.name}}</div>
+                  <div class="lg-val">{{m.value}}</div>
+                  <div class="lab" style="width: 30px; text-align: right">{{m.share}}</div>
+                </div>
+                <div class="track" style="height: 8px; margin-top: 3px">
+                  <div style="width: {{m.pct}}%; height: 8px; border-radius: 999px; background: {{m.brand}}"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top: 20px">
+      <div>
+        <div class="size-cap">4×4 · 380 × 380 · топ моделей</div>
+        <div class="w s4x4">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Топ моделей · цвет — провайдер</div>
+            <div class="sub">14:32</div>
+          </div>
+          <div class="read-lg" style="margin-top: 2px">{{models.readMain}}</div>
+          <div class="sub">{{models.readSub}}</div>
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px">
+            <sc-for list="{{d.models6}}" as="m" hint-placeholder-count="6">
+              <div onClick="{{m.pick}}" style="cursor: pointer; opacity: {{m.op}}">
+                <div style="display: flex; align-items: center; gap: 8px">
+                  <div class="rank">{{m.rank}}</div>
+                  <div class="av" style="width: 20px; height: 20px; font-size: 7px; background: {{m.brand}}; color: {{m.ink}}">{{m.mono}}</div>
+                  <div class="mdl-lg" style="flex-grow: 1">{{m.name}}</div>
+                  <div class="name">{{m.value}}</div>
+                  <div class="lab" style="width: 34px; text-align: right">{{m.share}}</div>
+                </div>
+                <div class="track" style="height: 10px; margin-top: 4px">
+                  <div style="width: {{m.pct}}%; height: 10px; border-radius: 999px; background: {{m.brand}}"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div class="foot" style="margin-top: auto">по локальному подсчёту — только через шлюз</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"sectors":{"editor":"enum","options":["3","4","5"],"default":"5","section":"Данные"},"$preview":{"width":1156,"height":1600}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sec: null, mdl: null };
+  }
+
+/*HELPERS*/
+
+  providers() {
+    const all = [
+      { name: 'Claude', hex: '#D97757', usd: 5.70 },
+      { name: 'DeepSeek', hex: '#5786FE', usd: 2.72 },
+      { name: 'Codex', hex: '#10A37F', usd: 1.73 },
+      { name: 'OpenRouter', hex: '#64748B', usd: 1.36 },
+      { name: 'Gemini', hex: '#8E75B2', usd: 0.87 },
+    ];
+    const n = Number(this.props.sectors || 5);
+    if (n >= all.length) return all;
+    const head = all.slice(0, n - 1);
+    const rest = all.slice(n - 1).reduce((a, p) => a + p.usd, 0);
+    return head.concat([{ name: 'Прочие', hex: '#94A3B8', usd: rest }]);
+  }
+
+  models() {
+    return [
+      { name: 'claude-sonnet-4-5', prov: 'Claude', hex: '#D97757', mono: 'Cl', k: 65.8, ms: 812 },
+      { name: 'deepseek-chat', prov: 'DeepSeek', hex: '#5786FE', mono: 'Ds', k: 35.3, ms: 640 },
+      { name: 'gpt-5-codex', prov: 'Codex', hex: '#10A37F', mono: 'Cx', k: 22.5, ms: 1180 },
+      { name: 'qwen2.5-7b', prov: 'Ollama', hex: '#1F2937', mono: 'Ol', k: 14.4, ms: 340 },
+      { name: 'claude-haiku-4-5', prov: 'Claude', hex: '#D97757', mono: 'Cl', k: 12.8, ms: 410 },
+      { name: 'gemini-2.0-flash', prov: 'Gemini', hex: '#8E75B2', mono: 'Gm', k: 9.6, ms: 520 },
+    ];
+  }
+
+  donut(size, stroke, dark, clickable) {
+    const provs = this.providers();
+    const total = provs.reduce((a, p) => a + p.usd, 0);
+    const cx = size / 2;
+    const r = (size - stroke) / 2;
+    const gap = 3;
+    const sel = this.state.sec;
+    const hasSel = sel !== null && sel !== undefined;
+    let a = 0;
+    return provs.map((p, i) => {
+      const sweep = (p.usd / total) * 360;
+      const from = a + gap / 2;
+      const to = a + sweep - gap / 2;
+      a += sweep;
+      const isSel = hasSel && sel === i;
+      return {
+        d: this.arc(cx, cx, r, from, Math.max(to, from + 0.5)),
+        color: this.readable(p.hex, dark),
+        sw: isSel ? stroke + 4 : stroke,
+        op: hasSel && !isSel ? 0.3 : 1,
+        pick: clickable ? () => this.setState({ sec: isSel ? null : i }) : null,
+      };
+    });
+  }
+
+  legendRows(dark) {
+    const provs = this.providers();
+    const total = provs.reduce((a, p) => a + p.usd, 0);
+    const sel = this.state.sec;
+    const hasSel = sel !== null && sel !== undefined;
+    return provs.map((p, i) => ({
+      name: p.name,
+      value: this.usd(p.usd),
+      share: Math.round((p.usd / total) * 100) + '%',
+      color: this.readable(p.hex, dark),
+      op: hasSel && sel !== i ? 0.4 : 1,
+      pick: () => this.setState({ sec: hasSel && sel === i ? null : i }),
+    }));
+  }
+
+  modelRows(dark, count) {
+    const all = this.models();
+    const totalAll = all.reduce((a, m) => a + m.k, 0);
+    const shown = all.slice(0, count);
+    const maxK = shown[0].k;
+    const sel = this.state.mdl;
+    const hasSel = sel !== null && sel !== undefined;
+    return shown.map((m, i) => ({
+      rank: String(i + 1),
+      name: m.name,
+      mono: m.mono,
+      brand: this.readable(m.hex, dark),
+      ink: this.inkOn(this.readable(m.hex, dark)),
+      value: this.compact(m.k * 1000),
+      share: Math.round((m.k / totalAll) * 100) + '%',
+      pct: Math.round((m.k / maxK) * 100),
+      op: hasSel && sel !== i ? 0.4 : 1,
+      note: m.prov + ' · медиана ' + m.ms + ' мс',
+      pick: () => this.setState({ mdl: hasSel && sel === i ? null : i }),
+    }));
+  }
+
+  renderVals() {
+    const provs = this.providers();
+    const total = provs.reduce((a, p) => a + p.usd, 0);
+    const sel = this.state.sec;
+    const hasSel = sel !== null && sel !== undefined;
+    const sp = hasSel ? provs[sel] : null;
+
+    const all = this.models();
+    const totalK = all.reduce((a, m) => a + m.k, 0);
+    const mSel = this.state.mdl;
+    const hasM = mSel !== null && mSel !== undefined;
+    const sm = hasM ? all[mSel] : null;
+
+    return {
+      center: {
+        main: sp ? Math.round((sp.usd / total) * 100) + '%' : this.usd(total),
+        sub: sp ? sp.name : 'за август',
+        // Третья строка в центре доната появляется только у выбранного сектора:
+        // во внутренний круг 96 px не влезает ещё и подпись про число провайдеров.
+        third: sp ? this.usd(sp.usd) : '',
+      },
+      models: {
+        readMain: sm ? this.compact(sm.k * 1000) : this.compact(totalK * 1000),
+        readSub: sm
+          ? sm.name + ' · ' + sm.prov + ' · медиана ' + sm.ms + ' мс'
+          : all.length + ' ' + this.plural(all.length, 'модель', 'модели', 'моделей') + ' · за 14 дней',
+      },
+      l: {
+        small: this.donut(108, 14, false, false),
+        big: this.donut(132, 18, false, true),
+        legend: this.legendRows(false),
+        models4: this.modelRows(false, 4),
+        models6: this.modelRows(false, 6),
+      },
+      d: {
+        small: this.donut(108, 14, true, false),
+        big: this.donut(132, 18, true, true),
+        legend: this.legendRows(true),
+        models4: this.modelRows(true, 4),
+        models6: this.modelRows(true, 6),
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

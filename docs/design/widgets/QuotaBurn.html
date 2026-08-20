@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AiGate — квота и темп расхода</title>
+<style>
+    :root { --f: Roboto, "Helvetica Neue", system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--f); }
+    a { color: #2E6FE0; } a:hover { color: #1E50B5; }
+
+    .light {
+      --wall: linear-gradient(155deg, #DCE9FA, #EDF3FC 60%, #E4EDFA);
+      --surf: #FFFFFF; --surf-low: #F4F8FE; --surf-high: #E4EDFA; --prim: #2E6FE0;
+      --on: #16233A; --on-var: #4A5A70; --outline: #DBE6F5;
+      --border: rgba(46, 111, 224, 0.102); --inner: rgba(255, 255, 255, 0);
+      --succ: #23B26A; --warn: #F0A020; --err: #E5484D; --unk: #94A3B8;
+      --succ-c: #DCF5E7; --on-succ-c: #115B36; --warn-c: #FDF0D8; --on-warn-c: #7A5510;
+      --err-c: #FBE0E1; --on-err-c: #8F2327; --info-c: #DFEAFC; --on-info-c: #1E50B5;
+      --neu-c: #E4EDFA; --on-neu-c: #4A5A70;
+      --s0: #2E6FE0; --s1: #C07E12; --s2: #8F62DE; --s3: #1D9A5E; --s4: #2492C8; --s5: #D25A68;
+      --grid: #DBE6F5; --axis: #7E90A8; --proj: #9DB8DF; --sel: #1E50B5; --p-normal: #2E6FE0;
+      --hero: linear-gradient(135deg, #FFFFFF, #E7F0FC); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #4A5A70; --on-prim: #FFFFFF;
+      --track-hero: #DCE6F5; --frame: rgba(22, 35, 58, 0.10);
+    }
+    .dark {
+      --wall: linear-gradient(155deg, #0A1220, #101B30 60%, #16233A);
+      --surf: #16233A; --surf-low: #1A2A45; --surf-high: #24355C; --prim: #56B6E8;
+      --on: #E6EEF9; --on-var: #A9BAD4; --outline: #2A3B5C;
+      --border: rgba(127, 196, 245, 0.141); --inner: rgba(255, 255, 255, 0.06);
+      --succ: #3BCB82; --warn: #F3B04E; --err: #F06A6F; --unk: #64748B;
+      --succ-c: #14402B; --on-succ-c: #A4E8C6; --warn-c: #4A3712; --on-warn-c: #F8DCA8;
+      --err-c: #54191C; --on-err-c: #F5B4B7; --info-c: #1D3560; --on-info-c: #C2D7FB;
+      --neu-c: #24355C; --on-neu-c: #A9BAD4;
+      --s0: #4A85EC; --s1: #C67F14; --s2: #9A6FE0; --s3: #2AA866; --s4: #2E9FD0; --s5: #D9636F;
+      --grid: #2A3B5C; --axis: #8FA3C0; --proj: #4A648F; --sel: #7FB3F6; --p-normal: #6AA2F8;
+      --hero: linear-gradient(135deg, #16233A, #1B3055); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #A9BAD4; --on-prim: #06121F;
+      --track-hero: #24355C; --frame: rgba(127, 196, 245, 0.16);
+    }
+
+    .page { background: #F1F4F9; display: flex; flex-direction: column; gap: 24px; padding: 32px; }
+    .h1 { font: 600 20px/28px var(--f); color: #16233A; }
+    .h2 { font: 400 14px/20px var(--f); color: #4A5A70; }
+    .strip { background: var(--wall); border-radius: 20px; padding: 24px 32px 28px; }
+    .strip-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 14px; }
+    .row { display: flex; gap: 32px; align-items: flex-start; }
+    .size-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 8px; }
+
+    .w { background: var(--surf); border: 1px solid var(--border); border-radius: 24px; padding: 16px;
+         box-shadow: inset 0 1px 0 var(--inner); overflow: hidden; position: relative;
+         display: flex; flex-direction: column; }
+    .w.hero { background: var(--hero); }
+    .w.hero::after { content: ''; position: absolute; top: -56px; right: -56px; width: 200px; height: 200px;
+         border-radius: 50%; background: radial-gradient(circle, var(--glow), rgba(127, 196, 245, 0)); pointer-events: none; }
+    .s2x1 { width: 184px; height: 86px; } .s4x1 { width: 380px; height: 86px; }
+    .s2x2 { width: 184px; height: 184px; } .s4x2 { width: 380px; height: 184px; } .s4x4 { width: 380px; height: 380px; }
+
+    .eyebrow { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .read { font: 700 18px/24px var(--f); color: var(--on); }
+    .read-lg { font: 600 20px/28px var(--f); color: var(--on); }
+    .read-xl { font: 700 24px/32px var(--f); color: var(--on); }
+    .read-xxl { font: 700 32px/40px var(--f); color: var(--on); }
+    .sub { font: 500 11px/16px var(--f); color: var(--on-var); }
+    .lab { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .body { font: 400 14px/20px var(--f); color: var(--on); }
+    .body-var { font: 400 14px/20px var(--f); color: var(--on-var); }
+    .name { font: 500 14px/20px var(--f); color: var(--on); }
+    .title-md { font: 500 16px/22px var(--f); color: var(--on); }
+    .foot { font: 500 11px/16px var(--f); color: var(--on-var); }
+
+    .chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 8px; padding: 3px 8px; font: 500 12px/16px var(--f); }
+    .chip.sm { font: 500 11px/14px var(--f); padding: 2px 6px; }
+    .chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .chip.succ { background: var(--succ-c); color: var(--on-succ-c); } .chip.succ .dot { background: var(--succ); }
+    .chip.warn { background: var(--warn-c); color: var(--on-warn-c); } .chip.warn .dot { background: var(--warn); }
+    .chip.err { background: var(--err-c); color: var(--on-err-c); } .chip.err .dot { background: var(--err); }
+    .chip.info { background: var(--info-c); color: var(--on-info-c); } .chip.info .dot { background: var(--prim); }
+    .chip.neu { background: var(--neu-c); color: var(--on-neu-c); } .chip.neu .dot { background: var(--unk); }
+
+    .xl-row { display: flex; height: 16px; margin-top: 2px; }
+    .xl { flex: 1 1 0; text-align: center; white-space: nowrap; font: 500 9px/16px var(--f); color: var(--axis); }
+    .xl.today { color: var(--prim); font-weight: 600; }
+    .xl.end { text-align: right; }
+    .yl-col { display: flex; flex-direction: column; justify-content: space-between; width: 34px; margin-right: 6px; }
+    .yl { font: 500 10px/12px var(--f); color: var(--axis); text-align: right; }
+
+    .p-free { background: var(--succ); } .p-normal { background: var(--p-normal); }
+    .p-conserve { background: var(--warn); } .p-critical { background: var(--err); }
+    .p-unknown { background: var(--unk); }
+    .pt-free { color: var(--succ); } .pt-normal { color: var(--p-normal); }
+    .pt-conserve { color: var(--warn); } .pt-critical { color: var(--err); }
+    .pt-unknown { color: var(--unk); }
+    .ring { fill: none; stroke-linecap: round; }
+    .r-track { stroke: var(--surf-high); }
+    .r-free { stroke: var(--succ); } .r-normal { stroke: var(--p-normal); }
+    .r-conserve { stroke: var(--warn); } .r-critical { stroke: var(--err); }
+    .r-unknown { stroke: var(--unk); }
+
+    .ln { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .ln-area { fill: var(--s0); opacity: 0.14; }
+    .ln-proj { fill: none; stroke: var(--proj); stroke-width: 2; stroke-dasharray: 7 5; stroke-linecap: round; }
+    .ln-ref { fill: none; stroke: var(--on-var); stroke-width: 1.5; stroke-dasharray: 6 4; }
+    .crosshair { stroke: var(--axis); stroke-width: 1; }
+    .dot-halo { fill: var(--surf); }
+    .dot-cur { fill: var(--s0); }
+    .dot-sel { fill: var(--sel); }
+    .dot-mark { fill: var(--s5); }
+    .spark { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .spark-area { fill: var(--s0); opacity: 0.16; }
+    .spark-b { fill: none; stroke: var(--s1); stroke-width: 2; stroke-linecap: round; }
+    .spark-b-area { fill: var(--s1); opacity: 0.16; }
+    .mark-lab { position: absolute; white-space: nowrap; font: 600 9px/12px var(--f); color: var(--s5); }
+
+    .av { border-radius: 28%; display: flex; align-items: center; justify-content: center;
+          font-weight: 700; flex-shrink: 0; }
+    .r-row { border-radius: 8px; padding: 4px 8px; margin: 0 -8px; }
+    .r-row.on { background: var(--surf-low); }
+
+    .bar-bot { fill: var(--s0); } .bar-bot.sel { fill: var(--sel); }
+    .bar-top { fill: var(--s1); }
+    .gridline { stroke: var(--grid); stroke-width: 1; }
+    .hit { cursor: pointer; fill: transparent; }
+    .dot9 { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .track { background: var(--surf-high); border-radius: 999px; overflow: hidden; }
+    .w.hero .track { background: var(--track-hero); }
+    .divider { height: 1px; background: var(--outline); }
+    .win-name { font: 500 12px/16px var(--f); color: var(--on); }
+    .vdiv { width: 1px; background: var(--outline); align-self: stretch; }
+    .xabs { position: absolute; white-space: nowrap; font: 500 9px/16px var(--f); color: var(--axis); }
+    .xabs.today { color: var(--prim); font-weight: 600; }
+  
+    html { background: #F1F4F9; }
+    body { display: flex; justify-content: center; }
+</style>
+</head>
+<body>
+
+<helmet>
+  <style>
+    :root { --f: Roboto, "Helvetica Neue", system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--f); }
+    a { color: #2E6FE0; } a:hover { color: #1E50B5; }
+
+    .light {
+      --wall: linear-gradient(155deg, #DCE9FA, #EDF3FC 60%, #E4EDFA);
+      --surf: #FFFFFF; --surf-low: #F4F8FE; --surf-high: #E4EDFA; --prim: #2E6FE0;
+      --on: #16233A; --on-var: #4A5A70; --outline: #DBE6F5;
+      --border: rgba(46, 111, 224, 0.102); --inner: rgba(255, 255, 255, 0);
+      --succ: #23B26A; --warn: #F0A020; --err: #E5484D; --unk: #94A3B8;
+      --succ-c: #DCF5E7; --on-succ-c: #115B36; --warn-c: #FDF0D8; --on-warn-c: #7A5510;
+      --err-c: #FBE0E1; --on-err-c: #8F2327; --info-c: #DFEAFC; --on-info-c: #1E50B5;
+      --neu-c: #E4EDFA; --on-neu-c: #4A5A70;
+      --s0: #2E6FE0; --s1: #C07E12; --s2: #8F62DE; --s3: #1D9A5E; --s4: #2492C8; --s5: #D25A68;
+      --grid: #DBE6F5; --axis: #7E90A8; --proj: #9DB8DF; --sel: #1E50B5; --p-normal: #2E6FE0;
+      --hero: linear-gradient(135deg, #FFFFFF, #E7F0FC); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #4A5A70; --on-prim: #FFFFFF;
+      --track-hero: #DCE6F5; --frame: rgba(22, 35, 58, 0.10);
+    }
+    .dark {
+      --wall: linear-gradient(155deg, #0A1220, #101B30 60%, #16233A);
+      --surf: #16233A; --surf-low: #1A2A45; --surf-high: #24355C; --prim: #56B6E8;
+      --on: #E6EEF9; --on-var: #A9BAD4; --outline: #2A3B5C;
+      --border: rgba(127, 196, 245, 0.141); --inner: rgba(255, 255, 255, 0.06);
+      --succ: #3BCB82; --warn: #F3B04E; --err: #F06A6F; --unk: #64748B;
+      --succ-c: #14402B; --on-succ-c: #A4E8C6; --warn-c: #4A3712; --on-warn-c: #F8DCA8;
+      --err-c: #54191C; --on-err-c: #F5B4B7; --info-c: #1D3560; --on-info-c: #C2D7FB;
+      --neu-c: #24355C; --on-neu-c: #A9BAD4;
+      --s0: #4A85EC; --s1: #C67F14; --s2: #9A6FE0; --s3: #2AA866; --s4: #2E9FD0; --s5: #D9636F;
+      --grid: #2A3B5C; --axis: #8FA3C0; --proj: #4A648F; --sel: #7FB3F6; --p-normal: #6AA2F8;
+      --hero: linear-gradient(135deg, #16233A, #1B3055); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #A9BAD4; --on-prim: #06121F;
+      --track-hero: #24355C; --frame: rgba(127, 196, 245, 0.16);
+    }
+
+    .page { background: #F1F4F9; display: flex; flex-direction: column; gap: 24px; padding: 32px; }
+    .h1 { font: 600 20px/28px var(--f); color: #16233A; }
+    .h2 { font: 400 14px/20px var(--f); color: #4A5A70; }
+    .strip { background: var(--wall); border-radius: 20px; padding: 24px 32px 28px; }
+    .strip-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 14px; }
+    .row { display: flex; gap: 32px; align-items: flex-start; }
+    .size-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 8px; }
+
+    .w { background: var(--surf); border: 1px solid var(--border); border-radius: 24px; padding: 16px;
+         box-shadow: inset 0 1px 0 var(--inner); overflow: hidden; position: relative;
+         display: flex; flex-direction: column; }
+    .w.hero { background: var(--hero); }
+    .w.hero::after { content: ''; position: absolute; top: -56px; right: -56px; width: 200px; height: 200px;
+         border-radius: 50%; background: radial-gradient(circle, var(--glow), rgba(127, 196, 245, 0)); pointer-events: none; }
+    .s2x1 { width: 184px; height: 86px; } .s4x1 { width: 380px; height: 86px; }
+    .s2x2 { width: 184px; height: 184px; } .s4x2 { width: 380px; height: 184px; } .s4x4 { width: 380px; height: 380px; }
+
+    .eyebrow { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .read { font: 700 18px/24px var(--f); color: var(--on); }
+    .read-lg { font: 600 20px/28px var(--f); color: var(--on); }
+    .read-xl { font: 700 24px/32px var(--f); color: var(--on); }
+    .read-xxl { font: 700 32px/40px var(--f); color: var(--on); }
+    .sub { font: 500 11px/16px var(--f); color: var(--on-var); }
+    .lab { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .body { font: 400 14px/20px var(--f); color: var(--on); }
+    .body-var { font: 400 14px/20px var(--f); color: var(--on-var); }
+    .name { font: 500 14px/20px var(--f); color: var(--on); }
+    .title-md { font: 500 16px/22px var(--f); color: var(--on); }
+    .foot { font: 500 11px/16px var(--f); color: var(--on-var); }
+
+    .chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 8px; padding: 3px 8px; font: 500 12px/16px var(--f); }
+    .chip.sm { font: 500 11px/14px var(--f); padding: 2px 6px; }
+    .chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .chip.succ { background: var(--succ-c); color: var(--on-succ-c); } .chip.succ .dot { background: var(--succ); }
+    .chip.warn { background: var(--warn-c); color: var(--on-warn-c); } .chip.warn .dot { background: var(--warn); }
+    .chip.err { background: var(--err-c); color: var(--on-err-c); } .chip.err .dot { background: var(--err); }
+    .chip.info { background: var(--info-c); color: var(--on-info-c); } .chip.info .dot { background: var(--prim); }
+    .chip.neu { background: var(--neu-c); color: var(--on-neu-c); } .chip.neu .dot { background: var(--unk); }
+
+    .xl-row { display: flex; height: 16px; margin-top: 2px; }
+    .xl { flex: 1 1 0; text-align: center; white-space: nowrap; font: 500 9px/16px var(--f); color: var(--axis); }
+    .xl.today { color: var(--prim); font-weight: 600; }
+    .xl.end { text-align: right; }
+    .yl-col { display: flex; flex-direction: column; justify-content: space-between; width: 34px; margin-right: 6px; }
+    .yl { font: 500 10px/12px var(--f); color: var(--axis); text-align: right; }
+
+    .p-free { background: var(--succ); } .p-normal { background: var(--p-normal); }
+    .p-conserve { background: var(--warn); } .p-critical { background: var(--err); }
+    .p-unknown { background: var(--unk); }
+    .pt-free { color: var(--succ); } .pt-normal { color: var(--p-normal); }
+    .pt-conserve { color: var(--warn); } .pt-critical { color: var(--err); }
+    .pt-unknown { color: var(--unk); }
+    .ring { fill: none; stroke-linecap: round; }
+    .r-track { stroke: var(--surf-high); }
+    .r-free { stroke: var(--succ); } .r-normal { stroke: var(--p-normal); }
+    .r-conserve { stroke: var(--warn); } .r-critical { stroke: var(--err); }
+    .r-unknown { stroke: var(--unk); }
+
+    .ln { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .ln-area { fill: var(--s0); opacity: 0.14; }
+    .ln-proj { fill: none; stroke: var(--proj); stroke-width: 2; stroke-dasharray: 7 5; stroke-linecap: round; }
+    .ln-ref { fill: none; stroke: var(--on-var); stroke-width: 1.5; stroke-dasharray: 6 4; }
+    .crosshair { stroke: var(--axis); stroke-width: 1; }
+    .dot-halo { fill: var(--surf); }
+    .dot-cur { fill: var(--s0); }
+    .dot-sel { fill: var(--sel); }
+    .dot-mark { fill: var(--s5); }
+    .spark { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .spark-area { fill: var(--s0); opacity: 0.16; }
+    .spark-b { fill: none; stroke: var(--s1); stroke-width: 2; stroke-linecap: round; }
+    .spark-b-area { fill: var(--s1); opacity: 0.16; }
+    .mark-lab { position: absolute; white-space: nowrap; font: 600 9px/12px var(--f); color: var(--s5); }
+
+    .av { border-radius: 28%; display: flex; align-items: center; justify-content: center;
+          font-weight: 700; flex-shrink: 0; }
+    .r-row { border-radius: 8px; padding: 4px 8px; margin: 0 -8px; }
+    .r-row.on { background: var(--surf-low); }
+
+    .bar-bot { fill: var(--s0); } .bar-bot.sel { fill: var(--sel); }
+    .bar-top { fill: var(--s1); }
+    .gridline { stroke: var(--grid); stroke-width: 1; }
+    .hit { cursor: pointer; fill: transparent; }
+    .dot9 { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .track { background: var(--surf-high); border-radius: 999px; overflow: hidden; }
+    .w.hero .track { background: var(--track-hero); }
+    .divider { height: 1px; background: var(--outline); }
+    .win-name { font: 500 12px/16px var(--f); color: var(--on); }
+    .vdiv { width: 1px; background: var(--outline); align-self: stretch; }
+    .xabs { position: absolute; white-space: nowrap; font: 500 9px/16px var(--f); color: var(--axis); }
+    .xabs.today { color: var(--prim); font-weight: 600; }
+  </style>
+</helmet>
+<div class="page" style="width: 1156px">
+
+  <div>
+    <div class="h1">AiGate — квота и темп расхода</div>
+    <div class="h2">Окна Claude (4×1, 2×2) и темп сгорания квоты (4×2) · тап по точке подменяет строку-вывод</div>
+  </div>
+
+  <div class="light strip">
+    <div class="strip-cap">Светлая тема</div>
+    <div class="row">
+
+      <div>
+        <div class="size-cap">4×1 · 380 × 86 · квота Claude</div>
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            
+              <div style="display: flex; align-items: center; gap: 6px; flex-grow: 1">
+                <svg width="44" height="44" viewBox="0 0 44 44">
+                  <circle class="ring r-track" cx="22" cy="22" r="19" stroke-width="6"></circle>
+                  <path class="ring r-normal" d="M22,3 A19,19 0 1 1 8.99360498735492,35.85040392100682" stroke-width="6"></path>
+                </svg>
+                <div>
+                  <div class="win-name">Claude · 5 ч</div>
+                  <div class="sub">израсходовано 62%</div>
+                  <div class="sub">сброс через 3 ч</div>
+                </div>
+              </div>
+            
+              <div style="display: flex; align-items: center; gap: 6px; flex-grow: 1">
+                <svg width="44" height="44" viewBox="0 0 44 44">
+                  <circle class="ring r-track" cx="22" cy="22" r="19" stroke-width="6"></circle>
+                  <path class="ring r-conserve" d="M22,3 A19,19 0 1 1 8.99360498735491,8.149596078993184" stroke-width="6"></path>
+                </svg>
+                <div>
+                  <div class="win-name">неделя</div>
+                  <div class="sub">израсходовано 88%</div>
+                  <div class="sub">сброс через 2 дн</div>
+                </div>
+              </div>
+            
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">2×2 · 184 × 184</div>
+        <div class="w s2x2">
+          <div class="eyebrow">Claude · квота</div>
+          <div style="display: flex; justify-content: center; margin-top: 2px">
+            <div style="position: relative; width: 96px; height: 96px">
+              <svg width="96" height="96" viewBox="0 0 96 96">
+                <circle class="ring r-track" cx="48" cy="48" r="44" stroke-width="8"></circle>
+                <path class="ring r-normal" d="M48,4 A44,44 0 1 1 17.879927339137712,80.07461960654211" stroke-width="8"></path>
+                <circle class="ring r-track" cx="48" cy="48" r="30.7" stroke-width="5"></circle>
+                <path class="ring r-conserve" d="M48,17.3 A30.7,30.7 0 1 1 26.98440384798925,25.620663138162673" stroke-width="5"></path>
+              </svg>
+              <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+                <div class="title-md" style="font-weight: 700">12%</div>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: auto">
+            <div class="chip warn"><div class="dot"></div>Экономить</div>
+            <div class="sub">неделя · через 2 дн</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184 · темп расхода</div>
+        <div class="w s4x2">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Темп расхода квоты · Claude 5 ч</div>
+            <div class="chip warn sm">раньше сброса</div>
+          </div>
+          <div class="read" style="margin-top: 2px">38%</div>
+          <div class="sub">хватит до 15:46 · сброс в 17:32</div>
+          <div style="position: relative; margin-top: 8px">
+            <svg width="348" height="60" viewBox="0 0 348 60">
+              
+                <line class="gridline" x1="0" y1="4" x2="348" y2="4"></line>
+              
+                <line class="gridline" x1="0" y1="31.5" x2="348" y2="31.5"></line>
+              
+                <line class="gridline" x1="0" y1="59" x2="348" y2="59"></line>
+              
+              <path class="ln-area" d="M0,4 L11.6,6.621666666666663 L23.2,9.84833333333333 L34.800000000000004,12.195 L46.4,15.641666666666659 L58,18.09833333333333 L69.60000000000001,20.775000000000006 L81.2,24.111666666666665 L92.8,26.568333333333335 L104.39999999999999,29.904999999999998 L116,32.361666666666665 L127.6,35.03833333333333 L139.20000000000002,38.099999999999994 L139.20000000000002,60 L0,60 Z"></path>
+              <path class="ln-proj" d="M139.20000000000002,38.099999999999994 L224.5161290322581,59"></path>
+              <path class="ln" d="M0,4 L11.6,6.621666666666663 L23.2,9.84833333333333 L34.800000000000004,12.195 L46.4,15.641666666666659 L58,18.09833333333333 L69.60000000000001,20.775000000000006 L81.2,24.111666666666665 L92.8,26.568333333333335 L104.39999999999999,29.904999999999998 L116,32.361666666666665 L127.6,35.03833333333333 L139.20000000000002,38.099999999999994"></path>
+              
+                <circle class="dot-halo" cx="224.5161290322581" cy="59" r="6.5"></circle>
+                <circle class="dot-mark" cx="224.5161290322581" cy="59" r="4.5"></circle>
+              
+              <circle class="dot-halo" cx="139.20000000000002" cy="38.099999999999994" r="6.5"></circle>
+              <circle class="dot-cur" cx="139.20000000000002" cy="38.099999999999994" r="4.5"></circle>
+              
+              
+                <rect class="hit" x="0" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="5.8" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="17.4" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="29.000000000000004" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="40.6" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="52.2" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="63.80000000000001" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="75.4" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="87" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="98.6" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="110.2" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="121.8" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="133.4" y="0" width="11.6" height="60"></rect>
+              
+            </svg>
+            <div style="position: relative; height: 16px">
+              
+                <div class="xabs" style="left: 0px; transform: translateX(0)">12:32</div>
+              
+                <div class="xabs today" style="left: 139.20000000000002px; transform: translateX(-50%)">14:32</div>
+              
+                <div class="xabs" style="left: 348px; transform: translateX(-100%)">17:32</div>
+              
+            </div>
+            <div class="mark-lab" style="left: 232.5161290322581px; top: 45px">15:46</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="dark strip">
+    <div class="strip-cap">Тёмная тема</div>
+    <div class="row">
+
+      <div>
+        <div class="size-cap">4×1 · 380 × 86 · квота Claude</div>
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            
+              <div style="display: flex; align-items: center; gap: 6px; flex-grow: 1">
+                <svg width="44" height="44" viewBox="0 0 44 44">
+                  <circle class="ring r-track" cx="22" cy="22" r="19" stroke-width="6"></circle>
+                  <path class="ring r-normal" d="M22,3 A19,19 0 1 1 8.99360498735492,35.85040392100682" stroke-width="6"></path>
+                </svg>
+                <div>
+                  <div class="win-name">Claude · 5 ч</div>
+                  <div class="sub">израсходовано 62%</div>
+                  <div class="sub">сброс через 3 ч</div>
+                </div>
+              </div>
+            
+              <div style="display: flex; align-items: center; gap: 6px; flex-grow: 1">
+                <svg width="44" height="44" viewBox="0 0 44 44">
+                  <circle class="ring r-track" cx="22" cy="22" r="19" stroke-width="6"></circle>
+                  <path class="ring r-conserve" d="M22,3 A19,19 0 1 1 8.99360498735491,8.149596078993184" stroke-width="6"></path>
+                </svg>
+                <div>
+                  <div class="win-name">неделя</div>
+                  <div class="sub">израсходовано 88%</div>
+                  <div class="sub">сброс через 2 дн</div>
+                </div>
+              </div>
+            
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">2×2 · 184 × 184</div>
+        <div class="w s2x2">
+          <div class="eyebrow">Claude · квота</div>
+          <div style="display: flex; justify-content: center; margin-top: 2px">
+            <div style="position: relative; width: 96px; height: 96px">
+              <svg width="96" height="96" viewBox="0 0 96 96">
+                <circle class="ring r-track" cx="48" cy="48" r="44" stroke-width="8"></circle>
+                <path class="ring r-normal" d="M48,4 A44,44 0 1 1 17.879927339137712,80.07461960654211" stroke-width="8"></path>
+                <circle class="ring r-track" cx="48" cy="48" r="30.7" stroke-width="5"></circle>
+                <path class="ring r-conserve" d="M48,17.3 A30.7,30.7 0 1 1 26.98440384798925,25.620663138162673" stroke-width="5"></path>
+              </svg>
+              <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+                <div class="title-md" style="font-weight: 700">12%</div>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: auto">
+            <div class="chip warn"><div class="dot"></div>Экономить</div>
+            <div class="sub">неделя · через 2 дн</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184 · темп расхода</div>
+        <div class="w s4x2">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Темп расхода квоты · Claude 5 ч</div>
+            <div class="chip warn sm">раньше сброса</div>
+          </div>
+          <div class="read" style="margin-top: 2px">38%</div>
+          <div class="sub">хватит до 15:46 · сброс в 17:32</div>
+          <div style="position: relative; margin-top: 8px">
+            <svg width="348" height="60" viewBox="0 0 348 60">
+              
+                <line class="gridline" x1="0" y1="4" x2="348" y2="4"></line>
+              
+                <line class="gridline" x1="0" y1="31.5" x2="348" y2="31.5"></line>
+              
+                <line class="gridline" x1="0" y1="59" x2="348" y2="59"></line>
+              
+              <path class="ln-area" d="M0,4 L11.6,6.621666666666663 L23.2,9.84833333333333 L34.800000000000004,12.195 L46.4,15.641666666666659 L58,18.09833333333333 L69.60000000000001,20.775000000000006 L81.2,24.111666666666665 L92.8,26.568333333333335 L104.39999999999999,29.904999999999998 L116,32.361666666666665 L127.6,35.03833333333333 L139.20000000000002,38.099999999999994 L139.20000000000002,60 L0,60 Z"></path>
+              <path class="ln-proj" d="M139.20000000000002,38.099999999999994 L224.5161290322581,59"></path>
+              <path class="ln" d="M0,4 L11.6,6.621666666666663 L23.2,9.84833333333333 L34.800000000000004,12.195 L46.4,15.641666666666659 L58,18.09833333333333 L69.60000000000001,20.775000000000006 L81.2,24.111666666666665 L92.8,26.568333333333335 L104.39999999999999,29.904999999999998 L116,32.361666666666665 L127.6,35.03833333333333 L139.20000000000002,38.099999999999994"></path>
+              
+                <circle class="dot-halo" cx="224.5161290322581" cy="59" r="6.5"></circle>
+                <circle class="dot-mark" cx="224.5161290322581" cy="59" r="4.5"></circle>
+              
+              <circle class="dot-halo" cx="139.20000000000002" cy="38.099999999999994" r="6.5"></circle>
+              <circle class="dot-cur" cx="139.20000000000002" cy="38.099999999999994" r="4.5"></circle>
+              
+              
+                <rect class="hit" x="0" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="5.8" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="17.4" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="29.000000000000004" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="40.6" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="52.2" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="63.80000000000001" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="75.4" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="87" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="98.6" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="110.2" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="121.8" y="0" width="11.6" height="60"></rect>
+              
+                <rect class="hit" x="133.4" y="0" width="11.6" height="60"></rect>
+              
+            </svg>
+            <div style="position: relative; height: 16px">
+              
+                <div class="xabs" style="left: 0px; transform: translateX(0)">12:32</div>
+              
+                <div class="xabs today" style="left: 139.20000000000002px; transform: translateX(-50%)">14:32</div>
+              
+                <div class="xabs" style="left: 348px; transform: translateX(-100%)">17:32</div>
+              
+            </div>
+            <div class="mark-lab" style="left: 232.5161290322581px; top: 45px">15:46</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

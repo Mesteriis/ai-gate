@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Только отладочная сборка: экран-галерея виджетов, из которого снимаются
+  скриншоты для README и магазина. В релиз не попадает.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <activity
+            android:name=".widget.WidgetGalleryActivity"
+            android:exported="true"
+            android:label="AiGate — галерея виджетов"
+            android:theme="@style/Theme.MyApplication" />
+    </application>
+
+</manifest>

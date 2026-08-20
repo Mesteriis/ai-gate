@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Последние вызовы"
+        android:textSize="12sp"
+        android:textColor="@color/w_on_var"
+        android:maxLines="1" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text="Время и модель"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@color/w_on"
+        android:maxLines="1" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="токены и расход"
+        android:textSize="11sp"
+        android:textColor="@color/w_on_var"
+        android:maxLines="1" />
+</LinearLayout>

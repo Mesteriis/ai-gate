@@ -1,0 +1,387 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+/*BASE_CSS*/
+    .phone { width: 412px; border-radius: 44px; padding: 16px; background: var(--wall);
+             display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--frame); }
+    .phone-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: #4A5A70; margin-bottom: 8px; }
+    .mname { font: 500 14px/20px var(--f); color: var(--on); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pool-title { font: 500 12px/16px var(--f); color: var(--on); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pool-right { font: 600 12px/16px var(--f); white-space: nowrap; }
+    .win-name { font: 500 12px/16px var(--f); color: var(--on); }
+    .vdiv { width: 1px; background: var(--outline); align-self: stretch; }
+  </style>
+</helmet>
+<div class="page" style="width: 944px">
+
+  <div>
+    <div class="h1">AiGate — комплект виджетов домашнего экрана</div>
+    <div class="h2">Курируемая раскладка на телефоне 412 dp · слева светлая тема, справа тёмная</div>
+  </div>
+
+  <div style="display: flex; gap: 40px; align-items: flex-start">
+
+    <div class="light">
+      <div class="phone-cap">Светлая тема</div>
+      <div class="phone">
+
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color: var(--prim)">
+              <path d="M4 21 L4 11 A8 8 0 0 1 20 11 L20 21"></path>
+              <path d="M12 21 L12 13"></path>
+            </svg>
+            <div style="width: 104px">
+              <div style="display: flex; align-items: center; gap: 6px">
+                <div class="dot9" style="background: var(--succ)"></div>
+                <div class="read">Работает</div>
+              </div>
+              <div class="sub">порт 8889</div>
+            </div>
+            <div class="vdiv"></div>
+            <div style="flex-grow: 1; overflow: hidden">
+              <div class="eyebrow">Следующий запрос обслужит</div>
+              <div class="mname">claude-sonnet-4-5</div>
+              <div class="sub">Claude · быстрейшая по замерам</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="w hero s4x2">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Ресурсы провайдеров</div>
+            <div class="sub">14:32</div>
+          </div>
+          <div class="read" style="margin-top: 2px">6 пулов</div>
+          <div class="sub">3 требуют внимания · критично у Codex</div>
+          <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px">
+            <sc-for list="{{l.pools}}" as="p" hint-placeholder-count="3">
+              <div>
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <div class="av" style="width: 16px; height: 16px; font-size: 6px; background: {{p.brand}}; color: {{p.ink}}">{{p.mono}}</div>
+                  <div class="pool-title" style="flex-grow: 1">{{p.title}}</div>
+                  <div class="pool-right {{p.ptCls}}">{{p.right}}</div>
+                </div>
+                <div class="track" style="height: 6px; margin-top: 4px">
+                  <div class="{{p.pCls}}" style="width: {{p.pct}}%; height: 6px; border-radius: 999px"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <sc-for list="{{rings}}" as="v" hint-placeholder-count="2">
+              <div style="display: flex; align-items: center; gap: 6px; flex-grow: 1">
+                <svg width="44" height="44" viewBox="0 0 44 44">
+                  <circle class="ring r-track" cx="22" cy="22" r="19" stroke-width="6"></circle>
+                  <path class="ring {{v.ringCls}}" d="{{v.ringD}}" stroke-width="6"></path>
+                </svg>
+                <div>
+                  <div class="win-name">{{v.name}}</div>
+                  <div class="sub">израсходовано {{v.usedPct}}</div>
+                  <div class="sub">{{v.reset}}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px">
+          <div class="w s2x2">
+            <div class="eyebrow">Доли провайдеров</div>
+            <div style="display: flex; justify-content: center; margin-top: 2px">
+              <div style="position: relative; width: 108px; height: 108px">
+                <svg width="108" height="108" viewBox="0 0 108 108">
+                  <sc-for list="{{l.donut}}" as="s" hint-placeholder-count="5">
+                    <path d="{{s.d}}" fill="none" stroke="{{s.color}}" stroke-width="14"></path>
+                  </sc-for>
+                </svg>
+                <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center">
+                  <div class="title-md" style="font-weight: 700">$12,38</div>
+                  <div class="lab">за август</div>
+                </div>
+              </div>
+            </div>
+            <div class="foot" style="margin-top: auto">обновлено 14:32</div>
+          </div>
+
+          <div class="w s2x2">
+            <div class="eyebrow">Расход за месяц</div>
+            <div class="read-xxl" style="margin-top: 2px">$12,38</div>
+            <div class="sub">за август · день 20 из 31</div>
+            <div style="margin-top: auto">
+              <svg width="152" height="30" viewBox="0 0 152 30">
+                <path class="spark-area" d="{{spark.area}}"></path>
+                <path class="spark" d="{{spark.line}}"></path>
+                <circle class="dot-halo" cx="{{spark.x}}" cy="{{spark.y}}" r="4.5"></circle>
+                <circle class="dot-cur" cx="{{spark.x}}" cy="{{spark.y}}" r="3"></circle>
+              </svg>
+              <div class="sub">прогноз $19,19</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <div style="display: flex; align-items: center; gap: 8px; flex-grow: 1">
+              <div style="flex-grow: 1">
+                <div class="read">812 мс</div>
+                <div class="sub">TTFT · медиана</div>
+              </div>
+              <svg width="72" height="26" viewBox="0 0 72 26" style="flex-shrink: 0">
+                <path class="spark-area" d="{{speed.ttftArea}}"></path>
+                <path class="spark" d="{{speed.ttftLine}}"></path>
+              </svg>
+            </div>
+            <div class="vdiv"></div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-grow: 1">
+              <div style="flex-grow: 1">
+                <div class="read">42,6 ток/с</div>
+                <div class="sub">TPS · медиана</div>
+              </div>
+              <svg width="72" height="26" viewBox="0 0 72 26" style="flex-shrink: 0">
+                <path class="spark-b-area" d="{{speed.tpsArea}}"></path>
+                <path class="spark-b" d="{{speed.tpsLine}}"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="dark">
+      <div class="phone-cap">Тёмная тема</div>
+      <div class="phone">
+
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color: var(--prim)">
+              <path d="M4 21 L4 11 A8 8 0 0 1 20 11 L20 21"></path>
+              <path d="M12 21 L12 13"></path>
+            </svg>
+            <div style="width: 104px">
+              <div style="display: flex; align-items: center; gap: 6px">
+                <div class="dot9" style="background: var(--succ)"></div>
+                <div class="read">Работает</div>
+              </div>
+              <div class="sub">порт 8889</div>
+            </div>
+            <div class="vdiv"></div>
+            <div style="flex-grow: 1; overflow: hidden">
+              <div class="eyebrow">Следующий запрос обслужит</div>
+              <div class="mname">claude-sonnet-4-5</div>
+              <div class="sub">Claude · быстрейшая по замерам</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="w hero s4x2">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Ресурсы провайдеров</div>
+            <div class="sub">14:32</div>
+          </div>
+          <div class="read" style="margin-top: 2px">6 пулов</div>
+          <div class="sub">3 требуют внимания · критично у Codex</div>
+          <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px">
+            <sc-for list="{{d.pools}}" as="p" hint-placeholder-count="3">
+              <div>
+                <div style="display: flex; align-items: center; gap: 6px">
+                  <div class="av" style="width: 16px; height: 16px; font-size: 6px; background: {{p.brand}}; color: {{p.ink}}">{{p.mono}}</div>
+                  <div class="pool-title" style="flex-grow: 1">{{p.title}}</div>
+                  <div class="pool-right {{p.ptCls}}">{{p.right}}</div>
+                </div>
+                <div class="track" style="height: 6px; margin-top: 4px">
+                  <div class="{{p.pCls}}" style="width: {{p.pct}}%; height: 6px; border-radius: 999px"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <sc-for list="{{rings}}" as="v" hint-placeholder-count="2">
+              <div style="display: flex; align-items: center; gap: 6px; flex-grow: 1">
+                <svg width="44" height="44" viewBox="0 0 44 44">
+                  <circle class="ring r-track" cx="22" cy="22" r="19" stroke-width="6"></circle>
+                  <path class="ring {{v.ringCls}}" d="{{v.ringD}}" stroke-width="6"></path>
+                </svg>
+                <div>
+                  <div class="win-name">{{v.name}}</div>
+                  <div class="sub">израсходовано {{v.usedPct}}</div>
+                  <div class="sub">{{v.reset}}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px">
+          <div class="w s2x2">
+            <div class="eyebrow">Доли провайдеров</div>
+            <div style="display: flex; justify-content: center; margin-top: 2px">
+              <div style="position: relative; width: 108px; height: 108px">
+                <svg width="108" height="108" viewBox="0 0 108 108">
+                  <sc-for list="{{d.donut}}" as="s" hint-placeholder-count="5">
+                    <path d="{{s.d}}" fill="none" stroke="{{s.color}}" stroke-width="14"></path>
+                  </sc-for>
+                </svg>
+                <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center">
+                  <div class="title-md" style="font-weight: 700">$12,38</div>
+                  <div class="lab">за август</div>
+                </div>
+              </div>
+            </div>
+            <div class="foot" style="margin-top: auto">обновлено 14:32</div>
+          </div>
+
+          <div class="w s2x2">
+            <div class="eyebrow">Расход за месяц</div>
+            <div class="read-xxl" style="margin-top: 2px">$12,38</div>
+            <div class="sub">за август · день 20 из 31</div>
+            <div style="margin-top: auto">
+              <svg width="152" height="30" viewBox="0 0 152 30">
+                <path class="spark-area" d="{{spark.area}}"></path>
+                <path class="spark" d="{{spark.line}}"></path>
+                <circle class="dot-halo" cx="{{spark.x}}" cy="{{spark.y}}" r="4.5"></circle>
+                <circle class="dot-cur" cx="{{spark.x}}" cy="{{spark.y}}" r="3"></circle>
+              </svg>
+              <div class="sub">прогноз $19,19</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <div style="display: flex; align-items: center; gap: 8px; flex-grow: 1">
+              <div style="flex-grow: 1">
+                <div class="read">812 мс</div>
+                <div class="sub">TTFT · медиана</div>
+              </div>
+              <svg width="72" height="26" viewBox="0 0 72 26" style="flex-shrink: 0">
+                <path class="spark-area" d="{{speed.ttftArea}}"></path>
+                <path class="spark" d="{{speed.ttftLine}}"></path>
+              </svg>
+            </div>
+            <div class="vdiv"></div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-grow: 1">
+              <div style="flex-grow: 1">
+                <div class="read">42,6 ток/с</div>
+                <div class="sub">TPS · медиана</div>
+              </div>
+              <svg width="72" height="26" viewBox="0 0 72 26" style="flex-shrink: 0">
+                <path class="spark-b-area" d="{{speed.tpsArea}}"></path>
+                <path class="spark-b" d="{{speed.tpsLine}}"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":944,"height":880}}'>
+class Component extends DCLogic {
+
+/*HELPERS*/
+
+  spark(vals, w, h, invert) {
+    const max = Math.max.apply(null, vals);
+    const min = Math.min.apply(null, vals);
+    const span = max - min || 1;
+    const pts = vals.map((v, i) => {
+      const t = (v - min) / span;
+      return [(i / (vals.length - 1)) * (w - 4) + 2, h - 2 - (invert ? 1 - t : t) * (h - 4)];
+    });
+    return { line: this.linePath(pts), area: this.areaPath(pts, h), last: pts[pts.length - 1] };
+  }
+
+  poolRows(dark) {
+    const src = [
+      { name: 'Codex', kind: 'квота', mono: 'Cx', hex: '#10A37F', used: 0.97, right: 'осталось 3%' },
+      { name: 'Claude', kind: 'квота', mono: 'Cl', hex: '#D97757', used: 0.88, right: 'осталось 12%' },
+      { name: 'DeepSeek', kind: 'баланс', mono: 'Ds', hex: '#5786FE', used: null, press: 'conserve', right: '$4,12' },
+    ];
+    return src.map((p) => {
+      const noFraction = p.used === null || p.used === undefined;
+      const press = p.press || (noFraction ? 'unknown' : this.pressure(1 - p.used));
+      return {
+        title: p.name + ' · ' + p.kind,
+        mono: p.mono,
+        brand: this.readable(p.hex, dark),
+        ink: this.inkOn(this.readable(p.hex, dark)),
+        right: p.right,
+        pCls: 'p-' + press,
+        ptCls: 'pt-' + press,
+        pct: noFraction ? 0 : Math.round(p.used * 100),
+      };
+    });
+  }
+
+  donut(dark) {
+    const provs = [
+      { hex: '#D97757', usd: 5.70 },
+      { hex: '#5786FE', usd: 2.72 },
+      { hex: '#10A37F', usd: 1.73 },
+      { hex: '#64748B', usd: 1.36 },
+      { hex: '#8E75B2', usd: 0.87 },
+    ];
+    const total = provs.reduce((a, p) => a + p.usd, 0);
+    const r = (108 - 14) / 2;
+    let a = 0;
+    return provs.map((p) => {
+      const sweep = (p.usd / total) * 360;
+      const from = a + 1.5;
+      const to = a + sweep - 1.5;
+      a += sweep;
+      return { d: this.arc(54, 54, r, from, Math.max(to, from + 0.5)), color: this.readable(p.hex, dark) };
+    });
+  }
+
+  renderVals() {
+    const wins = [
+      { name: 'Claude · 5 ч', used: 0.62, reset: 'сброс через 3 ч' },
+      { name: 'неделя', used: 0.88, reset: 'сброс через 2 дн' },
+    ].map((v) => ({
+      name: v.name,
+      usedPct: Math.round(v.used * 100) + '%',
+      reset: v.reset,
+      ringCls: 'r-' + this.pressure(1 - v.used),
+      ringD: this.arc(22, 22, 19, 0, v.used * 360),
+    }));
+
+    const daily = [0.42, 0.68, 0.31, 0.12, 0.94, 1.12, 0.66, 0.78, 0.51, 0.19,
+      0.38, 1.31, 0.72, 0.86, 0.44, 0.16, 0.29, 1.24, 0.81, 0.44];
+    const sp = this.spark(daily, 152, 30, false);
+    const ttft = [940, 880, 812, 760, 830, 795, 870, 812, 740, 905, 860, 780, 812, 800];
+    const tps = [38.2, 41.0, 42.6, 44.1, 40.5, 43.2, 39.8, 42.6, 45.0, 37.9, 41.4, 43.8, 42.6, 42.6];
+    const st = this.spark(ttft, 72, 26, true);
+    const sps = this.spark(tps, 72, 26, false);
+
+    return {
+      rings: wins,
+      spark: { line: sp.line, area: sp.area, x: sp.last[0], y: sp.last[1] },
+      speed: { ttftLine: st.line, ttftArea: st.area, tpsLine: sps.line, tpsArea: sps.area },
+      l: { pools: this.poolRows(false), donut: this.donut(false) },
+      d: { pools: this.poolRows(true), donut: this.donut(true) },
+    };
+  }
+}
+</script>
+</body>
+</html>

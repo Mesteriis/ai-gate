@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AiGate — расход за месяц и трафик</title>
+<style>
+    :root { --f: Roboto, "Helvetica Neue", system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--f); }
+    a { color: #2E6FE0; } a:hover { color: #1E50B5; }
+
+    .light {
+      --wall: linear-gradient(155deg, #DCE9FA, #EDF3FC 60%, #E4EDFA);
+      --surf: #FFFFFF; --surf-low: #F4F8FE; --surf-high: #E4EDFA; --prim: #2E6FE0;
+      --on: #16233A; --on-var: #4A5A70; --outline: #DBE6F5;
+      --border: rgba(46, 111, 224, 0.102); --inner: rgba(255, 255, 255, 0);
+      --succ: #23B26A; --warn: #F0A020; --err: #E5484D; --unk: #94A3B8;
+      --succ-c: #DCF5E7; --on-succ-c: #115B36; --warn-c: #FDF0D8; --on-warn-c: #7A5510;
+      --err-c: #FBE0E1; --on-err-c: #8F2327; --info-c: #DFEAFC; --on-info-c: #1E50B5;
+      --neu-c: #E4EDFA; --on-neu-c: #4A5A70;
+      --s0: #2E6FE0; --s1: #C07E12; --s2: #8F62DE; --s3: #1D9A5E; --s4: #2492C8; --s5: #D25A68;
+      --grid: #DBE6F5; --axis: #7E90A8; --proj: #9DB8DF; --sel: #1E50B5; --p-normal: #2E6FE0;
+      --hero: linear-gradient(135deg, #FFFFFF, #E7F0FC); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #4A5A70; --on-prim: #FFFFFF;
+      --track-hero: #DCE6F5; --frame: rgba(22, 35, 58, 0.10);
+    }
+    .dark {
+      --wall: linear-gradient(155deg, #0A1220, #101B30 60%, #16233A);
+      --surf: #16233A; --surf-low: #1A2A45; --surf-high: #24355C; --prim: #56B6E8;
+      --on: #E6EEF9; --on-var: #A9BAD4; --outline: #2A3B5C;
+      --border: rgba(127, 196, 245, 0.141); --inner: rgba(255, 255, 255, 0.06);
+      --succ: #3BCB82; --warn: #F3B04E; --err: #F06A6F; --unk: #64748B;
+      --succ-c: #14402B; --on-succ-c: #A4E8C6; --warn-c: #4A3712; --on-warn-c: #F8DCA8;
+      --err-c: #54191C; --on-err-c: #F5B4B7; --info-c: #1D3560; --on-info-c: #C2D7FB;
+      --neu-c: #24355C; --on-neu-c: #A9BAD4;
+      --s0: #4A85EC; --s1: #C67F14; --s2: #9A6FE0; --s3: #2AA866; --s4: #2E9FD0; --s5: #D9636F;
+      --grid: #2A3B5C; --axis: #8FA3C0; --proj: #4A648F; --sel: #7FB3F6; --p-normal: #6AA2F8;
+      --hero: linear-gradient(135deg, #16233A, #1B3055); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #A9BAD4; --on-prim: #06121F;
+      --track-hero: #24355C; --frame: rgba(127, 196, 245, 0.16);
+    }
+
+    .page { background: #F1F4F9; display: flex; flex-direction: column; gap: 24px; padding: 32px; }
+    .h1 { font: 600 20px/28px var(--f); color: #16233A; }
+    .h2 { font: 400 14px/20px var(--f); color: #4A5A70; }
+    .strip { background: var(--wall); border-radius: 20px; padding: 24px 32px 28px; }
+    .strip-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 14px; }
+    .row { display: flex; gap: 32px; align-items: flex-start; }
+    .size-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 8px; }
+
+    .w { background: var(--surf); border: 1px solid var(--border); border-radius: 24px; padding: 16px;
+         box-shadow: inset 0 1px 0 var(--inner); overflow: hidden; position: relative;
+         display: flex; flex-direction: column; }
+    .w.hero { background: var(--hero); }
+    .w.hero::after { content: ''; position: absolute; top: -56px; right: -56px; width: 200px; height: 200px;
+         border-radius: 50%; background: radial-gradient(circle, var(--glow), rgba(127, 196, 245, 0)); pointer-events: none; }
+    .s2x1 { width: 184px; height: 86px; } .s4x1 { width: 380px; height: 86px; }
+    .s2x2 { width: 184px; height: 184px; } .s4x2 { width: 380px; height: 184px; } .s4x4 { width: 380px; height: 380px; }
+
+    .eyebrow { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .read { font: 700 18px/24px var(--f); color: var(--on); }
+    .read-lg { font: 600 20px/28px var(--f); color: var(--on); }
+    .read-xl { font: 700 24px/32px var(--f); color: var(--on); }
+    .read-xxl { font: 700 32px/40px var(--f); color: var(--on); }
+    .sub { font: 500 11px/16px var(--f); color: var(--on-var); }
+    .lab { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .body { font: 400 14px/20px var(--f); color: var(--on); }
+    .body-var { font: 400 14px/20px var(--f); color: var(--on-var); }
+    .name { font: 500 14px/20px var(--f); color: var(--on); }
+    .title-md { font: 500 16px/22px var(--f); color: var(--on); }
+    .foot { font: 500 11px/16px var(--f); color: var(--on-var); }
+
+    .chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 8px; padding: 3px 8px; font: 500 12px/16px var(--f); }
+    .chip.sm { font: 500 11px/14px var(--f); padding: 2px 6px; }
+    .chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .chip.succ { background: var(--succ-c); color: var(--on-succ-c); } .chip.succ .dot { background: var(--succ); }
+    .chip.warn { background: var(--warn-c); color: var(--on-warn-c); } .chip.warn .dot { background: var(--warn); }
+    .chip.err { background: var(--err-c); color: var(--on-err-c); } .chip.err .dot { background: var(--err); }
+    .chip.info { background: var(--info-c); color: var(--on-info-c); } .chip.info .dot { background: var(--prim); }
+    .chip.neu { background: var(--neu-c); color: var(--on-neu-c); } .chip.neu .dot { background: var(--unk); }
+
+    .xl-row { display: flex; height: 16px; margin-top: 2px; }
+    .xl { flex: 1 1 0; text-align: center; white-space: nowrap; font: 500 9px/16px var(--f); color: var(--axis); }
+    .xl.today { color: var(--prim); font-weight: 600; }
+    .xl.end { text-align: right; }
+    .yl-col { display: flex; flex-direction: column; justify-content: space-between; width: 34px; margin-right: 6px; }
+    .yl { font: 500 10px/12px var(--f); color: var(--axis); text-align: right; }
+
+    .p-free { background: var(--succ); } .p-normal { background: var(--p-normal); }
+    .p-conserve { background: var(--warn); } .p-critical { background: var(--err); }
+    .p-unknown { background: var(--unk); }
+    .pt-free { color: var(--succ); } .pt-normal { color: var(--p-normal); }
+    .pt-conserve { color: var(--warn); } .pt-critical { color: var(--err); }
+    .pt-unknown { color: var(--unk); }
+    .ring { fill: none; stroke-linecap: round; }
+    .r-track { stroke: var(--surf-high); }
+    .r-free { stroke: var(--succ); } .r-normal { stroke: var(--p-normal); }
+    .r-conserve { stroke: var(--warn); } .r-critical { stroke: var(--err); }
+    .r-unknown { stroke: var(--unk); }
+
+    .ln { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .ln-area { fill: var(--s0); opacity: 0.14; }
+    .ln-proj { fill: none; stroke: var(--proj); stroke-width: 2; stroke-dasharray: 7 5; stroke-linecap: round; }
+    .ln-ref { fill: none; stroke: var(--on-var); stroke-width: 1.5; stroke-dasharray: 6 4; }
+    .crosshair { stroke: var(--axis); stroke-width: 1; }
+    .dot-halo { fill: var(--surf); }
+    .dot-cur { fill: var(--s0); }
+    .dot-sel { fill: var(--sel); }
+    .dot-mark { fill: var(--s5); }
+    .spark { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .spark-area { fill: var(--s0); opacity: 0.16; }
+    .spark-b { fill: none; stroke: var(--s1); stroke-width: 2; stroke-linecap: round; }
+    .spark-b-area { fill: var(--s1); opacity: 0.16; }
+    .mark-lab { position: absolute; white-space: nowrap; font: 600 9px/12px var(--f); color: var(--s5); }
+
+    .av { border-radius: 28%; display: flex; align-items: center; justify-content: center;
+          font-weight: 700; flex-shrink: 0; }
+    .r-row { border-radius: 8px; padding: 4px 8px; margin: 0 -8px; }
+    .r-row.on { background: var(--surf-low); }
+
+    .bar-bot { fill: var(--s0); } .bar-bot.sel { fill: var(--sel); }
+    .bar-top { fill: var(--s1); }
+    .gridline { stroke: var(--grid); stroke-width: 1; }
+    .hit { cursor: pointer; fill: transparent; }
+    .dot9 { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .track { background: var(--surf-high); border-radius: 999px; overflow: hidden; }
+    .w.hero .track { background: var(--track-hero); }
+    .divider { height: 1px; background: var(--outline); }
+    .xabs { position: absolute; white-space: nowrap; font: 500 9px/16px var(--f); color: var(--axis); }
+    .xabs.today { color: var(--prim); font-weight: 600; }
+    .ico { flex-shrink: 0; }
+  
+    html { background: #F1F4F9; }
+    body { display: flex; justify-content: center; }
+</style>
+</head>
+<body>
+
+<helmet>
+  <style>
+    :root { --f: Roboto, "Helvetica Neue", system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: var(--f); }
+    a { color: #2E6FE0; } a:hover { color: #1E50B5; }
+
+    .light {
+      --wall: linear-gradient(155deg, #DCE9FA, #EDF3FC 60%, #E4EDFA);
+      --surf: #FFFFFF; --surf-low: #F4F8FE; --surf-high: #E4EDFA; --prim: #2E6FE0;
+      --on: #16233A; --on-var: #4A5A70; --outline: #DBE6F5;
+      --border: rgba(46, 111, 224, 0.102); --inner: rgba(255, 255, 255, 0);
+      --succ: #23B26A; --warn: #F0A020; --err: #E5484D; --unk: #94A3B8;
+      --succ-c: #DCF5E7; --on-succ-c: #115B36; --warn-c: #FDF0D8; --on-warn-c: #7A5510;
+      --err-c: #FBE0E1; --on-err-c: #8F2327; --info-c: #DFEAFC; --on-info-c: #1E50B5;
+      --neu-c: #E4EDFA; --on-neu-c: #4A5A70;
+      --s0: #2E6FE0; --s1: #C07E12; --s2: #8F62DE; --s3: #1D9A5E; --s4: #2492C8; --s5: #D25A68;
+      --grid: #DBE6F5; --axis: #7E90A8; --proj: #9DB8DF; --sel: #1E50B5; --p-normal: #2E6FE0;
+      --hero: linear-gradient(135deg, #FFFFFF, #E7F0FC); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #4A5A70; --on-prim: #FFFFFF;
+      --track-hero: #DCE6F5; --frame: rgba(22, 35, 58, 0.10);
+    }
+    .dark {
+      --wall: linear-gradient(155deg, #0A1220, #101B30 60%, #16233A);
+      --surf: #16233A; --surf-low: #1A2A45; --surf-high: #24355C; --prim: #56B6E8;
+      --on: #E6EEF9; --on-var: #A9BAD4; --outline: #2A3B5C;
+      --border: rgba(127, 196, 245, 0.141); --inner: rgba(255, 255, 255, 0.06);
+      --succ: #3BCB82; --warn: #F3B04E; --err: #F06A6F; --unk: #64748B;
+      --succ-c: #14402B; --on-succ-c: #A4E8C6; --warn-c: #4A3712; --on-warn-c: #F8DCA8;
+      --err-c: #54191C; --on-err-c: #F5B4B7; --info-c: #1D3560; --on-info-c: #C2D7FB;
+      --neu-c: #24355C; --on-neu-c: #A9BAD4;
+      --s0: #4A85EC; --s1: #C67F14; --s2: #9A6FE0; --s3: #2AA866; --s4: #2E9FD0; --s5: #D9636F;
+      --grid: #2A3B5C; --axis: #8FA3C0; --proj: #4A648F; --sel: #7FB3F6; --p-normal: #6AA2F8;
+      --hero: linear-gradient(135deg, #16233A, #1B3055); --glow: rgba(127, 196, 245, 0.15);
+      --cap: #A9BAD4; --on-prim: #06121F;
+      --track-hero: #24355C; --frame: rgba(127, 196, 245, 0.16);
+    }
+
+    .page { background: #F1F4F9; display: flex; flex-direction: column; gap: 24px; padding: 32px; }
+    .h1 { font: 600 20px/28px var(--f); color: #16233A; }
+    .h2 { font: 400 14px/20px var(--f); color: #4A5A70; }
+    .strip { background: var(--wall); border-radius: 20px; padding: 24px 32px 28px; }
+    .strip-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 14px; }
+    .row { display: flex; gap: 32px; align-items: flex-start; }
+    .size-cap { font: 500 11px/16px var(--f); letter-spacing: 0.5px; color: var(--cap); margin-bottom: 8px; }
+
+    .w { background: var(--surf); border: 1px solid var(--border); border-radius: 24px; padding: 16px;
+         box-shadow: inset 0 1px 0 var(--inner); overflow: hidden; position: relative;
+         display: flex; flex-direction: column; }
+    .w.hero { background: var(--hero); }
+    .w.hero::after { content: ''; position: absolute; top: -56px; right: -56px; width: 200px; height: 200px;
+         border-radius: 50%; background: radial-gradient(circle, var(--glow), rgba(127, 196, 245, 0)); pointer-events: none; }
+    .s2x1 { width: 184px; height: 86px; } .s4x1 { width: 380px; height: 86px; }
+    .s2x2 { width: 184px; height: 184px; } .s4x2 { width: 380px; height: 184px; } .s4x4 { width: 380px; height: 380px; }
+
+    .eyebrow { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .read { font: 700 18px/24px var(--f); color: var(--on); }
+    .read-lg { font: 600 20px/28px var(--f); color: var(--on); }
+    .read-xl { font: 700 24px/32px var(--f); color: var(--on); }
+    .read-xxl { font: 700 32px/40px var(--f); color: var(--on); }
+    .sub { font: 500 11px/16px var(--f); color: var(--on-var); }
+    .lab { font: 500 12px/16px var(--f); color: var(--on-var); }
+    .body { font: 400 14px/20px var(--f); color: var(--on); }
+    .body-var { font: 400 14px/20px var(--f); color: var(--on-var); }
+    .name { font: 500 14px/20px var(--f); color: var(--on); }
+    .title-md { font: 500 16px/22px var(--f); color: var(--on); }
+    .foot { font: 500 11px/16px var(--f); color: var(--on-var); }
+
+    .chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 8px; padding: 3px 8px; font: 500 12px/16px var(--f); }
+    .chip.sm { font: 500 11px/14px var(--f); padding: 2px 6px; }
+    .chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .chip.succ { background: var(--succ-c); color: var(--on-succ-c); } .chip.succ .dot { background: var(--succ); }
+    .chip.warn { background: var(--warn-c); color: var(--on-warn-c); } .chip.warn .dot { background: var(--warn); }
+    .chip.err { background: var(--err-c); color: var(--on-err-c); } .chip.err .dot { background: var(--err); }
+    .chip.info { background: var(--info-c); color: var(--on-info-c); } .chip.info .dot { background: var(--prim); }
+    .chip.neu { background: var(--neu-c); color: var(--on-neu-c); } .chip.neu .dot { background: var(--unk); }
+
+    .xl-row { display: flex; height: 16px; margin-top: 2px; }
+    .xl { flex: 1 1 0; text-align: center; white-space: nowrap; font: 500 9px/16px var(--f); color: var(--axis); }
+    .xl.today { color: var(--prim); font-weight: 600; }
+    .xl.end { text-align: right; }
+    .yl-col { display: flex; flex-direction: column; justify-content: space-between; width: 34px; margin-right: 6px; }
+    .yl { font: 500 10px/12px var(--f); color: var(--axis); text-align: right; }
+
+    .p-free { background: var(--succ); } .p-normal { background: var(--p-normal); }
+    .p-conserve { background: var(--warn); } .p-critical { background: var(--err); }
+    .p-unknown { background: var(--unk); }
+    .pt-free { color: var(--succ); } .pt-normal { color: var(--p-normal); }
+    .pt-conserve { color: var(--warn); } .pt-critical { color: var(--err); }
+    .pt-unknown { color: var(--unk); }
+    .ring { fill: none; stroke-linecap: round; }
+    .r-track { stroke: var(--surf-high); }
+    .r-free { stroke: var(--succ); } .r-normal { stroke: var(--p-normal); }
+    .r-conserve { stroke: var(--warn); } .r-critical { stroke: var(--err); }
+    .r-unknown { stroke: var(--unk); }
+
+    .ln { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .ln-area { fill: var(--s0); opacity: 0.14; }
+    .ln-proj { fill: none; stroke: var(--proj); stroke-width: 2; stroke-dasharray: 7 5; stroke-linecap: round; }
+    .ln-ref { fill: none; stroke: var(--on-var); stroke-width: 1.5; stroke-dasharray: 6 4; }
+    .crosshair { stroke: var(--axis); stroke-width: 1; }
+    .dot-halo { fill: var(--surf); }
+    .dot-cur { fill: var(--s0); }
+    .dot-sel { fill: var(--sel); }
+    .dot-mark { fill: var(--s5); }
+    .spark { fill: none; stroke: var(--s0); stroke-width: 2; stroke-linecap: round; }
+    .spark-area { fill: var(--s0); opacity: 0.16; }
+    .spark-b { fill: none; stroke: var(--s1); stroke-width: 2; stroke-linecap: round; }
+    .spark-b-area { fill: var(--s1); opacity: 0.16; }
+    .mark-lab { position: absolute; white-space: nowrap; font: 600 9px/12px var(--f); color: var(--s5); }
+
+    .av { border-radius: 28%; display: flex; align-items: center; justify-content: center;
+          font-weight: 700; flex-shrink: 0; }
+    .r-row { border-radius: 8px; padding: 4px 8px; margin: 0 -8px; }
+    .r-row.on { background: var(--surf-low); }
+
+    .bar-bot { fill: var(--s0); } .bar-bot.sel { fill: var(--sel); }
+    .bar-top { fill: var(--s1); }
+    .gridline { stroke: var(--grid); stroke-width: 1; }
+    .hit { cursor: pointer; fill: transparent; }
+    .dot9 { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .track { background: var(--surf-high); border-radius: 999px; overflow: hidden; }
+    .w.hero .track { background: var(--track-hero); }
+    .divider { height: 1px; background: var(--outline); }
+    .xabs { position: absolute; white-space: nowrap; font: 500 9px/16px var(--f); color: var(--axis); }
+    .xabs.today { color: var(--prim); font-weight: 600; }
+    .ico { flex-shrink: 0; }
+  </style>
+</helmet>
+<div class="page" style="width: 956px">
+
+  <div>
+    <div class="h1">AiGate — расход за месяц и трафик</div>
+    <div class="h2">Расход в долларах (2×2, 4×2) и трафик (2×2) · тап по дню подменяет строку-вывод</div>
+  </div>
+
+  <div class="light strip">
+    <div class="strip-cap">Светлая тема</div>
+    <div class="row">
+
+      <div>
+        <div class="size-cap">2×2 · 184 × 184</div>
+        <div class="w s2x2">
+          <div class="eyebrow">Расход за месяц</div>
+          <div class="read-xxl" style="margin-top: 2px">$12,38</div>
+          <div class="sub">за август · день 20 из 31</div>
+          <div style="margin-top: auto">
+            <svg width="152" height="30" viewBox="0 0 152 30">
+              <path class="spark-area" d="M2,21.445378151260506 L9.789473684210526,15.76470588235294 L17.57894736842105,23.84873949579832 L25.36842105263158,28 L33.1578947368421,10.084033613445378 L40.94736842105263,6.15126050420168 L48.73684210526316,16.201680672268907 L56.52631578947368,13.579831932773109 L64.3157894736842,19.478991596638657 L72.10526315789474,26.470588235294116 L79.89473684210526,22.319327731092436 L87.6842105263158,2 L95.47368421052632,14.890756302521009 L103.26315789473685,11.831932773109244 L111.05263157894736,21.008403361344538 L118.84210526315789,27.126050420168067 L126.63157894736841,24.285714285714285 L134.42105263157896,3.5294117647058805 L142.21052631578948,12.924369747899158 L150,21.008403361344538 L150,30 L2,30 Z"></path>
+              <path class="spark" d="M2,21.445378151260506 L9.789473684210526,15.76470588235294 L17.57894736842105,23.84873949579832 L25.36842105263158,28 L33.1578947368421,10.084033613445378 L40.94736842105263,6.15126050420168 L48.73684210526316,16.201680672268907 L56.52631578947368,13.579831932773109 L64.3157894736842,19.478991596638657 L72.10526315789474,26.470588235294116 L79.89473684210526,22.319327731092436 L87.6842105263158,2 L95.47368421052632,14.890756302521009 L103.26315789473685,11.831932773109244 L111.05263157894736,21.008403361344538 L118.84210526315789,27.126050420168067 L126.63157894736841,24.285714285714285 L134.42105263157896,3.5294117647058805 L142.21052631578948,12.924369747899158 L150,21.008403361344538"></path>
+              <circle class="dot-halo" cx="150" cy="21.008403361344538" r="4.5"></circle>
+              <circle class="dot-cur" cx="150" cy="21.008403361344538" r="3"></circle>
+            </svg>
+            <div class="sub">прогноз $19,19</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184</div>
+        <div class="w s4x2">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Расход за месяц</div>
+            <div class="chip info sm">+8% к июлю</div>
+          </div>
+          <div class="read" style="margin-top: 2px">$12,38</div>
+          <div class="sub">прогноз $19,19 к 31 августа · день 20 из 31</div>
+          <div style="position: relative; margin-top: 8px">
+            <svg width="348" height="60" viewBox="0 0 348 60">
+              
+                <line class="gridline" x1="0" y1="4" x2="348" y2="4"></line>
+              
+                <line class="gridline" x1="0" y1="31.5" x2="348" y2="31.5"></line>
+              
+                <line class="gridline" x1="0" y1="59" x2="348" y2="59"></line>
+              
+              <path class="ln-area" d="M11.225806451612902,57.845 L22.451612903225804,55.975 L33.67741935483871,55.1225 L44.90322580645161,54.7925 L56.12903225806451,52.207499999999996 L67.35483870967742,49.1275 L78.58064516129032,47.3125 L89.80645161290322,45.167500000000004 L101.03225806451614,43.765 L112.25806451612902,43.2425 L123.48387096774194,42.197500000000005 L134.70967741935485,38.595 L145.93548387096774,36.614999999999995 L157.16129032258064,34.25 L168.38709677419357,33.040000000000006 L179.61290322580643,32.6 L190.83870967741933,31.802500000000002 L202.06451612903228,28.392500000000002 L213.29032258064515,26.165 L224.51612903225805,24.955 L224.51612903225805,60 L11.225806451612902,60 Z"></path>
+              <path class="ln-proj" d="M224.51612903225805,24.955 L348,6.230249999999998"></path>
+              <path class="ln" d="M11.225806451612902,57.845 L22.451612903225804,55.975 L33.67741935483871,55.1225 L44.90322580645161,54.7925 L56.12903225806451,52.207499999999996 L67.35483870967742,49.1275 L78.58064516129032,47.3125 L89.80645161290322,45.167500000000004 L101.03225806451614,43.765 L112.25806451612902,43.2425 L123.48387096774194,42.197500000000005 L134.70967741935485,38.595 L145.93548387096774,36.614999999999995 L157.16129032258064,34.25 L168.38709677419357,33.040000000000006 L179.61290322580643,32.6 L190.83870967741933,31.802500000000002 L202.06451612903228,28.392500000000002 L213.29032258064515,26.165 L224.51612903225805,24.955"></path>
+              <circle class="dot-halo" cx="224.51612903225805" cy="24.955" r="6.5"></circle>
+              <circle class="dot-cur" cx="224.51612903225805" cy="24.955" r="4.5"></circle>
+              
+              
+                <rect class="hit" x="5.61290322580645" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="16.838709677419352" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="28.06451612903226" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="39.29032258064515" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="50.516129032258064" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="61.741935483870975" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="72.96774193548387" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="84.19354838709677" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="95.4193548387097" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="106.64516129032258" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="117.87096774193549" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="129.09677419354838" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="140.32258064516128" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="151.54838709677418" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="162.7741935483871" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="173.99999999999997" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="185.22580645161287" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="196.45161290322582" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="207.6774193548387" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="218.9032258064516" y="0" width="11.225806451612904" height="60"></rect>
+              
+            </svg>
+            <div style="position: relative; height: 16px">
+              
+                <div class="xabs" style="left: 0px; transform: translateX(0)">01.08</div>
+              
+                <div class="xabs today" style="left: 224.51612903225805px; transform: translateX(-50%)">сегодня</div>
+              
+                <div class="xabs" style="left: 348px; transform: translateX(-100%)">31.08</div>
+              
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">2×2 · 184 × 184 · трафик</div>
+        <div class="w s2x2">
+          <div class="eyebrow">Трафик</div>
+          <div class="read-xl" style="margin-top: 2px">1,33 ГБ</div>
+          <div class="sub">получено · отправлено 103,9 МБ</div>
+          <div style="display: flex; flex-direction: column; gap: 6px; margin-top: auto">
+            <div style="display: flex; align-items: center; gap: 6px; cursor: pointer; opacity: 1">
+              <svg class="ico" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="color: var(--s0)">
+                <path d="M6 2 L6 10 M3 7 L6 10 L9 7"></path>
+              </svg>
+              <div class="sub" style="width: 58px">получено</div>
+              <svg width="60" height="18" viewBox="0 0 60 18" style="flex-grow: 1">
+                <path class="spark-area" d="M2,12.834782608695653 L4.947368421052632,9.669565217391305 L7.894736842105263,14.173913043478262 L10.842105263157894,3.339130434782609 L13.789473684210526,6.504347826086956 L16.736842105263158,4.3130434782608695 L19.684210526315788,9.913043478260871 L22.63157894736842,8.452173913043477 L25.57894736842105,11.73913043478261 L28.52631578947368,15.634782608695652 L31.473684210526315,13.321739130434782 L34.421052631578945,2 L37.368421052631575,9.182608695652174 L40.31578947368421,7.478260869565217 L43.26315789473684,12.591304347826087 L46.21052631578947,16 L49.1578947368421,14.417391304347825 L52.10526315789474,2.852173913043478 L55.05263157894736,8.08695652173913 L58,10.156521739130435 L58,18 L2,18 Z"></path>
+                <path class="spark" d="M2,12.834782608695653 L4.947368421052632,9.669565217391305 L7.894736842105263,14.173913043478262 L10.842105263157894,3.339130434782609 L13.789473684210526,6.504347826086956 L16.736842105263158,4.3130434782608695 L19.684210526315788,9.913043478260871 L22.63157894736842,8.452173913043477 L25.57894736842105,11.73913043478261 L28.52631578947368,15.634782608695652 L31.473684210526315,13.321739130434782 L34.421052631578945,2 L37.368421052631575,9.182608695652174 L40.31578947368421,7.478260869565217 L43.26315789473684,12.591304347826087 L46.21052631578947,16 L49.1578947368421,14.417391304347825 L52.10526315789474,2.852173913043478 L55.05263157894736,8.08695652173913 L58,10.156521739130435"></path>
+              </svg>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; cursor: pointer; opacity: 0.45">
+              <svg class="ico" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="color: var(--s1)">
+                <path d="M6 10 L6 2 M3 5 L6 2 L9 5"></path>
+              </svg>
+              <div class="sub" style="width: 58px">отправлено</div>
+              <svg width="60" height="18" viewBox="0 0 60 18" style="flex-grow: 1">
+                <path class="spark-b-area" d="M2,12.7816091954023 L4.947368421052632,9.724137931034484 L7.894736842105263,14.068965517241379 L10.842105263157894,2.1609195402298855 L13.789473684210526,6.505747126436784 L16.736842105263158,4.413793103448278 L19.684210526315788,9.88505747126437 L22.63157894736842,8.436781609195403 L25.57894736842105,11.655172413793103 L28.52631578947368,15.67816091954023 L31.473684210526315,13.264367816091955 L34.421052631578945,2 L37.368421052631575,9.24137931034483 L40.31578947368421,7.471264367816094 L43.26315789473684,12.620689655172415 L46.21052631578947,16 L49.1578947368421,14.390804597701148 L52.10526315789474,2.804597701149426 L55.05263157894736,8.114942528735634 L58,10.206896551724139 L58,18 L2,18 Z"></path>
+                <path class="spark-b" d="M2,12.7816091954023 L4.947368421052632,9.724137931034484 L7.894736842105263,14.068965517241379 L10.842105263157894,2.1609195402298855 L13.789473684210526,6.505747126436784 L16.736842105263158,4.413793103448278 L19.684210526315788,9.88505747126437 L22.63157894736842,8.436781609195403 L25.57894736842105,11.655172413793103 L28.52631578947368,15.67816091954023 L31.473684210526315,13.264367816091955 L34.421052631578945,2 L37.368421052631575,9.24137931034483 L40.31578947368421,7.471264367816094 L43.26315789473684,12.620689655172415 L46.21052631578947,16 L49.1578947368421,14.390804597701148 L52.10526315789474,2.804597701149426 L55.05263157894736,8.114942528735634 L58,10.206896551724139"></path>
+              </svg>
+            </div>
+            <div class="foot">за август</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="dark strip">
+    <div class="strip-cap">Тёмная тема</div>
+    <div class="row">
+
+      <div>
+        <div class="size-cap">2×2 · 184 × 184</div>
+        <div class="w s2x2">
+          <div class="eyebrow">Расход за месяц</div>
+          <div class="read-xxl" style="margin-top: 2px">$12,38</div>
+          <div class="sub">за август · день 20 из 31</div>
+          <div style="margin-top: auto">
+            <svg width="152" height="30" viewBox="0 0 152 30">
+              <path class="spark-area" d="M2,21.445378151260506 L9.789473684210526,15.76470588235294 L17.57894736842105,23.84873949579832 L25.36842105263158,28 L33.1578947368421,10.084033613445378 L40.94736842105263,6.15126050420168 L48.73684210526316,16.201680672268907 L56.52631578947368,13.579831932773109 L64.3157894736842,19.478991596638657 L72.10526315789474,26.470588235294116 L79.89473684210526,22.319327731092436 L87.6842105263158,2 L95.47368421052632,14.890756302521009 L103.26315789473685,11.831932773109244 L111.05263157894736,21.008403361344538 L118.84210526315789,27.126050420168067 L126.63157894736841,24.285714285714285 L134.42105263157896,3.5294117647058805 L142.21052631578948,12.924369747899158 L150,21.008403361344538 L150,30 L2,30 Z"></path>
+              <path class="spark" d="M2,21.445378151260506 L9.789473684210526,15.76470588235294 L17.57894736842105,23.84873949579832 L25.36842105263158,28 L33.1578947368421,10.084033613445378 L40.94736842105263,6.15126050420168 L48.73684210526316,16.201680672268907 L56.52631578947368,13.579831932773109 L64.3157894736842,19.478991596638657 L72.10526315789474,26.470588235294116 L79.89473684210526,22.319327731092436 L87.6842105263158,2 L95.47368421052632,14.890756302521009 L103.26315789473685,11.831932773109244 L111.05263157894736,21.008403361344538 L118.84210526315789,27.126050420168067 L126.63157894736841,24.285714285714285 L134.42105263157896,3.5294117647058805 L142.21052631578948,12.924369747899158 L150,21.008403361344538"></path>
+              <circle class="dot-halo" cx="150" cy="21.008403361344538" r="4.5"></circle>
+              <circle class="dot-cur" cx="150" cy="21.008403361344538" r="3"></circle>
+            </svg>
+            <div class="sub">прогноз $19,19</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184</div>
+        <div class="w s4x2">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Расход за месяц</div>
+            <div class="chip info sm">+8% к июлю</div>
+          </div>
+          <div class="read" style="margin-top: 2px">$12,38</div>
+          <div class="sub">прогноз $19,19 к 31 августа · день 20 из 31</div>
+          <div style="position: relative; margin-top: 8px">
+            <svg width="348" height="60" viewBox="0 0 348 60">
+              
+                <line class="gridline" x1="0" y1="4" x2="348" y2="4"></line>
+              
+                <line class="gridline" x1="0" y1="31.5" x2="348" y2="31.5"></line>
+              
+                <line class="gridline" x1="0" y1="59" x2="348" y2="59"></line>
+              
+              <path class="ln-area" d="M11.225806451612902,57.845 L22.451612903225804,55.975 L33.67741935483871,55.1225 L44.90322580645161,54.7925 L56.12903225806451,52.207499999999996 L67.35483870967742,49.1275 L78.58064516129032,47.3125 L89.80645161290322,45.167500000000004 L101.03225806451614,43.765 L112.25806451612902,43.2425 L123.48387096774194,42.197500000000005 L134.70967741935485,38.595 L145.93548387096774,36.614999999999995 L157.16129032258064,34.25 L168.38709677419357,33.040000000000006 L179.61290322580643,32.6 L190.83870967741933,31.802500000000002 L202.06451612903228,28.392500000000002 L213.29032258064515,26.165 L224.51612903225805,24.955 L224.51612903225805,60 L11.225806451612902,60 Z"></path>
+              <path class="ln-proj" d="M224.51612903225805,24.955 L348,6.230249999999998"></path>
+              <path class="ln" d="M11.225806451612902,57.845 L22.451612903225804,55.975 L33.67741935483871,55.1225 L44.90322580645161,54.7925 L56.12903225806451,52.207499999999996 L67.35483870967742,49.1275 L78.58064516129032,47.3125 L89.80645161290322,45.167500000000004 L101.03225806451614,43.765 L112.25806451612902,43.2425 L123.48387096774194,42.197500000000005 L134.70967741935485,38.595 L145.93548387096774,36.614999999999995 L157.16129032258064,34.25 L168.38709677419357,33.040000000000006 L179.61290322580643,32.6 L190.83870967741933,31.802500000000002 L202.06451612903228,28.392500000000002 L213.29032258064515,26.165 L224.51612903225805,24.955"></path>
+              <circle class="dot-halo" cx="224.51612903225805" cy="24.955" r="6.5"></circle>
+              <circle class="dot-cur" cx="224.51612903225805" cy="24.955" r="4.5"></circle>
+              
+              
+                <rect class="hit" x="5.61290322580645" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="16.838709677419352" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="28.06451612903226" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="39.29032258064515" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="50.516129032258064" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="61.741935483870975" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="72.96774193548387" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="84.19354838709677" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="95.4193548387097" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="106.64516129032258" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="117.87096774193549" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="129.09677419354838" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="140.32258064516128" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="151.54838709677418" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="162.7741935483871" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="173.99999999999997" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="185.22580645161287" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="196.45161290322582" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="207.6774193548387" y="0" width="11.225806451612904" height="60"></rect>
+              
+                <rect class="hit" x="218.9032258064516" y="0" width="11.225806451612904" height="60"></rect>
+              
+            </svg>
+            <div style="position: relative; height: 16px">
+              
+                <div class="xabs" style="left: 0px; transform: translateX(0)">01.08</div>
+              
+                <div class="xabs today" style="left: 224.51612903225805px; transform: translateX(-50%)">сегодня</div>
+              
+                <div class="xabs" style="left: 348px; transform: translateX(-100%)">31.08</div>
+              
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">2×2 · 184 × 184 · трафик</div>
+        <div class="w s2x2">
+          <div class="eyebrow">Трафик</div>
+          <div class="read-xl" style="margin-top: 2px">1,33 ГБ</div>
+          <div class="sub">получено · отправлено 103,9 МБ</div>
+          <div style="display: flex; flex-direction: column; gap: 6px; margin-top: auto">
+            <div style="display: flex; align-items: center; gap: 6px; cursor: pointer; opacity: 1">
+              <svg class="ico" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="color: var(--s0)">
+                <path d="M6 2 L6 10 M3 7 L6 10 L9 7"></path>
+              </svg>
+              <div class="sub" style="width: 58px">получено</div>
+              <svg width="60" height="18" viewBox="0 0 60 18" style="flex-grow: 1">
+                <path class="spark-area" d="M2,12.834782608695653 L4.947368421052632,9.669565217391305 L7.894736842105263,14.173913043478262 L10.842105263157894,3.339130434782609 L13.789473684210526,6.504347826086956 L16.736842105263158,4.3130434782608695 L19.684210526315788,9.913043478260871 L22.63157894736842,8.452173913043477 L25.57894736842105,11.73913043478261 L28.52631578947368,15.634782608695652 L31.473684210526315,13.321739130434782 L34.421052631578945,2 L37.368421052631575,9.182608695652174 L40.31578947368421,7.478260869565217 L43.26315789473684,12.591304347826087 L46.21052631578947,16 L49.1578947368421,14.417391304347825 L52.10526315789474,2.852173913043478 L55.05263157894736,8.08695652173913 L58,10.156521739130435 L58,18 L2,18 Z"></path>
+                <path class="spark" d="M2,12.834782608695653 L4.947368421052632,9.669565217391305 L7.894736842105263,14.173913043478262 L10.842105263157894,3.339130434782609 L13.789473684210526,6.504347826086956 L16.736842105263158,4.3130434782608695 L19.684210526315788,9.913043478260871 L22.63157894736842,8.452173913043477 L25.57894736842105,11.73913043478261 L28.52631578947368,15.634782608695652 L31.473684210526315,13.321739130434782 L34.421052631578945,2 L37.368421052631575,9.182608695652174 L40.31578947368421,7.478260869565217 L43.26315789473684,12.591304347826087 L46.21052631578947,16 L49.1578947368421,14.417391304347825 L52.10526315789474,2.852173913043478 L55.05263157894736,8.08695652173913 L58,10.156521739130435"></path>
+              </svg>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; cursor: pointer; opacity: 0.45">
+              <svg class="ico" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="color: var(--s1)">
+                <path d="M6 10 L6 2 M3 5 L6 2 L9 5"></path>
+              </svg>
+              <div class="sub" style="width: 58px">отправлено</div>
+              <svg width="60" height="18" viewBox="0 0 60 18" style="flex-grow: 1">
+                <path class="spark-b-area" d="M2,12.7816091954023 L4.947368421052632,9.724137931034484 L7.894736842105263,14.068965517241379 L10.842105263157894,2.1609195402298855 L13.789473684210526,6.505747126436784 L16.736842105263158,4.413793103448278 L19.684210526315788,9.88505747126437 L22.63157894736842,8.436781609195403 L25.57894736842105,11.655172413793103 L28.52631578947368,15.67816091954023 L31.473684210526315,13.264367816091955 L34.421052631578945,2 L37.368421052631575,9.24137931034483 L40.31578947368421,7.471264367816094 L43.26315789473684,12.620689655172415 L46.21052631578947,16 L49.1578947368421,14.390804597701148 L52.10526315789474,2.804597701149426 L55.05263157894736,8.114942528735634 L58,10.206896551724139 L58,18 L2,18 Z"></path>
+                <path class="spark-b" d="M2,12.7816091954023 L4.947368421052632,9.724137931034484 L7.894736842105263,14.068965517241379 L10.842105263157894,2.1609195402298855 L13.789473684210526,6.505747126436784 L16.736842105263158,4.413793103448278 L19.684210526315788,9.88505747126437 L22.63157894736842,8.436781609195403 L25.57894736842105,11.655172413793103 L28.52631578947368,15.67816091954023 L31.473684210526315,13.264367816091955 L34.421052631578945,2 L37.368421052631575,9.24137931034483 L40.31578947368421,7.471264367816094 L43.26315789473684,12.620689655172415 L46.21052631578947,16 L49.1578947368421,14.390804597701148 L52.10526315789474,2.804597701149426 L55.05263157894736,8.114942528735634 L58,10.206896551724139"></path>
+              </svg>
+            </div>
+            <div class="foot">за август</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

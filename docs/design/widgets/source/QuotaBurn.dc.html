@@ -1,0 +1,354 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+/*BASE_CSS*/
+    .win-name { font: 500 12px/16px var(--f); color: var(--on); }
+    .vdiv { width: 1px; background: var(--outline); align-self: stretch; }
+    .xabs { position: absolute; white-space: nowrap; font: 500 9px/16px var(--f); color: var(--axis); }
+    .xabs.today { color: var(--prim); font-weight: 600; }
+  </style>
+</helmet>
+<div class="page" style="width: 1156px">
+
+  <div>
+    <div class="h1">AiGate — квота и темп расхода</div>
+    <div class="h2">Окна Claude (4×1, 2×2) и темп сгорания квоты (4×2) · тап по точке подменяет строку-вывод</div>
+  </div>
+
+  <div class="light strip">
+    <div class="strip-cap">Светлая тема</div>
+    <div class="row">
+
+      <div>
+        <div class="size-cap">4×1 · 380 × 86 · квота Claude</div>
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <sc-for list="{{windows}}" as="v" hint-placeholder-count="2">
+              <div style="display: flex; align-items: center; gap: 6px; flex-grow: 1">
+                <svg width="44" height="44" viewBox="0 0 44 44">
+                  <circle class="ring r-track" cx="22" cy="22" r="19" stroke-width="6"></circle>
+                  <path class="ring {{v.ringCls}}" d="{{v.ringD}}" stroke-width="6"></path>
+                </svg>
+                <div>
+                  <div class="win-name">{{v.name}}</div>
+                  <div class="sub">израсходовано {{v.usedPct}}</div>
+                  <div class="sub">{{v.reset}}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">2×2 · 184 × 184</div>
+        <div class="w s2x2">
+          <div class="eyebrow">Claude · квота</div>
+          <div style="display: flex; justify-content: center; margin-top: 2px">
+            <div style="position: relative; width: 96px; height: 96px">
+              <svg width="96" height="96" viewBox="0 0 96 96">
+                <circle class="ring r-track" cx="48" cy="48" r="44" stroke-width="8"></circle>
+                <path class="ring {{dual.outerCls}}" d="{{dual.outerD}}" stroke-width="8"></path>
+                <circle class="ring r-track" cx="48" cy="48" r="30.7" stroke-width="5"></circle>
+                <path class="ring {{dual.innerCls}}" d="{{dual.innerD}}" stroke-width="5"></path>
+              </svg>
+              <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+                <div class="title-md" style="font-weight: 700">{{dual.center}}</div>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: auto">
+            <div class="chip {{dual.chip}}"><div class="dot"></div>{{dual.pressLabel}}</div>
+            <div class="sub">{{dual.hint}}</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184 · темп расхода</div>
+        <div class="w s4x2">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Темп расхода квоты · Claude 5 ч</div>
+            <div class="chip {{burn.chip}} sm">{{burn.verdict}}</div>
+          </div>
+          <div class="read" style="margin-top: 2px">{{burn.readMain}}</div>
+          <div class="sub">{{burn.readSub}}</div>
+          <div style="position: relative; margin-top: 8px">
+            <svg width="348" height="60" viewBox="0 0 348 60">
+              <sc-for list="{{burn.grid}}" as="g" hint-placeholder-count="3">
+                <line class="gridline" x1="0" y1="{{g.y}}" x2="348" y2="{{g.y}}"></line>
+              </sc-for>
+              <path class="ln-area" d="{{burn.areaD}}"></path>
+              <path class="ln-proj" d="{{burn.paceD}}"></path>
+              <path class="ln" d="{{burn.lineD}}"></path>
+              <sc-if value="{{burn.hasMark}}" hint-placeholder-val="{{true}}">
+                <circle class="dot-halo" cx="{{burn.markX}}" cy="{{burn.markY}}" r="6.5"></circle>
+                <circle class="dot-mark" cx="{{burn.markX}}" cy="{{burn.markY}}" r="4.5"></circle>
+              </sc-if>
+              <circle class="dot-halo" cx="{{burn.curX}}" cy="{{burn.curY}}" r="6.5"></circle>
+              <circle class="dot-cur" cx="{{burn.curX}}" cy="{{burn.curY}}" r="4.5"></circle>
+              <sc-if value="{{burn.hasSel}}" hint-placeholder-val="{{true}}">
+                <line class="crosshair" x1="{{burn.selX}}" y1="0" x2="{{burn.selX}}" y2="60"></line>
+                <circle class="dot-halo" cx="{{burn.selX}}" cy="{{burn.selY}}" r="7"></circle>
+                <circle class="dot-sel" cx="{{burn.selX}}" cy="{{burn.selY}}" r="5"></circle>
+              </sc-if>
+              <sc-for list="{{burn.hits}}" as="h" hint-placeholder-count="13">
+                <rect class="hit" x="{{h.x}}" y="0" width="{{h.w}}" height="60" onClick="{{h.pick}}"></rect>
+              </sc-for>
+            </svg>
+            <div style="position: relative; height: 16px">
+              <sc-for list="{{burn.xLabels}}" as="l" hint-placeholder-count="3">
+                <div class="{{l.cls}}" style="left: {{l.x}}px; transform: translateX({{l.tx}})">{{l.text}}</div>
+              </sc-for>
+            </div>
+            <div class="mark-lab" style="left: {{burn.markLabX}}px; top: {{burn.markLabY}}px">{{burn.markLab}}</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="dark strip">
+    <div class="strip-cap">Тёмная тема</div>
+    <div class="row">
+
+      <div>
+        <div class="size-cap">4×1 · 380 × 86 · квота Claude</div>
+        <div class="w s4x1">
+          <div style="display: flex; align-items: center; gap: 12px; height: 54px">
+            <sc-for list="{{windows}}" as="v" hint-placeholder-count="2">
+              <div style="display: flex; align-items: center; gap: 6px; flex-grow: 1">
+                <svg width="44" height="44" viewBox="0 0 44 44">
+                  <circle class="ring r-track" cx="22" cy="22" r="19" stroke-width="6"></circle>
+                  <path class="ring {{v.ringCls}}" d="{{v.ringD}}" stroke-width="6"></path>
+                </svg>
+                <div>
+                  <div class="win-name">{{v.name}}</div>
+                  <div class="sub">израсходовано {{v.usedPct}}</div>
+                  <div class="sub">{{v.reset}}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">2×2 · 184 × 184</div>
+        <div class="w s2x2">
+          <div class="eyebrow">Claude · квота</div>
+          <div style="display: flex; justify-content: center; margin-top: 2px">
+            <div style="position: relative; width: 96px; height: 96px">
+              <svg width="96" height="96" viewBox="0 0 96 96">
+                <circle class="ring r-track" cx="48" cy="48" r="44" stroke-width="8"></circle>
+                <path class="ring {{dual.outerCls}}" d="{{dual.outerD}}" stroke-width="8"></path>
+                <circle class="ring r-track" cx="48" cy="48" r="30.7" stroke-width="5"></circle>
+                <path class="ring {{dual.innerCls}}" d="{{dual.innerD}}" stroke-width="5"></path>
+              </svg>
+              <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center">
+                <div class="title-md" style="font-weight: 700">{{dual.center}}</div>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: auto">
+            <div class="chip {{dual.chip}}"><div class="dot"></div>{{dual.pressLabel}}</div>
+            <div class="sub">{{dual.hint}}</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="size-cap">4×2 · 380 × 184 · темп расхода</div>
+        <div class="w s4x2">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+            <div class="eyebrow">Темп расхода квоты · Claude 5 ч</div>
+            <div class="chip {{burn.chip}} sm">{{burn.verdict}}</div>
+          </div>
+          <div class="read" style="margin-top: 2px">{{burn.readMain}}</div>
+          <div class="sub">{{burn.readSub}}</div>
+          <div style="position: relative; margin-top: 8px">
+            <svg width="348" height="60" viewBox="0 0 348 60">
+              <sc-for list="{{burn.grid}}" as="g" hint-placeholder-count="3">
+                <line class="gridline" x1="0" y1="{{g.y}}" x2="348" y2="{{g.y}}"></line>
+              </sc-for>
+              <path class="ln-area" d="{{burn.areaD}}"></path>
+              <path class="ln-proj" d="{{burn.paceD}}"></path>
+              <path class="ln" d="{{burn.lineD}}"></path>
+              <sc-if value="{{burn.hasMark}}" hint-placeholder-val="{{true}}">
+                <circle class="dot-halo" cx="{{burn.markX}}" cy="{{burn.markY}}" r="6.5"></circle>
+                <circle class="dot-mark" cx="{{burn.markX}}" cy="{{burn.markY}}" r="4.5"></circle>
+              </sc-if>
+              <circle class="dot-halo" cx="{{burn.curX}}" cy="{{burn.curY}}" r="6.5"></circle>
+              <circle class="dot-cur" cx="{{burn.curX}}" cy="{{burn.curY}}" r="4.5"></circle>
+              <sc-if value="{{burn.hasSel}}" hint-placeholder-val="{{true}}">
+                <line class="crosshair" x1="{{burn.selX}}" y1="0" x2="{{burn.selX}}" y2="60"></line>
+                <circle class="dot-halo" cx="{{burn.selX}}" cy="{{burn.selY}}" r="7"></circle>
+                <circle class="dot-sel" cx="{{burn.selX}}" cy="{{burn.selY}}" r="5"></circle>
+              </sc-if>
+              <sc-for list="{{burn.hits}}" as="h" hint-placeholder-count="13">
+                <rect class="hit" x="{{h.x}}" y="0" width="{{h.w}}" height="60" onClick="{{h.pick}}"></rect>
+              </sc-for>
+            </svg>
+            <div style="position: relative; height: 16px">
+              <sc-for list="{{burn.xLabels}}" as="l" hint-placeholder-count="3">
+                <div class="{{l.cls}}" style="left: {{l.x}}px; transform: translateX({{l.tx}})">{{l.text}}</div>
+              </sc-for>
+            </div>
+            <div class="mark-lab" style="left: {{burn.markLabX}}px; top: {{burn.markLabY}}px">{{burn.markLab}}</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"verdict":{"editor":"enum","options":["Раньше сброса","Ровно к сбросу","Сгорит остаток"],"default":"Раньше сброса","section":"Данные"},"$preview":{"width":1156,"height":760}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: null };
+  }
+
+/*HELPERS*/
+
+  hhmm(mins) {
+    const m = ((mins % 1440) + 1440) % 1440;
+    const h = Math.floor(m / 60);
+    return (h < 10 ? '0' + h : h) + ':' + (m % 60 < 10 ? '0' + (m % 60) : m % 60);
+  }
+
+  // Окна Claude: 5 ч и неделя. Заполнение кольца — израсходованное.
+  windowData() {
+    return [
+      { name: 'Claude · 5 ч', used: 0.62, reset: 'сброс через 3 ч' },
+      { name: 'неделя', used: 0.88, reset: 'сброс через 2 дн' },
+    ];
+  }
+
+  burnData() {
+    const mode = this.props.verdict || 'Раньше сброса';
+    const f = mode === 'Ровно к сбросу' ? 1.0 : mode === 'Сгорит остаток' ? 0.3 : 1.55;
+    const jit = [0, 0.4, -0.3, 0.6, -0.5, 0.2, 0.5, -0.4, 0.3, -0.6, 0.1, 0.4, 0];
+    const pts = [];
+    for (let i = 0; i < 13; i++) {
+      const t = i * 10;
+      const rem = Math.max(100 - f * (100 / 300) * t + jit[i], 0);
+      pts.push([t, rem]);
+    }
+    return { pts: pts, f: f, mode: mode };
+  }
+
+  renderVals() {
+    const W = 348;
+    const H = 60;
+    const START = 12 * 60 + 32;
+    const SPAN = 300;
+
+    const wins = this.windowData().map((v) => ({
+      name: v.name,
+      usedPct: Math.round(v.used * 100) + '%',
+      reset: v.reset,
+      ringCls: 'r-' + this.pressure(1 - v.used),
+      ringD: this.arc(22, 22, 19, 0, v.used * 360),
+    }));
+
+    const outerUsed = 0.62;
+    const innerUsed = 0.88;
+    const innerPress = this.pressure(1 - innerUsed);
+    const dual = {
+      outerCls: 'r-' + this.pressure(1 - outerUsed),
+      outerD: this.arc(48, 48, 44, 0, outerUsed * 360),
+      innerCls: 'r-' + innerPress,
+      innerD: this.arc(48, 48, 30.7, 0, innerUsed * 360),
+      center: Math.round((1 - innerUsed) * 100) + '%',
+      chip: this.pressureChip(innerPress),
+      pressLabel: this.pressureLabel(innerPress),
+      hint: 'неделя · через 2 дн',
+    };
+
+    const bd = this.burnData();
+    const xOf = (t) => (t / SPAN) * W;
+    const yOf = (v) => H - 1 - (v / 100) * (H - 5);
+    const pxy = bd.pts.map((p) => [xOf(p[0]), yOf(p[1])]);
+    const cur = bd.pts[bd.pts.length - 1];
+    const rate = bd.f * (100 / 300);
+    const tZero = cur[0] + cur[1] / rate;
+    const exhausts = tZero <= SPAN;
+    const paceEnd = exhausts ? tZero : SPAN;
+    const remAtReset = Math.max(cur[1] - rate * (SPAN - cur[0]), 0);
+
+    const sel = this.state.sel;
+    const hasSel = sel !== null && sel !== undefined && sel < bd.pts.length;
+
+    const readMain = hasSel
+      ? this.hhmm(START + bd.pts[sel][0]) + ' · ' + Math.round(bd.pts[sel][1]) + '%'
+      : Math.round(cur[1]) + '%';
+    let readSub;
+    if (hasSel) {
+      const prev = sel > 0 ? bd.pts[sel - 1] : null;
+      readSub = prev
+        ? 'осталось · ' + this.signed(bd.pts[sel][1] - prev[1]) + ' за 10 мин'
+        : 'осталось · начало окна';
+    } else if (exhausts) {
+      readSub = 'хватит до ' + this.hhmm(START + Math.round(tZero)) + ' · сброс в ' + this.hhmm(START + SPAN);
+    } else {
+      readSub = 'сброс в ' + this.hhmm(START + SPAN) + ' · темп ниже ровного';
+    }
+
+    const verdict = exhausts
+      ? (tZero < SPAN - 20 ? 'раньше сброса' : 'ровно к сбросу')
+      : 'сгорит ' + Math.round(remAtReset) + '%';
+    const chip = exhausts ? (tZero < SPAN - 20 ? 'warn' : 'info') : 'warn';
+
+    const markX = xOf(paceEnd);
+    const markY = yOf(exhausts ? 0 : remAtReset);
+
+    // Точки покрывают только прошедшие 120 мин из 300-минутного окна,
+    // поэтому зона нажатия равна шагу по времени, а не ширине графика на число точек.
+    const slot = xOf(10);
+    return {
+      windows: wins,
+      dual: dual,
+      burn: {
+        grid: [100, 50, 0].map((v) => ({ y: yOf(v) })),
+        lineD: this.linePath(pxy),
+        areaD: this.areaPath(pxy, H),
+        paceD: this.linePath([[xOf(cur[0]), yOf(cur[1])], [markX, markY]]),
+        curX: xOf(cur[0]), curY: yOf(cur[1]),
+        hasMark: true, markX: markX, markY: markY,
+        markLab: exhausts ? this.hhmm(START + Math.round(tZero)) : 'сгорит ' + Math.round(remAtReset) + '%',
+        markLabX: Math.min(markX + 8, W - 40), markLabY: Math.max(markY - 14, 0),
+        hasSel: hasSel,
+        selX: hasSel ? pxy[sel][0] : 0,
+        selY: hasSel ? pxy[sel][1] : 0,
+        hits: bd.pts.map((p, i) => ({
+          x: Math.max(xOf(p[0]) - slot / 2, 0), w: slot,
+          pick: () => this.setState({ sel: sel === i ? null : i }),
+        })),
+        xLabels: [
+          { x: 0, tx: '0', cls: 'xabs', text: this.hhmm(START) },
+          { x: xOf(cur[0]), tx: '-50%', cls: 'xabs today', text: this.hhmm(START + cur[0]) },
+          { x: W, tx: '-100%', cls: 'xabs', text: this.hhmm(START + SPAN) },
+        ],
+        readMain: readMain,
+        readSub: readSub,
+        verdict: verdict,
+        chip: chip,
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
