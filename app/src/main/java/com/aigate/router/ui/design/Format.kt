@@ -11,12 +11,26 @@ import java.util.Locale
  */
 object Fmt {
 
+    /**
+     * Интерфейс приложения русский всегда, поэтому и числа форматируются
+     * по-русски: без явной локали «%.1f» брала системную и на английском
+     * устройстве рядом с русским текстом появлялось «3.8M» вместо «3,8M».
+     */
+    private val RU = Locale("ru")
+
+    /** Дробная часть, равная нулю, только зашумляет: 1,0M → 1M, 473,0K → 473K. */
+    private fun trimZero(value: String): String =
+        if (value.endsWith(",0")) value.dropLast(2) else value
+
+    private fun decimal(value: Double, digits: Int = 1): String =
+        trimZero(String.format(RU, "%.${digits}f", value))
+
     /** Байты: 512 Б · 12,4 КБ · 3,1 МБ · 1,8 ГБ */
     fun bytes(value: Long): String = when {
         value < 1024 -> "$value Б"
-        value < 1024L * 1024 -> "%.1f КБ".format(value / 1024.0)
-        value < 1024L * 1024 * 1024 -> "%.1f МБ".format(value / (1024.0 * 1024))
-        else -> "%.2f ГБ".format(value / (1024.0 * 1024 * 1024))
+        value < 1024L * 1024 -> "${decimal(value / 1024.0)} КБ"
+        value < 1024L * 1024 * 1024 -> "${decimal(value / (1024.0 * 1024))} МБ"
+        else -> "${decimal(value / (1024.0 * 1024 * 1024), digits = 2)} ГБ"
     }
 
     /** Компактные числа: 842 · 12,4K · 3,1M */
@@ -37,21 +51,22 @@ object Fmt {
 
     fun compact(value: Long): String = when {
         value < 1_000 -> value.toString()
-        value < 1_000_000 -> "%.1fK".format(value / 1_000.0)
-        else -> "%.1fM".format(value / 1_000_000.0)
+        value < 1_000_000 -> "${decimal(value / 1_000.0)}K"
+        else -> "${decimal(value / 1_000_000.0)}M"
     }
 
     /** Деньги: $0,00 (две значащие цифры центов, для мелких сумм — четыре знака). */
     fun usd(value: Double): String =
-        if (value > 0.0 && value < 0.01) "$%.4f".format(value) else "$%.2f".format(value)
+        if (value > 0.0 && value < 0.01) String.format(RU, "$%.4f", value)
+        else String.format(RU, "$%.2f", value)
 
     /** Значение квоты в её единицах: проценты, запросы, токены, доллары. */
     fun quota(value: Double, unit: String): String = when (unit.uppercase(Locale.ROOT)) {
         "USD" -> usd(value)
-        "PERCENT" -> "%.0f%%".format(value)
+        "PERCENT" -> String.format(RU, "%.0f%%", value)
         "REQUESTS" -> "${value.toLong()}"
         "TOKENS" -> compact(value.toLong())
-        else -> "%.2f".format(value)
+        else -> String.format(RU, "%.2f", value)
     }
 
     /** Человеческая длительность: 2 дн · 5 ч · 30 мин · 45 с */
@@ -73,7 +88,7 @@ object Fmt {
 
     /** Задержка: 812 мс · 4,9 с */
     fun latency(ms: Long): String =
-        if (ms < 1000) "$ms мс" else "%.1f с".format(ms / 1000.0)
+        if (ms < 1000) "$ms мс" else "${decimal(ms / 1000.0)} с"
 
     /** Время: 14:05 */
     fun time(timestamp: Long): String =

@@ -41,10 +41,20 @@ data class GatewayColors(
     val offline: Color,
     val pending: Color,
     // Dataviz
+    // Серия прошла валидатор различимости (CVD ΔE≥15, контраст ≥3:1 в обеих
+    // темах); порядок фиксированный, цвет закреплён за сущностью.
+    // Пара [0]+[1] — «входные/выходные».
     val chartSeries: List<Color>,
     val chartGrid: Color,
     val chartAxisLabel: Color,
     val chartProjection: Color,
+    val chartSelected: Color,
+    // Премиум-поверхности: карточки и hero-блок
+    val cardBorder: Color,
+    val cardShadow: Color,
+    val heroGradient: List<Color>,
+    // Сияние врат — используется с малой альфой при отрисовке градиента.
+    val heroGlow: Color,
     // Тональные поверхности (замена альфа-хаков)
     val surfaceContainerLow: Color,
     val surfaceContainerHigh: Color,
@@ -74,15 +84,20 @@ val LightGatewayColors = GatewayColors(
     pending = Color(0xFFF0A020),
     chartSeries = listOf(
         Color(0xFF2E6FE0), // азур
-        Color(0xFF56B6E8), // ледяной циан
-        Color(0xFF23B26A), // зелёный
-        Color(0xFFF0A020), // янтарь
-        Color(0xFF9A6FE0), // фиолет
-        Color(0xFFE5707A), // коралл
+        Color(0xFFC07E12), // охра
+        Color(0xFF8F62DE), // фиолет
+        Color(0xFF1D9A5E), // зелёный
+        Color(0xFF2492C8), // стальной циан
+        Color(0xFFD25A68), // коралл
     ),
     chartGrid = Color(0xFFDBE6F5),
     chartAxisLabel = Color(0xFF7E90A8),
     chartProjection = Color(0xFF9DB8DF),
+    chartSelected = Color(0xFF1E50B5),
+    cardBorder = Color(0x1A2E6FE0),
+    cardShadow = Color(0x332E6FE0),
+    heroGradient = listOf(Color.White, Color(0xFFE7F0FC)),
+    heroGlow = Color(0xFF7FC4F5),
     surfaceContainerLow = Color(0xFFF4F8FE),
     surfaceContainerHigh = Color(0xFFE4EDFA),
 )
@@ -110,16 +125,21 @@ val DarkGatewayColors = GatewayColors(
     offline = Color(0xFF64748B),
     pending = Color(0xFFF3B04E),
     chartSeries = listOf(
-        Color(0xFF6AA2F8),
-        Color(0xFF56B6E8),
-        Color(0xFF3BCB82),
-        Color(0xFFF3B04E),
-        Color(0xFFB194F0),
-        Color(0xFFF08B94),
+        Color(0xFF4A85EC), // азур
+        Color(0xFFC67F14), // охра
+        Color(0xFF9A6FE0), // фиолет
+        Color(0xFF2AA866), // зелёный
+        Color(0xFF2E9FD0), // стальной циан
+        Color(0xFFD9636F), // коралл
     ),
     chartGrid = Color(0xFF2A3B5C),
     chartAxisLabel = Color(0xFF8FA3C0),
     chartProjection = Color(0xFF4A648F),
+    chartSelected = Color(0xFF7FB3F6),
+    cardBorder = Color(0x247FC4F5),
+    cardShadow = Color(0x99000000),
+    heroGradient = listOf(Color(0xFF16233A), Color(0xFF1B3055)),
+    heroGlow = Color(0xFF7FC4F5),
     surfaceContainerLow = Color(0xFF1A2A45),
     surfaceContainerHigh = Color(0xFF24355C),
 )
@@ -141,12 +161,14 @@ data class GatewaySpacing(
 
 val LocalGatewaySpacing = staticCompositionLocalOf { GatewaySpacing() }
 
-/** Доступ к расширенным токенам: `Gateway.colors`, `Gateway.spacing`. */
+/** Доступ к расширенным токенам: `Gateway.colors`, `Gateway.spacing`, `Gateway.motion`. */
 object Gateway {
     val colors: GatewayColors
         @Composable @ReadOnlyComposable get() = LocalGatewayColors.current
     val spacing: GatewaySpacing
         @Composable @ReadOnlyComposable get() = LocalGatewaySpacing.current
+    val motion: GatewayMotion
+        @Composable @ReadOnlyComposable get() = LocalGatewayMotion.current
 }
 
 @Composable
@@ -154,6 +176,7 @@ fun ProvideGatewayDesign(darkTheme: Boolean, content: @Composable () -> Unit) {
     CompositionLocalProvider(
         LocalGatewayColors provides if (darkTheme) DarkGatewayColors else LightGatewayColors,
         LocalGatewaySpacing provides GatewaySpacing(),
+        LocalGatewayMotion provides GatewayMotion(),
         content = content,
     )
 }

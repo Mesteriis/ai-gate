@@ -13,6 +13,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -103,17 +106,22 @@ fun ProviderAvatar(
 ) {
     val brand = providerBrand(name, type)
     val shape = RoundedCornerShape(size / 3.6f)
+    // Знаки брендов монохромные и часто почти чёрные (Anthropic #191919,
+    // Ollama #1F2937) — на тёмном фоне они исчезали. Оттенок сохраняем,
+    // а яркость поднимаем ровно настолько, чтобы знак читался.
+    val visible = brand.color.readableOn(MaterialTheme.colorScheme.surface)
     if (brand.logo != null) {
         Box(
             modifier = modifier
                 .size(size)
                 // Подложка приглушена, чтобы логотип читался и в тёмной теме.
-                .background(brand.color.copy(alpha = 0.12f), shape),
+                .background(visible.copy(alpha = 0.12f), shape),
             contentAlignment = Alignment.Center,
         ) {
             Image(
                 painter = painterResource(brand.logo),
                 contentDescription = null,
+                colorFilter = ColorFilter.tint(visible),
                 modifier = Modifier.size(size).padding(size / 4.5f),
             )
         }
@@ -122,7 +130,7 @@ fun ProviderAvatar(
     Box(
         modifier = modifier
             .size(size)
-            .background(brand.color, shape),
+            .background(visible, shape),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -132,5 +140,20 @@ fun ProviderAvatar(
             fontSize = (size.value * 0.36f).sp,
             style = MaterialTheme.typography.labelLarge,
         )
+    }
+}
+
+/**
+ * Фирменный цвет, поднятый до различимого на данной поверхности: тон бренда
+ * сохраняется, меняется только светлота. Нужен потому, что фирменные цвета —
+ * не токены темы и не обязаны контрастировать с нашим фоном.
+ */
+private fun Color.readableOn(surface: Color): Color {
+    val dark = surface.luminance() < 0.5f
+    // Порог подобран по самым тёмным знакам набора (#191919, #0B0B0B).
+    return when {
+        dark && luminance() < 0.16f -> lerp(this, Color.White, 0.62f)
+        !dark && luminance() > 0.82f -> lerp(this, Color.Black, 0.35f)
+        else -> this
     }
 }

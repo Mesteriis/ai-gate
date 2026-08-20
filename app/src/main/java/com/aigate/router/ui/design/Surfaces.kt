@@ -1,6 +1,11 @@
 package com.aigate.router.ui.design
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Card
@@ -19,9 +25,17 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,8 +44,12 @@ import androidx.compose.ui.unit.dp
 /**
  * Базовая карточка приложения — ЕДИНСТВЕННЫЙ контейнер уровня «карточка».
  * Никаких локальных containerColor/alpha по экранам: только [tone].
+ * [CardTone.Hero] — витринная карточка с градиентом врат и сиянием.
  */
-enum class CardTone { Plain, Raised, Accent }
+enum class CardTone { Plain, Raised, Accent, Hero }
+
+/** Единая форма карточки — скругление меняется только здесь. */
+private val CardShape = RoundedCornerShape(16.dp)
 
 @Composable
 fun AppCard(
@@ -40,19 +58,76 @@ fun AppCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val container = when (tone) {
+    val target = when (tone) {
         CardTone.Plain -> MaterialTheme.colorScheme.surface
-        CardTone.Raised -> Gateway.colors.surfaceContainerLow
+        CardTone.Raised -> MaterialTheme.colorScheme.surfaceContainerLow
         CardTone.Accent -> Gateway.colors.infoContainer
+        // Градиент рисуется внутри карточки, поэтому контейнер прозрачный.
+        CardTone.Hero -> Color.Transparent
     }
+    // Тон меняется по состоянию (выбранный пресет, отключённый провайдер) —
+    // без анимации подложка переключалась одним кадром и выбор читался
+    // как мигание, а не как переход.
+    val container by animateColorAsState(
+        targetValue = target,
+        animationSpec = tween(Gateway.motion.normal, easing = Gateway.motion.emphasized),
+        label = "card-tone",
+    )
+    val shadowColor = Gateway.colors.cardShadow
+    // Нажатие показывает себя вдавливанием самой карточки: ripple под
+    // скруглением 16.dp читался бы как подсветка прямоугольника.
+    val interaction = remember { MutableInteractionSource() }
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+            .then(if (onClick != null) Modifier.pressScale(interaction) else Modifier)
+            // Тень до фона и без clip — иначе форма карточки её обрежет.
+            .shadow(
+                elevation = 3.dp,
+                shape = CardShape,
+                clip = false,
+                ambientColor = shadowColor,
+                spotColor = shadowColor,
+            )
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(
+                        interactionSource = interaction,
+                        indication = ripple(),
+                        onClick = onClick,
+                    )
+                } else {
+                    Modifier
+                }
+            ),
+        shape = CardShape,
         colors = CardDefaults.cardColors(containerColor = container),
+        border = BorderStroke(1.dp, Gateway.colors.cardBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
-        Column(Modifier.padding(Gateway.spacing.lg), content = content)
+        val heroModifier = if (tone == CardTone.Hero) {
+            val glow = Gateway.colors.heroGlow
+            Modifier
+                .fillMaxWidth()
+                .background(Brush.linearGradient(Gateway.colors.heroGradient))
+                // «Сияние врат» в правом верхнем углу; малая альфа, чтобы
+                // подсветка не спорила с контентом.
+                .drawBehind {
+                    val radius = size.maxDimension * 0.75f
+                    if (radius > 0f) {
+                        drawRect(
+                            brush = Brush.radialGradient(
+                                colors = listOf(glow.copy(alpha = 0.15f), Color.Transparent),
+                                center = Offset(size.width, 0f),
+                                radius = radius,
+                            ),
+                        )
+                    }
+                }
+        } else {
+            Modifier
+        }
+        Column(heroModifier.padding(Gateway.spacing.lg), content = content)
     }
 }
 

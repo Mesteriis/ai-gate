@@ -3,10 +3,15 @@ package com.aigate.router.ui.design
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -29,11 +34,19 @@ fun QrCodeImage(
 ) {
     val sizePx = with(androidx.compose.ui.platform.LocalDensity.current) { size.roundToPx() }
     val bitmap = remember(content, sizePx) { qrBitmap(content, sizePx) } ?: return
-    Image(
-        bitmap = bitmap.asImageBitmap(),
-        contentDescription = "QR-код адреса шлюза",
-        modifier = modifier.size(size),
-    )
+    // Подложка — осознанно Color.White, а не цвет темы: сканеры требуют тёмные
+    // модули на светлом поле, иначе в тёмной теме код перестаёт читаться.
+    Box(
+        modifier = modifier
+            .background(Color.White, RoundedCornerShape(12.dp))
+            .padding(Gateway.spacing.sm),
+    ) {
+        Image(
+            bitmap = bitmap.asImageBitmap(),
+            contentDescription = "QR-код адреса шлюза",
+            modifier = Modifier.size(size),
+        )
+    }
 }
 
 /** Чёрный код на прозрачном фоне; null, если строка не кодируется. */

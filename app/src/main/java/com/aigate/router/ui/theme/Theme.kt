@@ -1,6 +1,7 @@
 package com.aigate.router.ui.theme
 
 import android.app.Activity
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -11,16 +12,22 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val OnLight = Color(0xFF16233A)
-private val OnLightMuted = Color(0xFF4A5A70)
-
+// Обе схемы заданы полностью, чтобы ни одно поле не проваливалось
+// в лиловый M3 baseline (индикаторы NavigationBar, чипы, дивайдеры и т.п.).
 private val LightColorScheme = lightColorScheme(
     primary = Primary,
     onPrimary = Color.White,
     primaryContainer = FrostTop,
     onPrimaryContainer = PrimaryVariant,
+    inversePrimary = LightInversePrimary,
     secondary = Secondary,
     onSecondary = Color.White,
+    secondaryContainer = LightSecondaryContainer,
+    onSecondaryContainer = PrimaryVariant,
+    tertiary = SecondaryVariant,
+    onTertiary = Color.White,
+    tertiaryContainer = FrostTop,
+    onTertiaryContainer = PrimaryVariant,
     background = LightBackground,
     onBackground = OnLight,
     surface = LightSurface,
@@ -29,30 +36,69 @@ private val LightColorScheme = lightColorScheme(
     onSurfaceVariant = OnLightMuted,
     error = Error,
     onError = Color.White,
-    outline = Color(0xFFB9CBE6)
+    errorContainer = LightErrorContainer,
+    onErrorContainer = LightOnErrorContainer,
+    outline = LightOutline,
+    outlineVariant = LightOutlineVariant,
+    // Инверсные поверхности зеркалят тёмную тему.
+    inverseSurface = DarkSurface,
+    inverseOnSurface = DarkOnSurface,
+    surfaceBright = LightSurface,
+    surfaceDim = LightSurfaceDim,
+    surfaceContainerLowest = LightSurface,
+    surfaceContainerLow = LightSurfaceContainerLow,
+    surfaceContainer = LightSurfaceContainer,
+    surfaceContainerHigh = LightSurfaceVariant,
+    surfaceContainerHighest = FrostTop,
 )
 
 private val DarkColorScheme = darkColorScheme(
     primary = Secondary,
-    onPrimary = Color(0xFF06121F),
+    onPrimary = DarkOnAccent,
+    primaryContainer = DarkAccentContainer,
+    onPrimaryContainer = DarkOnAccentContainer,
+    inversePrimary = Primary,
     secondary = Secondary,
+    onSecondary = DarkOnAccent,
+    secondaryContainer = DarkAccentContainer,
+    onSecondaryContainer = DarkOnAccentContainer,
+    tertiary = FrostGlow,
+    onTertiary = DarkOnAccent,
+    tertiaryContainer = DarkTertiaryContainer,
+    onTertiaryContainer = DarkOnTertiaryContainer,
     background = DarkBackground,
-    onBackground = Color(0xFFE6EEF9),
+    onBackground = DarkOnSurface,
     surface = DarkSurface,
-    onSurface = Color(0xFFE6EEF9),
+    onSurface = DarkOnSurface,
     surfaceVariant = DarkSurfaceVariant,
-    onSurfaceVariant = Color(0xFFA9BAD4),
-    error = Error
+    onSurfaceVariant = DarkOnSurfaceMuted,
+    error = DarkError,
+    onError = DarkOnAccent,
+    errorContainer = DarkErrorContainer,
+    onErrorContainer = DarkOnErrorContainer,
+    outline = DarkOutline,
+    outlineVariant = DarkOutlineVariant,
+    // Инверсные поверхности зеркалят светлую тему.
+    inverseSurface = DarkOnSurface,
+    inverseOnSurface = DarkSurface,
+    surfaceBright = DarkSurfaceContainerHigh,
+    surfaceDim = DarkBackground,
+    surfaceContainerLowest = DarkSurfaceContainerLowest,
+    surfaceContainerLow = DarkSurfaceContainerLow,
+    surfaceContainer = DarkSurfaceContainer,
+    surfaceContainerHigh = DarkSurfaceContainerHigh,
+    surfaceContainerHighest = DarkSurfaceContainerHighest,
 )
 
 /**
- * AiGate theme — frost-gate look. Defaults to the light frost palette (matching the
- * product reference); dark frost is available when [darkTheme] is passed true. Material You
- * dynamic color is intentionally OFF so the brand palette is always used.
+ * AiGate theme — frost-gate look. По умолчанию следует системной теме
+ * ([isSystemInDarkTheme]); светлая и тёмная морозные палитры собраны целиком
+ * из брендовых токенов. Material You dynamic color намеренно ВЫКЛЮЧЕН,
+ * чтобы всегда использовалась брендовая палитра.
  */
 @Composable
 fun GatewayTheme(
-    darkTheme: Boolean = false,
+    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
