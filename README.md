@@ -1,5 +1,10 @@
 # ИИ Врата (AiGate)
 
+[![CI](https://github.com/Mesteriis/ai-gate/actions/workflows/ci.yml/badge.svg)](https://github.com/Mesteriis/ai-gate/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Mesteriis/ai-gate?include_prereleases&label=release)](https://github.com/Mesteriis/ai-gate/releases)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+![Android](https://img.shields.io/badge/Android%207.0%2B-API%2024-3DDC84?logo=android&logoColor=white)
+
 Локальный OpenAI-совместимый **AI-шлюз, менеджер AI-ресурсов и policy-роутер** для
 Android. Приложение превращает телефон в маршрутизатор запросов к разным провайдерам
 LLM (OpenAI, Anthropic, Gemini, DeepSeek, локальная Ollama, OpenRouter и любые
@@ -11,7 +16,20 @@ failover.
 > из которого удалён «комбайн» (чат, память, персонаж, скиллы, групповой чат,
 > веб-поиск), усилена безопасность и добавлен слой управления AI-ресурсами.
 
-**Статус:** `v0.1.0` — рабочий локальный шлюз + AI Resource Manager.
+**Статус:** `v0.2.0` — рабочий локальный шлюз + AI Resource Manager + локальные
+модели (LiteRT-LM, llama.cpp/GGUF, Gemini Nano) + комплект виджетов.
+
+## Скриншоты
+
+<p>
+  <img src="docs/images/app-tour.gif" width="30%" alt="Тур по приложению: Обзор, Ресурсы, Маршруты, Активность, Настройки">
+  <img src="docs/images/widgets-tour.gif" width="30%" alt="Тур по виджетам домашнего экрана в двух темах">
+  <img src="docs/images/fold-tour.gif" width="37%" alt="Большой экран Z Fold с боковой навигацией">
+</p>
+
+Слева направо: экраны приложения, виджеты домашнего экрана, большой экран
+развёрнутого Z Fold (NavigationRail от 720dp). Статичные снимки всех экранов
+в обеих темах — в [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md).
 
 ## Позиционирование
 
@@ -47,6 +65,13 @@ ROUTING   →  выбор оптимального ресурса (скорос�
   бэкапе/логах их нет (только `credentialId`).
 - `network_security_config`: cleartext только на loopback/локальную сеть, апстрим — HTTPS.
 
+**Локальные модели**
+- Каталог, скачивание и хранилище моделей прямо на устройстве; шлюз обслуживает
+  их наравне с облачными (и умеет маршрут «Локально»).
+- Три движка: **LiteRT-LM** (`.litertlm`, CPU/GPU/NPU), **llama.cpp** для GGUF
+  (собирается из исходников сабмодулем, arm64) и системная **Gemini Nano**
+  через AICore — там, где устройство её поддерживает.
+
 **Менеджер AI-ресурсов**
 - **Квоты** с честными источниками: `PROVIDER_API` (реальные данные провайдера) vs
   `LOCAL_USAGE`/`USER_CONFIGURED`/`ESTIMATED` (расчёт AiGate) — различаются в UI;
@@ -64,19 +89,21 @@ ROUTING   →  выбор оптимального ресурса (скорос�
 
 ## Подключение провайдеров
 
-1. **API-ключ** (основной путь): вкладка **Провайдеры → Добавить провайдера**,
+1. **API-ключ** (основной путь): вкладка **Ресурсы → Подключить провайдера**,
    укажите тип, Base URL и ключ. Работает с OpenAI, Anthropic, Gemini, DeepSeek,
    OpenRouter, локальной Ollama (без ключа) и любым OpenAI-совместимым сервисом.
    Ключ шифруется в Keystore.
-2. **Реальный баланс**: у **OpenRouter** есть публичный endpoint остатка —
-   добавьте его как провайдера, и на экране «Ресурсы и квоты» появится реальный
-   `PROVIDER_API`-баланс. Для остальных провайдеров показывается локальный расчёт
-   расхода (реальный баланс подписки они по API не отдают).
+2. **Реальные остатки**: адаптеры квот встроены для OpenRouter (баланс счёта),
+   Codex (квота подписки ChatGPT), Claude (квота подписки двумя окнами),
+   DeepSeek (баланс) и Cursor (расход команды) — на «Обзоре» и вкладке
+   «Ресурсы» такие данные помечены как данные провайдера (`PROVIDER_API`).
+   Для остальных показывается честный локальный подсчёт — только по запросам
+   через шлюз.
 3. **Ollama**: Base URL вида `http://<host>` + порт `11434`, ключ не нужен
    (cleartext к локальной сети разрешён).
 
-4. **Codex в один тап** (эксперим., по образцу omniroute): «Ресурсы и квоты →
-   CLI-сессии → **Подключить Codex**». Одна кнопка — открывается браузер на входе
+4. **Codex в один тап** (эксперим., по образцу omniroute): «Ресурсы →
+   Подключить провайдера → **Codex (ChatGPT)**». Одна кнопка — открывается браузер на входе
    OpenAI Codex (настоящий OAuth Authorization Code + PKCE, публичный client_id из
    codex CLI). Логинитесь своей учётной записью ChatGPT, провайдер редиректит на
    **`http://localhost:1455/auth/callback`** (порт фиксированный — как у codex CLI),
@@ -85,8 +112,8 @@ ROUTING   →  выбор оптимального ресурса (скорос�
    обновляется** (single-flight refresh переживает перезапуск). Ничего копировать не
    нужно. После входа автоматически: **читаются модели** Codex (gpt-5-codex, gpt-5,
    o3, o4-mini, codex-mini-latest) и **подтягивается реальная квота подписки** из
-   `GET /backend-api/codex/usage` (остаток в %, время до сброса, план) — на экране
-   «Ресурсы и квоты» с пометкой «данные провайдера» (`PROVIDER_API`). Кнопка «Другой
+   `GET /backend-api/codex/usage` (остаток в %, время до сброса, план) — на вкладке
+   «Ресурсы» и на «Обзоре» с пометкой «данные провайдера» (`PROVIDER_API`). Кнопка «Другой
    провайдер…» даёт тот же браузерный flow для Gemini/Claude/своего OAuth (плюс
    fallback «Вставить сессию вручную»).
 
@@ -131,12 +158,10 @@ ROUTING   →  выбор оптимального ресурса (скорос�
   <img src="docs/images/widgets/cover-dark.png" width="45%" alt="Виджеты AiGate на домашнем экране, тёмная тема">
 </p>
 
-Ярусы по отдельности: [ресурсы](docs/images/widgets/gallery-light.png)
-([тёмная](docs/images/widgets/gallery-dark.png)),
-[графики](docs/images/widgets/gallery-charts.png),
-[таблицы и ранжирование](docs/images/widgets/gallery-tables.png). Макеты, из
-которых собран комплект, лежат в [docs/design/widgets](docs/design/widgets/) —
-самостоятельные HTML-страницы со всеми размерами в двух темах.
+Полная галерея — каждый виджет во всех ярусах, светлая и тёмная темы — в
+[docs/SCREENSHOTS.md](docs/SCREENSHOTS.md). Макеты, из которых собран комплект,
+лежат в [docs/design/widgets](docs/design/widgets/) — самостоятельные
+HTML-страницы со всеми размерами в двух темах (точка входа — `index.html`).
 
 Инварианты, которые комплект держит вместе с экранами: заливка бара и кольца —
 израсходованное, подпись всегда про остаток; отсутствие данных показывается
@@ -155,20 +180,37 @@ curl http://127.0.0.1:8889/v1/chat/completions \
 
 В LAN-режиме укажите заголовок `Authorization: Bearer <ваш-пароль>`.
 
+## Установка
+
+Готовый APK лежит в [Releases](https://github.com/Mesteriis/ai-gate/releases):
+на каждый тег `v*` CI собирает релиз и прикладывает APK с контрольной суммой.
+Также свежий debug APK можно взять из артефактов последнего запуска
+[CI](https://github.com/Mesteriis/ai-gate/actions/workflows/ci.yml).
+
 ## Сборка
 
-Требуется JDK 17 и Android SDK (compileSdk/targetSdk 37).
+Требуется JDK 17 и Android SDK (compileSdk/targetSdk 37). Движок llama.cpp
+собирается из исходников, поэтому клонируйте с подмодулями (NDK и CMake 3.31.6
+Android Gradle Plugin поставит сам):
 
 ```bash
+git clone --recurse-submodules https://github.com/Mesteriis/ai-gate.git
 export JAVA_HOME=/path/to/jdk-17
 export ANDROID_HOME=$HOME/Library/Android/sdk   # или свой путь к SDK
-./gradlew assembleDebug          # debug APK
-./gradlew lintDebug test         # линт + юнит-тесты
+./gradlew assembleDebug                  # debug APK
+./gradlew lintDebug testDebugUnitTest    # линт + юнит-тесты (гейт CI)
 ```
 
 APK появится в `app/build/outputs/apk/debug/`. Для релизной подписи задайте
 `AIGATE_KEYSTORE_PATH`, `AIGATE_STORE_PASSWORD`, `AIGATE_KEY_ALIAS`,
-`AIGATE_KEY_PASSWORD` (ключ в репозиторий не коммитится).
+`AIGATE_KEY_PASSWORD` (ключ в репозиторий не коммитится). В CI релиз
+подписывается ключом из секретов `RELEASE_KEYSTORE_BASE64` /
+`RELEASE_STORE_PASSWORD` / `RELEASE_KEY_ALIAS` / `RELEASE_KEY_PASSWORD`;
+без них — одноразовым ключом (APK устанавливается, но identity подписи не
+постоянная).
+
+Участие в разработке — [CONTRIBUTING.md](CONTRIBUTING.md), журнал изменений —
+[CHANGELOG.md](CHANGELOG.md), безопасность — [SECURITY.md](SECURITY.md).
 
 ## Отличия от апстрима (QiTong)
 
@@ -185,7 +227,10 @@ APK появится в `app/build/outputs/apk/debug/`. Для релизной 
 - Полностью русский интерфейс, тема «врат», адаптивная раскладка (NavigationRail на
   большом экране).
 - Добавлен слой AI Resource Manager (квоты, цены, бюджеты, routing по ресурсам,
-  история, виджет, уведомления, OAuth-каркас).
+  история, уведомления, OAuth-каркас) и адаптеры реальных квот
+  (OpenRouter/Codex/Claude/DeepSeek/Cursor).
+- Добавлены локальные модели (LiteRT-LM, llama.cpp/GGUF, Gemini Nano/AICore)
+  и комплект из двенадцати домашних виджетов.
 
 ## Лицензия
 
@@ -207,13 +252,22 @@ Idea and inspiration are taken from
 is a fork of upstream `v3.18.16` (@ `7d7e6ed`) with the non-gateway "combine" features
 removed, security hardened (loopback default, secure LAN, Keystore secrets), and an
 AI-resource layer added (quotas, pricing/cost, resource-aware routing, usage history,
-home widget, notifications, OAuth framework).
+a 12-widget home-screen kit, notifications, OAuth framework). Since `v0.2.0` it also
+runs **on-device models** — LiteRT-LM, llama.cpp/GGUF (built from source as a
+submodule) and Gemini Nano via AICore. Screenshots for phone, unfolded-foldable and
+widgets live in [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md).
 
-**Provider connection.** Add providers by API key (Providers → Add). OpenRouter exposes
-a real balance endpoint; other providers show locally-computed usage. **ChatGPT/Codex
-and Claude subscription quotas cannot be connected** — those vendors expose no public
-OAuth flow or subscription-quota API to third-party clients (kept experimental by
-design); their **API keys** work as normal providers.
+**Provider connection.** Add providers by API key (Resources → Add provider). Built-in
+real-quota adapters cover OpenRouter (account balance), Codex (ChatGPT subscription
+quota), Claude (subscription quota, two windows), DeepSeek (balance) and Cursor (team
+spend) — such data is labeled `PROVIDER_API`; everything else shows an honest local
+count of gateway traffic. Codex connects in one tap via a real browser OAuth flow
+(Authorization Code + PKCE, loopback port 1455); Claude/Gemini use the same
+experimental CLI-session path. Note: OpenAI/Anthropic expose no public subscription
+API to third-party clients, so the CLI-session path may violate their Terms — use at
+your own risk; their **API keys** always work as normal providers.
 
-Build with JDK 17 + Android SDK: `./gradlew assembleDebug`. Licensed under Apache-2.0
-(see `LICENSE`/`NOTICE`); the fork keeps the upstream license.
+Install a prebuilt APK from [Releases](https://github.com/Mesteriis/ai-gate/releases)
+(CI builds and attaches one for every `v*` tag), or build from source with JDK 17 +
+Android SDK: `git clone --recurse-submodules … && ./gradlew assembleDebug`. Licensed
+under Apache-2.0 (see `LICENSE`/`NOTICE`); the fork keeps the upstream license.
