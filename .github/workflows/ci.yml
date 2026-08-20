@@ -47,7 +47,7 @@ jobs:
         run: ./gradlew --no-daemon assembleRelease
 
       - name: Артефакт — debug APK (готов к установке)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: aigate-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
@@ -55,7 +55,7 @@ jobs:
 
       - name: Отчёты (при падении)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reports
           path: |
