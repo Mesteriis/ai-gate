@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Сборка и публикация релиза
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout (с подмодулем llama.cpp)
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Gradle (с кэшем)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: CMake 3.31.6 из Android SDK
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "cmake;3.31.6"
+
+      - name: Линт и юнит-тесты
+        run: ./gradlew --no-daemon lintDebug testDebugUnitTest
+
+      # Ключ подписи приходит только из секретов репозитория; в git его нет.
+      # Если секреты не заданы, релиз подписывается одноразовым ключом —
+      # APK останется устанавливаемым, но без постоянной identity подписи.
+      # Пароли в GITHUB_ENV не пишем: они передаются только шагу сборки.
+      - name: Подготовка ключа подписи
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "AIGATE_SIGNING=repo" >> "$GITHUB_ENV"
+          else
+            keytool -genkeypair -v -keystore "$RUNNER_TEMP/release.jks" \
+              -alias aigate-ci -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass aigate-ci-throwaway -keypass aigate-ci-throwaway \
+              -dname "CN=AiGate CI, OU=CI, O=AiGate"
+            echo "AIGATE_SIGNING=throwaway" >> "$GITHUB_ENV"
+          fi
+          echo "AIGATE_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Release APK
+        env:
+          AIGATE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD || 'aigate-ci-throwaway' }}
+          AIGATE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS || 'aigate-ci' }}
+          AIGATE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD || 'aigate-ci-throwaway' }}
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Именование артефактов и контрольные суммы
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          [ "$GITHUB_REF_TYPE" = "tag" ] || VERSION="manual-${GITHUB_SHA::7}"
+          SUFFIX=""
+          [ "$AIGATE_SIGNING" = "throwaway" ] && SUFFIX="-cisigned"
+          mkdir -p dist
+          # Подпись настроена всегда, поэтому ожидаем app-release.apk;
+          # глоб страхует от суффикса -unsigned при изменении логики подписи.
+          cp app/build/outputs/apk/release/app-release*.apk "dist/aigate-${VERSION}${SUFFIX}.apk"
+          (cd dist && sha256sum *.apk > SHA256SUMS.txt)
+
+      - name: Артефакт workflow
+        uses: actions/upload-artifact@v4
+        with:
+          name: aigate-release
+          path: dist/*
+          if-no-files-found: error
+
+      - name: GitHub Release с APK
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
