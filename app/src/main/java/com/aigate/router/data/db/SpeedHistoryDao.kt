@@ -9,8 +9,12 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SpeedHistoryDao {
-    /** 获取指定模型近 N 条测速历史（按时间升序，用于画趋势图） */
-    @Query("SELECT * FROM speed_history WHERE model_key = :modelKey ORDER BY measured_at ASC LIMIT :limit")
+    /**
+     * Последние N замеров модели, наружу — по возрастанию времени (график
+     * читается слева направо). Подзапрос обязателен: LIMIT с прямым ASC
+     * отдавал бы N старейших замеров вместо свежих.
+     */
+    @Query("SELECT * FROM (SELECT * FROM speed_history WHERE model_key = :modelKey ORDER BY measured_at DESC LIMIT :limit) ORDER BY measured_at ASC")
     fun getHistoryByModel(modelKey: String, limit: Int = 50): Flow<List<SpeedHistory>>
 
     /** 获取所有模型的最新一条测速记录（用于排行榜快速对照） */

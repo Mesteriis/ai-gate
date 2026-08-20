@@ -28,6 +28,7 @@ import com.aigate.router.gateway.ModelCapabilityManager
 import com.aigate.router.gateway.VirtualModel
 import com.aigate.router.data.model.SpeedHistory
 import com.aigate.router.data.db.SpeedHistoryDao
+import com.aigate.router.usage.UsageStats
 import com.aigate.router.utils.localizeGeneratedName
 import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +37,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -71,12 +74,20 @@ import com.aigate.router.data.model.CapabilityTag
 
 // ==================== 包级全局变量（Activity重建不丢失）====================
 /** 流水线测速状态条目 */
+/**
+ * Исход замера. Раньше он жил эмодзи-префиксом внутри [PipelineTestItem.status]
+ * и разбирался обратно в UI — данные несли оформление, а экран угадывал смысл.
+ */
+@kotlinx.serialization.Serializable
+enum class TestOutcome { Pending, Success, Failure }
+
 @kotlinx.serialization.Serializable
 data class PipelineTestItem(
     val modelId: String,
     val modelName: String,
     val providerId: Long = 0L,
     val status: String,
+    val outcome: TestOutcome = TestOutcome.Pending,
     val latencyMs: Long = 0,
     val isCurrent: Boolean = false
 ) {
@@ -244,6 +255,32 @@ class GatewayViewModel(
 val allTokenUsage: StateFlow<List<TokenUsage>> = database.tokenUsageDao()
     .getAllUsage()
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // ==================== Статистика за период ====================
+    /** Период статистики в днях — один на все разрезы вкладки, чтобы графики не расходились. */
+    val statsPeriodDays = MutableStateFlow(14)
+
+    fun setStatsPeriod(days: Int) {
+        statsPeriodDays.value = days
+    }
+
+    /**
+     * Срез расхода за выбранный период. Агрегация идёт по всем строкам
+     * расхода, поэтому пересчёт уведён с главного потока на Default.
+     */
+    val statsSnapshot: StateFlow<UsageStats.Snapshot?> =
+        combine(allTokenUsage, providers, statsPeriodDays) { rows, providerList, days ->
+            // «Сейчас» берётся в момент пересчёта: зафиксированная при
+            // подписке отметка сдвигала бы границу периода на открытом экране.
+            UsageStats.snapshot(
+                rows = rows,
+                providerNames = providerList.associate { it.id to it.name },
+                nowMs = System.currentTimeMillis(),
+                days = days,
+            )
+        }
+            .flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     // ==================== 按API密钥统计用量 ====================
     private val _apiKeyUsageRows = MutableStateFlow<List<ApiKeyUsageRow>>(emptyList())
@@ -563,14 +600,14 @@ companion object {
                         modelId = model.modelId,
                         modelName = model.customAlias.ifBlank { model.displayName },
                         providerId = model.providerId,
-                        status = "⏳ Ожидание",
+                        status = "Ожидание",
                         latencyMs = 0,
                         isCurrent = false
                     )
                 }
                 _pipelineStatus.value = merged
                 val rankedKeys = merged
-                    .filter { it.status.startsWith("✅") || it.status.startsWith("❌") }
+                    .filter { it.outcome != TestOutcome.Pending }
                     .sortedBy { it.latencyMs }
                     .map { it.selectionKey }
                 com.aigate.router.gateway.GatewayScheduler.pipelineSortedModelKeys =
@@ -748,7 +785,7 @@ companion object {
     fun testProxySpeed(profile: ProxyProfile) {
         viewModelScope.launch {
             try {
-                _snackbarMessage.value = "⏳ Тестирование ${profile.name}..."
+                _snackbarMessage.value = "Тестирование ${profile.name}..."
                 withContext(Dispatchers.IO) {
                     val upstreamConfig = UpstreamClient.ProxyConfig(
                         type = profile.type, host = profile.host, port = profile.port,
@@ -853,7 +890,7 @@ companion object {
     fun importSubscription(url: String) {
         viewModelScope.launch {
             try {
-                _snackbarMessage.value = "⏳ Получение подписки..."
+                _snackbarMessage.value = "Получение подписки..."
                 withContext(Dispatchers.IO) {
                     val request = okhttp3.Request.Builder().url(url).build()
                     val response = okhttp3.OkHttpClient.Builder()
@@ -931,7 +968,7 @@ companion object {
     fun bindBackgroundPermissions() {
         viewModelScope.launch {
             try {
-                _snackbarMessage.value = "⏳ Запрос фоновых разрешений..."
+                _snackbarMessage.value = "Запрос фоновых разрешений..."
                 withContext(Dispatchers.IO) {
                     try {
                         Runtime.getRuntime().exec(arrayOf(
@@ -1511,7 +1548,7 @@ fun selectModel(model: AiModel?) {
                 _snackbarMessage.value = if (newEnabled) {
                     "Модель включена"
                 } else {
-                    "⏸️ Модель приостановлена"
+                    "Модель приостановлена"
                 }
             } catch (e: Exception) {
                 _snackbarMessage.value = "Операция не удалась: ${e.message}"
@@ -1759,7 +1796,7 @@ fun getDisplayModelName(model: AiModel): String {
     fun testModelSpeed(model: AiModel) {
         viewModelScope.launch {
             try {
-                _snackbarMessage.value = "⏳ Замер скорости ${model.displayName}..."
+                _snackbarMessage.value = "Замер скорости ${model.displayName}..."
                 withContext(Dispatchers.IO) {
                     val provider = database.providerDao().getProviderById(model.providerId) ?: run {
                         _snackbarMessage.value = "${model.displayName}: связанный провайдер не найден"
@@ -1867,7 +1904,7 @@ fun getDisplayModelName(model: AiModel): String {
                 var passed = 0
                 var failed = 0
                 for ((i, model) in allModels.withIndex()) {
-                    _snackbarMessage.value = "⏳ Тест [${i+1}/${allModels.size}] ${model.displayName}..."
+                    _snackbarMessage.value = "Тест [${i+1}/${allModels.size}] ${model.displayName}..."
                     // 逐个测速，每个都在 IO 线程执行
                     val ok = withContext(Dispatchers.IO) {
                         try {
@@ -1973,12 +2010,12 @@ fun clearSyncResult() {
                         if (realIdx < 0) continue
                         if (!_pipelineRunning.value) break
                         // ★★ 更新进度 ★★
-                        val testedCount = _pipelineStatus.value.count { it.status.startsWith("✅") || it.status.startsWith("❌") }
+                        val testedCount = _pipelineStatus.value.count { it.outcome != TestOutcome.Pending }
                         val total = _pipelineStatus.value.size
                         _pipelineProgress.value = if (total > 0) testedCount.toFloat() / total.toFloat() else 0f
 
                         val cur = _pipelineStatus.value.toMutableList()
-                        cur[realIdx] = cur[realIdx].copy(status = "⏳ Замер скорости...", isCurrent = true)
+                        cur[realIdx] = cur[realIdx].copy(status = "Замер скорости...", isCurrent = true)
                         for (i in cur.indices) { if (i != realIdx) cur[i] = cur[i].copy(isCurrent = false) }
                         _pipelineStatus.value = cur
 
@@ -2029,7 +2066,12 @@ fun clearSyncResult() {
 
                                 val rl = _pipelineStatus.value.toMutableList()
                         rl[realIdx] = rl[realIdx].copy(
-                            status = if (success) "✅ TTFT=${ttft}ms TPS=${"%.0f".format(tps)} ${latency}ms" else "❌ $errorMsg",
+                            status = if (success) {
+                                "TTFT ${ttft} мс · TPS ${"%.0f".format(tps)} · ${latency} мс"
+                            } else {
+                                errorMsg
+                            },
+                            outcome = if (success) TestOutcome.Success else TestOutcome.Failure,
                             latencyMs = if (success) latency else Long.MAX_VALUE, isCurrent = false
                         )
                         _pipelineStatus.value = rl
