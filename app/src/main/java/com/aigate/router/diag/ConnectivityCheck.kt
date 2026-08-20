@@ -5,6 +5,7 @@ import com.aigate.router.auth.CodexModelsApi
 import com.aigate.router.data.credential.CredentialStore
 import com.aigate.router.data.db.AppDatabase
 import com.aigate.router.gateway.CodexUpstream
+import com.aigate.router.gateway.local.LocalBackendRegistry
 import com.aigate.router.network.ModelCatalogApi
 import com.aigate.router.service.GatewayForegroundService
 import kotlinx.coroutines.Dispatchers
@@ -85,6 +86,20 @@ object ConnectivityCheck {
                 } else {
                     Step(provider.name, State.OK, "моделей доступно: ${models.models.size}")
                 }
+                continue
+            }
+
+            // Модели на устройстве считаются в этом же процессе: сети им не
+            // нужно, и «не отвечает» было бы неправдой.
+            if (LocalBackendRegistry.ownsType(provider.type)) {
+                steps += Step(provider.name, State.OK, "модели на устройстве, сеть не нужна")
+                continue
+            }
+
+            // Адрес провайдера вводит пользователь. Если он не сетевой, честнее
+            // сказать это прямо, чем свалить всё на «не отвечает».
+            if (!ModelCatalogApi.isNetworkAddress(provider.resolvedBaseUrl)) {
+                steps += Step(provider.name, State.FAIL, "адрес не сетевой: ${provider.resolvedBaseUrl}")
                 continue
             }
 

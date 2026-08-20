@@ -51,6 +51,16 @@ object ModelCatalogApi {
     }
 
     /**
+     * Есть ли смысл идти по этому адресу в сеть. Модели на устройстве
+     * адресуются схемой `local://`, и OkHttp такую схему не принимает: попытка
+     * построить запрос завершалась IllegalArgumentException.
+     */
+    internal fun isNetworkAddress(url: String): Boolean {
+        val u = url.trim().lowercase()
+        return u.startsWith("http://") || u.startsWith("https://")
+    }
+
+    /**
      * Запросить модели. Возвращает null, если провайдер список не отдал —
      * прежние модели в этом случае остаются нетронутыми.
      */
@@ -58,6 +68,9 @@ object ModelCatalogApi {
         withContext(Dispatchers.IO) {
             val base = provider.resolvedBaseUrl.trimEnd('/')
             if (base.isBlank()) return@withContext null
+            // У моделей на устройстве сетевого каталога нет вовсе, а адрес
+            // провайдера вводит пользователь и там может оказаться что угодно.
+            if (!isNetworkAddress(base)) return@withContext null
             val family = familyOf(provider)
             val url = when (family) {
                 Family.ANTHROPIC -> "$base/v1/models"
@@ -66,29 +79,32 @@ object ModelCatalogApi {
                 Family.OPENAI_COMPATIBLE -> "$base/v1/models"
             }
 
-            val builder = Request.Builder().url(url).get().header("Accept", "application/json")
-            when (family) {
-                Family.ANTHROPIC -> {
-                    // Подписка Claude аутентифицируется Bearer-токеном и бета-заголовком,
-                    // ключ API — заголовком x-api-key. Это разные способы, и путать их нельзя.
-                    if (provider.type.equals(com.aigate.router.auth.ClaudeCliAuth.PROVIDER_TYPE, true)) {
-                        apiKey?.takeIf { it.isNotBlank() }?.let { builder.header("Authorization", "Bearer $it") }
-                        builder.header(
-                            com.aigate.router.auth.ClaudeCliAuth.BETA_HEADER,
-                            com.aigate.router.auth.ClaudeCliAuth.BETA_OAUTH,
-                        )
-                    } else {
-                        apiKey?.takeIf { it.isNotBlank() }?.let { builder.header("x-api-key", it) }
-                    }
-                    builder.header("anthropic-version", ANTHROPIC_VERSION)
-                }
-                // Ключ Gemini уходит в query — в заголовке он не принимается.
-                Family.GEMINI -> Unit
-                Family.OPENAI_COMPATIBLE ->
-                    apiKey?.takeIf { it.isNotBlank() }?.let { builder.header("Authorization", "Bearer $it") }
-            }
-
+            // Построение запроса тоже под runCatching: Request.Builder.url кидает
+            // IllegalArgumentException на любом адресе, который OkHttp не разобрал,
+            // и раньше это исключение улетало из fetch, роняя приложение.
             runCatching {
+                val builder = Request.Builder().url(url).get().header("Accept", "application/json")
+                when (family) {
+                    Family.ANTHROPIC -> {
+                        // Подписка Claude аутентифицируется Bearer-токеном и бета-заголовком,
+                        // ключ API — заголовком x-api-key. Это разные способы, и путать их нельзя.
+                        if (provider.type.equals(com.aigate.router.auth.ClaudeCliAuth.PROVIDER_TYPE, true)) {
+                            apiKey?.takeIf { it.isNotBlank() }?.let { builder.header("Authorization", "Bearer $it") }
+                            builder.header(
+                                com.aigate.router.auth.ClaudeCliAuth.BETA_HEADER,
+                                com.aigate.router.auth.ClaudeCliAuth.BETA_OAUTH,
+                            )
+                        } else {
+                            apiKey?.takeIf { it.isNotBlank() }?.let { builder.header("x-api-key", it) }
+                        }
+                        builder.header("anthropic-version", ANTHROPIC_VERSION)
+                    }
+                    // Ключ Gemini уходит в query — в заголовке он не принимается.
+                    Family.GEMINI -> Unit
+                    Family.OPENAI_COMPATIBLE ->
+                        apiKey?.takeIf { it.isNotBlank() }?.let { builder.header("Authorization", "Bearer $it") }
+                }
+
                 client.newCall(builder.build()).execute().use { resp ->
                     if (!resp.isSuccessful) {
                         Log.w(TAG, "models ${provider.type} → HTTP ${resp.code}")

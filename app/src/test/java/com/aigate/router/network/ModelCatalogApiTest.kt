@@ -1,7 +1,10 @@
 package com.aigate.router.network
 
 import com.aigate.router.data.model.Provider
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -67,6 +70,44 @@ class ModelCatalogApiTest {
         listOf("", "не json", "{}", """{"data":[]}""").forEach { body ->
             assertTrue(ModelCatalogApi.parse(body, ModelCatalogApi.Family.OPENAI_COMPATIBLE).isEmpty())
             assertTrue(ModelCatalogApi.parse(body, ModelCatalogApi.Family.GEMINI).isEmpty())
+        }
+    }
+
+    @Test
+    fun `сетевым считается только http-адрес`() {
+        assertTrue(ModelCatalogApi.isNetworkAddress("http://10.34.10.2:11434"))
+        assertTrue(ModelCatalogApi.isNetworkAddress("https://api.deepseek.com"))
+        assertTrue(ModelCatalogApi.isNetworkAddress("  HTTPS://API.DEEPSEEK.COM  "))
+        // Модели на устройстве адресуются схемой local:// — спрашивать их по сети нечего.
+        assertFalse(ModelCatalogApi.isNetworkAddress("local://models"))
+        assertFalse(ModelCatalogApi.isNetworkAddress("local://device"))
+        assertFalse(ModelCatalogApi.isNetworkAddress("api.deepseek.com"))
+        assertFalse(ModelCatalogApi.isNetworkAddress(""))
+    }
+
+    @Test
+    fun `модель на устройстве не запрашивается по сети и не роняет приложение`() = runBlocking {
+        // Запрос каталога у local:// падал с IllegalArgumentException прямо в
+        // Request.Builder.url, и проверка связи роняла приложение целиком.
+        assertNull(
+            ModelCatalogApi.fetch(
+                Provider(name = "Локальные модели", type = "local-llamacpp", baseUrl = "local://models"),
+                apiKey = null,
+            )
+        )
+    }
+
+    @Test
+    fun `испорченный адрес возвращает null, а не исключение`() = runBlocking {
+        // Адрес провайдера вводит пользователь, поэтому там может оказаться что угодно.
+        listOf("ftp://файлы", "просто текст", "://", "http://").forEach { url ->
+            assertNull(
+                url,
+                ModelCatalogApi.fetch(
+                    Provider(name = "p", type = "OpenAI Compatible", baseUrl = url),
+                    apiKey = null,
+                )
+            )
         }
     }
 }
