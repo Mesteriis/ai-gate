@@ -21,14 +21,16 @@ failover.
 
 ## Скриншоты
 
-<p>
-  <img src="docs/images/app-tour.gif" width="30%" alt="Тур по приложению: Обзор, Ресурсы, Маршруты, Активность, Настройки">
-  <img src="docs/images/widgets-tour.gif" width="30%" alt="Тур по виджетам домашнего экрана в двух темах">
-  <img src="docs/images/fold-tour.gif" width="37%" alt="Большой экран Z Fold с боковой навигацией">
+<p align="center">
+  <img src="docs/images/fold-tour.gif" width="72%" alt="Большой экран Z Fold с боковой навигацией">
+</p>
+<p align="center">
+  <img src="docs/images/app-tour.gif" width="45%" alt="Тур по приложению: Обзор, Ресурсы, Маршруты, Активность, Настройки">
+  <img src="docs/images/widgets-tour.gif" width="45%" alt="Тур по виджетам домашнего экрана в двух темах">
 </p>
 
-Слева направо: экраны приложения, виджеты домашнего экрана, большой экран
-развёрнутого Z Fold (NavigationRail от 720dp). Статичные снимки всех экранов
+Сверху — большой экран развёрнутого Z Fold (NavigationRail от 720dp); снизу —
+экраны приложения и виджеты домашнего экрана. Статичные снимки всех экранов
 в обеих темах — в [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md).
 
 ## Позиционирование
