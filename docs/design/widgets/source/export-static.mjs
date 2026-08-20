@@ -1,12 +1,15 @@
-// Превращает артборды дизайн-канваса в самостоятельные HTML-страницы:
-// вычисляет renderVals() в Node и раскрывает шаблон (holes, sc-for, sc-if) в готовую разметку.
+// Превращает собранные артборды дизайн-канваса (build/*.dc.html после build.mjs)
+// в самостоятельные HTML-страницы: вычисляет renderVals() в Node и раскрывает
+// шаблон (holes, sc-for, sc-if) в готовую разметку.
 // Интерактив (onClick) вырезается — страницы статические, годятся для докуменации и скриншотов.
-import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const outDir = process.argv[2] || join(here, 'static');
+const inDir = join(here, 'build');
+if (!existsSync(inDir)) throw new Error('нет каталога build/ — сначала выполните: node build.mjs');
+const outDir = process.argv[2] || join(here, '..');
 mkdirSync(outDir, { recursive: true });
 
 class DCLogic {
@@ -117,10 +120,10 @@ function expand(chunk, scopes) {
     });
 }
 
-const files = readdirSync(here).filter((f) => f.endsWith('.dc.html')).sort();
+const files = readdirSync(inDir).filter((f) => f.endsWith('.dc.html')).sort();
 const pages = [];
 for (const file of files) {
-  const raw = readFileSync(join(here, file), 'utf8');
+  const raw = readFileSync(join(inDir, file), 'utf8');
   const style = (raw.match(/<helmet>\s*<style>([\s\S]*?)<\/style>/) || [])[1] || '';
   const tpl = raw.slice(raw.indexOf('<x-dc>') + 6, raw.indexOf('</x-dc>'));
   const scriptTag = raw.match(/<script data-dc-script data-props='([^']*)'>([\s\S]*?)<\/script>/);
