@@ -1,5 +1,6 @@
 package com.aigate.router.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,6 +48,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -59,6 +61,7 @@ import com.aigate.router.ui.design.Gateway
 import com.aigate.router.ui.design.HelpSection
 import com.aigate.router.ui.design.SectionHeader
 import com.aigate.router.ui.design.SettingsRow
+import com.aigate.router.ui.design.appear
 import com.aigate.router.ui.viewmodel.GatewayViewModel
 import com.aigate.router.utils.AppLanguage
 import com.aigate.router.utils.TranslationManager
@@ -188,14 +191,15 @@ fun SettingsScreen(
                 .padding(bottom = Gateway.spacing.xxl),
             verticalArrangement = Arrangement.spacedBy(Gateway.spacing.xs),
         ) {
-            SettingsSectionHeader("Доступ")
-            SettingsGroup {
+            // Индекс секции задаёт задержку появления: список настроек
+            // собирается волной сверху вниз, а не проявляется целиком.
+            SettingsBlock("Доступ", index = 0) {
                 SettingsRow(
                     title = "API-ключи",
                     icon = Icons.Outlined.VpnKey,
                     onClick = onOpenKeys,
                 )
-                HorizontalDivider()
+                SettingsSeparator()
                 SettingsRow(
                     title = "Режим локальной сети",
                     icon = Icons.Outlined.Lan,
@@ -204,8 +208,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsSectionHeader("Сеть")
-            SettingsGroup {
+            SettingsBlock("Сеть", index = 1) {
                 // Раньше сюда можно было попасть только тройным тапом по
                 // полупрозрачной плашке в «О программе» — теперь это обычная строка.
                 SettingsRow(
@@ -214,14 +217,14 @@ fun SettingsScreen(
                     valueText = proxySummary(proxyEnabled, proxyProfiles, activeProxyId),
                     onClick = { viewModel.showProxyConfig() },
                 )
-                HorizontalDivider()
+                SettingsSeparator()
                 SettingsRow(
                     title = "Правила маршрутизации",
                     icon = Icons.AutoMirrored.Outlined.Rule,
                     valueText = rulesSummary,
                     onClick = { section = SettingsSection.RoutingRules },
                 )
-                HorizontalDivider()
+                SettingsSeparator()
                 // Пока шлюз остановлен, порт никто не слушает, и узнать о
                 // попытках подключения нельзя. Приёмник держит порт и отвечает
                 // 503, поэтому попытки становятся видны — но включается вручную.
@@ -239,15 +242,14 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsSectionHeader("Данные")
-            SettingsGroup {
+            SettingsBlock("Данные", index = 2) {
                 SettingsRow(
                     title = "Резервные копии",
                     icon = Icons.Outlined.Save,
                     valueText = backupSummary,
                     onClick = onOpenBackups,
                 )
-                HorizontalDivider()
+                SettingsSeparator()
                 SettingsRow(
                     title = "Отладочные логи перехвата",
                     icon = Icons.Outlined.BugReport,
@@ -256,14 +258,13 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsSectionHeader("Приложение")
-            SettingsGroup {
+            SettingsBlock("Приложение", index = 3) {
                 SettingsRow(
                     title = "Автозапуск и работа в фоне",
                     icon = Icons.Outlined.BatterySaver,
                     onClick = { showBackgroundSheet = true },
                 )
-                HorizontalDivider()
+                SettingsSeparator()
                 SettingsToggleRow(
                     title = "Скрыть из недавних",
                     icon = Icons.Outlined.VisibilityOff,
@@ -278,7 +279,7 @@ fun SettingsScreen(
                         }
                     },
                 )
-                HorizontalDivider()
+                SettingsSeparator()
                 SettingsRow(
                     title = "Язык",
                     icon = Icons.Outlined.Translate,
@@ -288,7 +289,9 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.size(Gateway.spacing.sm))
-            SettingsGroup {
+            // Секция без заголовка: «О программе» — одиночная строка, придумывать
+            // ей раздел не за что, но карточкой она остаётся как все остальные.
+            SettingsBlock(title = null, index = 4) {
                 SettingsRow(
                     title = "О программе",
                     subtitle = appVersion.takeIf { it.isNotBlank() }?.let { "Версия $it" },
@@ -297,8 +300,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsSectionHeader("Опасная зона")
-            SettingsGroup {
+            SettingsBlock("Опасная зона", index = 5) {
                 SettingsDangerRow(
                     title = "Сбросить все данные",
                     icon = Icons.Outlined.DeleteForever,
@@ -384,20 +386,64 @@ private fun SettingsSectionHeader(title: String) {
 }
 
 /**
- * Группа строк одной секции. Строки полноширинные и кликабельные целиком,
- * поэтому внутренние отступы задаёт сама строка, а не контейнер.
+ * Секция целиком: заголовок и карточка строк входят одной волной. Анимировать
+ * только карточку нельзя — заголовок повис бы над пустым местом.
+ */
+@Composable
+private fun SettingsBlock(
+    title: String?,
+    index: Int,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = Modifier.appear(index = index),
+        verticalArrangement = Arrangement.spacedBy(Gateway.spacing.xs),
+    ) {
+        title?.let { SettingsSectionHeader(it) }
+        SettingsGroup(content = content)
+    }
+}
+
+/**
+ * Группа строк одной секции. Визуально это та же карточка, что и на остальных
+ * экранах: поверхность, хайрлайн-граница и тень взяты из тех же токенов, что
+ * использует AppCard, — иначе настройки читались бы как плашка из старого стиля.
+ *
+ * Сам AppCard здесь не подходит: он добавляет внутренний отступ, а строки
+ * настроек должны оставаться полноширинными и кликабельными до края карточки,
+ * поэтому отступы задаёт сама строка, а не контейнер.
  */
 @Composable
 private fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
+    val shadowColor = Gateway.colors.cardShadow
+    val shape = MaterialTheme.shapes.large
     Surface(
-        color = Gateway.colors.surfaceContainerLow,
-        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surface,
+        shape = shape,
+        border = BorderStroke(1.dp, Gateway.colors.cardBorder),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = Gateway.spacing.lg),
+            .padding(horizontal = Gateway.spacing.lg)
+            // Тень без clip: форма карточки обрезала бы её по своему контуру.
+            .shadow(
+                elevation = 3.dp,
+                shape = shape,
+                clip = false,
+                ambientColor = shadowColor,
+                spotColor = shadowColor,
+            ),
     ) {
         Column(content = content)
     }
+}
+
+/**
+ * Разделитель строк внутри секции. Толщина и цвет — по умолчанию M3
+ * (outlineVariant): линия должна только разделять строки, а не рисовать сетку.
+ */
+@Composable
+private fun SettingsSeparator() {
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 /** Строка-переключатель: состояние меняется на месте, отдельный экран не нужен. */

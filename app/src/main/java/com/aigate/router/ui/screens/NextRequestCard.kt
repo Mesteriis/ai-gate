@@ -34,7 +34,11 @@ import com.aigate.router.ui.viewmodel.GatewayViewModel
  * экранах, и предсказать маршрут запроса было нельзя.
  */
 @Composable
-fun NextRequestCard(viewModel: GatewayViewModel, ticker: Long) {
+fun NextRequestCard(
+    viewModel: GatewayViewModel,
+    ticker: Long,
+    modifier: Modifier = Modifier,
+) {
     val models by viewModel.enabledModels.collectAsState()
     val providers by viewModel.providers.collectAsState()
     val forced by viewModel.forcedModelKey.collectAsState()
@@ -55,17 +59,20 @@ fun NextRequestCard(viewModel: GatewayViewModel, ticker: Long) {
         else -> null
     }
 
-    AppCard(tone = CardTone.Raised) {
+    AppCard(modifier = modifier, tone = CardTone.Raised) {
         Column(verticalArrangement = Arrangement.spacedBy(Gateway.spacing.sm)) {
+            // Eyebrow-подпись вместо полноразмерного заголовка: карточка
+            // отвечает одним фактом — именем модели, оно и должно быть крупным.
             Text(
                 text = "Следующий запрос обслужит",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (model == null) {
                 Text(
                     text = "Нет включённых моделей",
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 return@Column
@@ -74,14 +81,14 @@ fun NextRequestCard(viewModel: GatewayViewModel, ticker: Long) {
                 ProviderAvatar(
                     name = provider?.name.orEmpty(),
                     type = provider?.type.orEmpty(),
-                    size = 28.dp,
+                    size = 34.dp,
                 )
-                Spacer(Modifier.width(Gateway.spacing.sm))
-                Column(Modifier.fillMaxWidth()) {
+                Spacer(Modifier.width(Gateway.spacing.md))
+                Column(Modifier.weight(1f)) {
                     Text(
                         text = model.customAlias.ifBlank { model.displayName },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -93,14 +100,17 @@ fun NextRequestCard(viewModel: GatewayViewModel, ticker: Long) {
                         ).joinToString(" · "),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
-            }
-            reason?.let {
-                StatusChip(
-                    text = it,
-                    tone = if (forced.isNotBlank()) StatusTone.Info else StatusTone.Neutral,
-                )
+                reason?.let {
+                    Spacer(Modifier.width(Gateway.spacing.sm))
+                    StatusChip(
+                        text = it,
+                        tone = if (forced.isNotBlank()) StatusTone.Info else StatusTone.Neutral,
+                    )
+                }
             }
         }
     }

@@ -6,6 +6,7 @@ import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +24,8 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.AllInclusive
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.OutlinedButton
@@ -38,12 +41,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
@@ -59,12 +64,16 @@ import com.aigate.router.quota.ResourcePoolKind
 import com.aigate.router.service.GatewayForegroundService
 import com.aigate.router.ui.design.AppCard
 import com.aigate.router.ui.design.CardTone
+import com.aigate.router.ui.design.ChartCard
 import com.aigate.router.ui.design.Fmt
+import com.aigate.router.ui.design.animatedValue
+import com.aigate.router.ui.design.appear
 import com.aigate.router.ui.design.FormSheet
 import com.aigate.router.ui.design.Gateway
 import com.aigate.router.ui.design.HelpSection
 import com.aigate.router.ui.design.HelpSheet
 import com.aigate.router.ui.design.MetricTile
+import com.aigate.router.ui.design.parallax
 import com.aigate.router.ui.design.ProviderAvatar
 import com.aigate.router.ui.design.QrCodeImage
 import com.aigate.router.ui.design.QuotaRing
@@ -72,6 +81,7 @@ import com.aigate.router.ui.design.QuotaRings
 import com.aigate.router.ui.design.SectionHeader
 import com.aigate.router.ui.design.StatusChip
 import com.aigate.router.ui.design.StatusTone
+import com.aigate.router.ui.design.charts.ChartMarker
 import com.aigate.router.ui.design.charts.ChartPoint
 import com.aigate.router.ui.design.charts.LineChart
 import com.aigate.router.ui.design.charts.LineSeries
@@ -80,6 +90,7 @@ import com.aigate.router.ui.util.localIpAddress
 import com.aigate.router.ui.util.rememberTicker
 import com.aigate.router.ui.viewmodel.GatewayViewModel
 import com.aigate.router.usage.UsageHistory
+import kotlin.math.roundToLong
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -138,9 +149,12 @@ fun OverviewScreen(
         }
     }
 
+    // Скролл держим сами: витринная карточка уходит с параллаксом, а он
+    // считается от текущего смещения списка.
+    val scroll = rememberScrollState()
     Column(
         modifier = modifier
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scroll)
             .padding(horizontal = Gateway.spacing.lg)
             .padding(bottom = Gateway.spacing.xxl),
         verticalArrangement = Arrangement.spacedBy(Gateway.spacing.md),
@@ -152,6 +166,7 @@ fun OverviewScreen(
             onToggle = { viewModel.toggleGateway() },
             onCopy = { label, value -> copyToClipboard(context, label, value) },
             onEditPort = { showPortSheet = true },
+            modifier = Modifier.parallax(scroll, fadeDistance = 320.dp),
         )
         if (showPortSheet) {
             PortSheet(
@@ -186,15 +201,27 @@ fun OverviewScreen(
                 }
             }
         }
+        // Дальше карточки входят волной: индекс задаёт задержку появления,
+        // поэтому экран собирается по порядку чтения, а не мигает целиком.
+        // Витрина в индексах не участвует — у неё параллакс.
         AttentionBlock(
             alerts = attention,
             gatewayStopped = !serviceRunning,
             blockedAttempts = GatewayForegroundService.blockedAttempts.get(),
+            modifier = Modifier.appear(index = 1),
         )
 
-        NextRequestCard(viewModel = viewModel, ticker = ticker)
+        // NextRequestCard живёт в отдельном файле и модификатора не принимает,
+        // поэтому волну входа даём обёрткой, а не правкой чужой карточки.
+        Column(Modifier.appear(index = 2)) {
+            NextRequestCard(viewModel = viewModel, ticker = ticker)
+        }
 
-        ConnectivityCheckCard(db = db, port = gatewayPort)
+        ConnectivityCheckCard(
+            db = db,
+            port = gatewayPort,
+            modifier = Modifier.appear(index = 3),
+        )
 
         // Плитки бесплатных ресурсов на обзор не выносим: у них нечего
         // показывать, кроме знака бесконечности, а обзор нужен для того, что
@@ -202,19 +229,9 @@ fun OverviewScreen(
         // прятали ресурсы, за которыми действительно надо следить. Сами
         // ресурсы никуда не делись — они в разделе «Ресурсы».
         val limited = pools.filterNot { ResourcePoolKind.fromName(it.pool.kind) == ResourcePoolKind.FREE }
-        if (pools.isEmpty() || limited.isNotEmpty()) {
-            SectionHeader("Ресурсы провайдеров")
-            QuotaStrip(
-                pools = limited,
-                providerTypes = providers.associate { it.id to it.type },
-            )
-        }
 
         val forecast = usage?.first
         val days = usage?.second.orEmpty()
-        MonthSpendCard(forecast = forecast, days = days)
-
-        UsageByDayCard(days = days)
 
         // История снимков нужна графику темпа: читаем её один раз на все пулы.
         val histories by produceState(initialValue = emptyMap<Long, List<com.aigate.router.data.model.QuotaSnapshot>>(), pools.size, ticker / 15) {
@@ -222,7 +239,72 @@ fun OverviewScreen(
                 pools.associate { it.pool.id to db.quotaSnapshotDao().getHistoryForPool(it.pool.id) }
             }
         }
-        QuotaBurnCard(pools = pools, histories = histories)
+
+        // QuotaBurnCard рисует только ресурсы со сбросом и при их отсутствии не
+        // рисует ничего. Проверяем это здесь: пустая обёртка с appear забрала бы
+        // себе отступ в раскладке и оставила дырку между карточками.
+        val hasBurnPools = pools.any { ResourcePoolKind.fromName(it.pool.kind).hasReset }
+
+        // Общая мерка ширины для fold-раскладки: от неё зависят и число плиток
+        // ресурсов в ряду, и двухколоночный блок графиков на развёрнутом Fold.
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val tileColumns = (maxWidth / 170.dp).toInt().coerceIn(2, 4)
+            val wide = maxWidth >= 640.dp
+            Column(verticalArrangement = Arrangement.spacedBy(Gateway.spacing.md)) {
+                if (pools.isEmpty() || limited.isNotEmpty()) {
+                    SectionHeader(
+                        title = "Ресурсы провайдеров",
+                        modifier = Modifier.appear(index = 4),
+                    )
+                    QuotaStrip(
+                        pools = limited,
+                        providerTypes = providers.associate { it.id to it.type },
+                        tilesPerRow = tileColumns,
+                        appearFrom = 5,
+                    )
+                }
+
+                MonthSpendCard(
+                    forecast = forecast,
+                    days = days,
+                    modifier = Modifier.appear(index = 8),
+                )
+
+                if (wide) {
+                    // На развёрнутом Fold графики стоят рядом: сравнение расхода
+                    // по дням и темпа квоты не требует прокрутки. Колонки входят
+                    // по очереди — каждая со своим индексом.
+                    Row(horizontalArrangement = Arrangement.spacedBy(Gateway.spacing.md)) {
+                        Column(
+                            modifier = Modifier.weight(1f).appear(index = 9),
+                            verticalArrangement = Arrangement.spacedBy(Gateway.spacing.md),
+                        ) {
+                            UsageByDayCard(days = days)
+                        }
+                        Column(
+                            modifier = Modifier.weight(1f).appear(index = 10),
+                            verticalArrangement = Arrangement.spacedBy(Gateway.spacing.md),
+                        ) {
+                            QuotaBurnCard(pools = pools, histories = histories)
+                        }
+                    }
+                } else {
+                    // Карточки графиков модификатора не принимают (соседний
+                    // файл), поэтому волну входа даём обёртками.
+                    Column(Modifier.appear(index = 9)) {
+                        UsageByDayCard(days = days)
+                    }
+                    if (hasBurnPools) {
+                        Column(
+                            modifier = Modifier.appear(index = 10),
+                            verticalArrangement = Arrangement.spacedBy(Gateway.spacing.md),
+                        ) {
+                            QuotaBurnCard(pools = pools, histories = histories)
+                        }
+                    }
+                }
+            }
+        }
 
         // Экономия локальных моделей: показываем только когда есть по чему считать.
         val savings by produceState<com.aigate.router.usage.LocalSavings.Result?>(initialValue = null, ticker / 15) {
@@ -233,6 +315,7 @@ fun OverviewScreen(
                 label = "Экономия на локальных моделях",
                 value = Fmt.usd(s.savedUsd),
                 unit = "за месяц",
+                modifier = Modifier.appear(index = 11),
                 below = {
                     Text(
                         text = "${Fmt.compact(s.localTokens)} токенов локально; оценка по цене " +
@@ -244,9 +327,14 @@ fun OverviewScreen(
             )
         }
 
-        TrafficCard(ticker = ticker)
+        TrafficCard(ticker = ticker, modifier = Modifier.appear(index = 12))
 
-        LiveSessionsCard(viewModel = viewModel, running = serviceRunning, ticker = ticker)
+        LiveSessionsCard(
+            viewModel = viewModel,
+            running = serviceRunning,
+            ticker = ticker,
+            modifier = Modifier.appear(index = 13),
+        )
     }
 
     // Сообщения ViewModel показываем снекбаром (раньше был Toast поверх всего).
@@ -265,18 +353,26 @@ private fun GatewayStatusCard(
     onToggle: () -> Unit,
     onCopy: (String, String) -> Unit,
     onEditPort: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val lanIp = remember { localIpAddress() }
-    AppCard(tone = CardTone.Raised) {
+    // Главный блок экрана — витрина: состояние шлюза читается первым, поэтому
+    // тон Hero с градиентом врат, а не рядовая приподнятая карточка.
+    AppCard(modifier = modifier, tone = CardTone.Hero) {
+        Text(
+            text = "Шлюз",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
         ) {
-            Column {
+            Column(Modifier.weight(1f)) {
                 Text(
-                    text = if (running) "Шлюз работает" else "Шлюз остановлен",
-                    style = MaterialTheme.typography.headlineMedium,
+                    text = if (running) "Работает" else "Остановлен",
+                    style = MaterialTheme.typography.displayLarge,
                     fontWeight = FontWeight.Bold,
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -387,17 +483,19 @@ private fun AddressRow(label: String, value: String, onCopy: (String, String) ->
     }
 }
 
-/** Кольца квот по пулам — вместо тонкой полоски, спрятанной в подразделе. */
-/** Плиток ресурсов в ряду; дальше идёт перенос на новую строку. */
-private const val TILES_PER_ROW = 4
-
+/**
+ * Кольца квот по пулам — вместо тонкой полоски, спрятанной в подразделе.
+ * [appearFrom] — индекс первой плитки в волне входа экрана.
+ */
 @Composable
 private fun QuotaStrip(
     pools: List<QuotaRepository.PoolQuota>,
     providerTypes: Map<Long, String>,
+    tilesPerRow: Int,
+    appearFrom: Int = 0,
 ) {
     if (pools.isEmpty()) {
-        AppCard(tone = CardTone.Raised) {
+        AppCard(tone = CardTone.Raised, modifier = Modifier.appear(index = appearFrom)) {
             Text(
                 text = "Пулы квот появятся после подключения провайдеров",
                 style = MaterialTheme.typography.bodyMedium,
@@ -406,26 +504,30 @@ private fun QuotaStrip(
         }
         return
     }
-    // Сетка по четыре плитки в ряд с переносом: горизонтальная прокрутка
-    // обрезала четвёртую плитку в портретной ориентации. Ширина берётся от
-    // доступной, поэтому раскладка подходит и портрету, и ландшафту.
+    // Сетка с переносом; число плиток в ряду выбирает экран по своей ширине:
+    // на внешнем экране Fold — две, на развёрнутом внутреннем — четыре.
     var notifyFor by remember { mutableStateOf<QuotaRepository.PoolQuota?>(null) }
     Column(verticalArrangement = Arrangement.spacedBy(Gateway.spacing.md)) {
-        pools.chunked(TILES_PER_ROW).forEach { row ->
+        pools.chunked(tilesPerRow).forEachIndexed { rowIndex, row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(Gateway.spacing.md),
             ) {
-                row.forEach { pq ->
+                row.forEachIndexed { columnIndex, pq ->
                     ResourceTile(
                         pq = pq,
                         providerType = providerTypes[pq.pool.providerId].orEmpty(),
                         onClick = { notifyFor = pq },
+                        // Задержку наращиваем по позиции плитки, но не глубже
+                        // двух шагов: у владельца с десятком пулов последняя
+                        // плитка иначе ждала бы своей очереди полсекунды.
+                        appearIndex = appearFrom +
+                            (rowIndex * tilesPerRow + columnIndex).coerceAtMost(2),
                         modifier = Modifier.weight(1f),
                     )
                 }
                 // Пустые места в неполном ряду, чтобы плитки не растягивались.
-                repeat(TILES_PER_ROW - row.size) {
+                repeat(tilesPerRow - row.size) {
                     Spacer(Modifier.weight(1f))
                 }
             }
@@ -451,6 +553,7 @@ private fun ResourceTile(
     pq: QuotaRepository.PoolQuota,
     providerType: String,
     onClick: () -> Unit,
+    appearIndex: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val kind = ResourcePoolKind.fromName(pq.pool.kind)
@@ -476,25 +579,36 @@ private fun ResourceTile(
         tone = CardTone.Raised,
         onClick = onClick,
         // Одинаковая высота: плитки не «прыгают» от разного набора данных.
-        // Ширину задаёт ряд, поэтому плитка её не навязывает.
-        modifier = modifier.height(190.dp),
+        // Ширину задаёт ряд, поэтому плитка её не навязывает. Высота выросла
+        // под подпись типа ресурса — кольцу и подвалу места хватает.
+        modifier = modifier.height(204.dp).appear(index = appearIndex),
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
-            // Шапка: тип несёт логотип, крупно — имя провайдера.
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ProviderAvatar(name = pq.pool.name, type = providerType, size = 16.dp)
-                Spacer(Modifier.width(Gateway.spacing.xs))
+            // Шапка: сверху мелко тип ресурса. Квота, баланс и бесплатный
+            // ресурс живут по разным правилам, и плитка обязана сказать, что
+            // именно перед тобой, — иначе кольцо и сумма читаются как одно и
+            // то же. Ниже логотип провайдера и его имя.
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = pq.pool.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    text = kind.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ProviderAvatar(name = pq.pool.name, type = providerType, size = 16.dp)
+                    Spacer(Modifier.width(Gateway.spacing.xs))
+                    Text(
+                        text = pq.pool.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
 
             when {
@@ -612,16 +726,31 @@ private fun tileFooter(
 
 /**
  * Расход месяца: накопительная линия по дням, пунктирный прогноз до конца
- * месяца. Такого графика не было — расход показывался двумя строками текста.
+ * месяца. Итог и прогноз читаются из шапки, маркер на последней точке отделяет
+ * расход по токенам от итога с тарифами.
+ *
+ * Тон Plain, а не Hero: витрина на экране одна — состояние шлюза. Две карточки
+ * с градиентом спорили бы за первый взгляд, и обе перестали бы быть главными.
  */
 @Composable
-private fun MonthSpendCard(forecast: UsageHistory.Forecast?, days: List<UsageHistory.DayUsage>) {
-    MetricTile(
+private fun MonthSpendCard(
+    forecast: UsageHistory.Forecast?,
+    days: List<UsageHistory.DayUsage>,
+    modifier: Modifier = Modifier,
+) {
+    ChartCard(
         // Стоимость месяца — это подписки плюс расход по токенам.
-        label = "Расход за месяц",
-        value = Fmt.usd(forecast?.totalMonthToDateUsd ?: 0.0),
-        unit = forecast?.let { "прогноз ${Fmt.usd(it.projectedTotalUsd)}" },
-        below = {
+        eyebrow = "Расход за месяц",
+        readMain = Fmt.usd(forecast?.totalMonthToDateUsd ?: 0.0),
+        readSub = forecast?.let {
+            "прогноз ${Fmt.usd(it.projectedTotalUsd)} · день ${it.daysElapsed} из ${it.daysInMonth}"
+        },
+        modifier = modifier,
+        // Витрина экрана одна — состояние шлюза; расход месяца выглядит как
+        // остальные карточки графиков, иначе на экране две «главные».
+        tone = CardTone.Raised,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(Gateway.spacing.sm)) {
             // Слагаемые показываем раздельно: подписка — фиксированная плата,
             // а расход по токенам считается по факту вызовов.
             forecast?.let { f ->
@@ -664,8 +793,8 @@ private fun MonthSpendCard(forecast: UsageHistory.Forecast?, days: List<UsageHis
                     acc += day.usd
                     ChartPoint(day.dayStartMs.toFloat(), acc.toFloat())
                 }
+                val last = cumulative.last()
                 val projection = forecast?.let { f ->
-                    val last = cumulative.last()
                     val daysLeft = (f.daysInMonth - f.daysElapsed).coerceAtLeast(0)
                     if (daysLeft == 0) null else listOf(
                         last,
@@ -682,7 +811,19 @@ private fun MonthSpendCard(forecast: UsageHistory.Forecast?, days: List<UsageHis
                     },
                     height = 150.dp,
                     xLabelAt = { Fmt.day(it.toLong()) },
-                    yLabelAt = { Fmt.usd(it.toDouble()) },
+                    // Целые доллары на тиках: «$12» читается быстрее «$12,38».
+                    yLabelAt = { "$" + it.roundToLong() },
+                    niceMax = true,
+                    // Маркер сегодняшней точки подписан расходом по токенам:
+                    // итог в шапке включает тарифы и с линией не совпадает.
+                    markers = listOf(
+                        ChartMarker(
+                            x = last.x,
+                            y = last.y,
+                            colorIndex = 0,
+                            label = "токены ${Fmt.usd(forecast?.monthToDateUsd ?: last.y.toDouble())}",
+                        )
+                    ),
                 )
             } else {
                 Text(
@@ -691,95 +832,167 @@ private fun MonthSpendCard(forecast: UsageHistory.Forecast?, days: List<UsageHis
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (forecast?.isEstimate == true) {
-                Text(
-                    text = "день ${forecast.daysElapsed} из ${forecast.daysInMonth}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
-    )
+        }
+    }
 }
 
-/** Сводка скорости: лучшая модель и здоровье парка моделей. */
+/**
+ * Трафик шлюза: суммарный объём крупно, разбор по направлениям — строками.
+ * Раньше это были две отдельные плитки: рядом стояли два числа, а общий объём
+ * приходилось складывать в уме.
+ */
 @Composable
-private fun TrafficCard(ticker: Long) {
+private fun TrafficCard(ticker: Long, modifier: Modifier = Modifier) {
     val up = remember(ticker) { GatewayForegroundService.totalUploadBytes.get() }
     val down = remember(ticker) { GatewayForegroundService.totalDownloadBytes.get() }
+    // Счётчики обновляются на тике: значения доезжают анимацией, иначе цифры
+    // дёргаются рывком каждые две секунды.
+    val upValue = animatedValue(up.toFloat(), key = "traffic-up").toLong()
+    val downValue = animatedValue(down.toFloat(), key = "traffic-down").toLong()
+
+    ChartCard(
+        eyebrow = "Трафик",
+        readMain = Fmt.bytes(upValue + downValue),
+        // Счётчики переживают перезапуск: это итог за всё время, а не за сеанс.
+        readSub = "за всё время",
+        modifier = modifier,
+        tone = CardTone.Raised,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(Gateway.spacing.sm)) {
+            TrafficRow(
+                icon = Icons.Outlined.ArrowUpward,
+                label = "Отправлено",
+                value = Fmt.bytes(upValue),
+            )
+            TrafficRow(
+                icon = Icons.Outlined.ArrowDownward,
+                label = "Получено",
+                value = Fmt.bytes(downValue),
+            )
+        }
+    }
+}
+
+/** Направление трафика: стрелка вместо цветной подписи — читается без чтения. */
+@Composable
+private fun TrafficRow(icon: ImageVector, label: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(Gateway.spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        MetricTile(
-            label = "Отправлено",
-            value = Fmt.bytes(up),
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(Modifier.width(Gateway.spacing.sm))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),
         )
-        MetricTile(
-            label = "Получено",
-            value = Fmt.bytes(down),
-            modifier = Modifier.weight(1f),
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
         )
     }
 }
 
-/** Живой поток запросов — обычный список вместо бегущей строки. */
+/**
+ * Живой поток запросов. Шапка подводит итог потока, строки — сами запросы:
+ * состояние каждого показано чипом тона, а не словом в общем ряду текста.
+ */
 @Composable
 private fun LiveSessionsCard(
     viewModel: GatewayViewModel,
     running: Boolean,
     ticker: Long,
+    modifier: Modifier = Modifier,
 ) {
     val sessions = remember(ticker) { viewModel.liveSessions }
     if (!running || sessions.isEmpty()) return
 
-    SectionHeader("Запросы") {
-        TextButton(onClick = { viewModel.clearLiveSessions() }) { Text("Очистить") }
-    }
-    AppCard(tone = CardTone.Raised) {
+    val shown = sessions.take(8)
+    ChartCard(
+        eyebrow = "Запросы",
+        readMain = "${sessions.size} " +
+            Fmt.plural(sessions.size.toLong(), "запрос", "запроса", "запросов"),
+        // Свежие сессии добавляются в начало списка, поэтому «последний» — первый.
+        readSub = shown.firstOrNull()?.let { "последний в ${Fmt.time(it.timestamp)}" },
+        modifier = modifier,
+        tone = CardTone.Raised,
+        headerAction = {
+            TextButton(onClick = { viewModel.clearLiveSessions() }) { Text("Очистить") }
+        },
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(Gateway.spacing.md)) {
-            sessions.take(8).forEach { session ->
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = Fmt.time(session.timestamp),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.width(Gateway.spacing.sm))
-                        Text(
-                            text = session.modelName,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (session.responsePreview.isBlank()) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(12.dp),
-                                strokeWidth = 1.5.dp,
+            shown.forEachIndexed { index, session ->
+                // Ключ по сессии: новый запрос приходит с появлением, а уже
+                // показанные строки не переигрывают анимацию при обновлении
+                // статуса — иначе список мигал бы на каждом тике.
+                key(session.id) {
+                    Column(Modifier.appear(index = index)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = Fmt.time(session.timestamp),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.width(Gateway.spacing.sm))
+                            Text(
+                                text = session.modelName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Spacer(Modifier.width(Gateway.spacing.sm))
+                            StatusChip(
+                                text = session.status,
+                                tone = sessionTone(session.status),
+                            )
+                            // Ответ ещё не пришёл — оставляем индикатор работы.
+                            if (session.responsePreview.isBlank()) {
+                                Spacer(Modifier.width(Gateway.spacing.sm))
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(12.dp),
+                                    strokeWidth = 1.5.dp,
+                                )
+                            }
+                        }
+                        val preview = listOfNotNull(
+                            session.requestPreview.takeIf { it.isNotBlank() },
+                            session.responsePreview.takeIf { it.isNotBlank() },
+                        ).joinToString(" → ")
+                        if (preview.isNotBlank()) {
+                            Text(
+                                text = preview,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
-                    }
-                    val preview = listOfNotNull(
-                        session.requestPreview.takeIf { it.isNotBlank() },
-                        session.responsePreview.takeIf { it.isNotBlank() },
-                    ).joinToString(" → ")
-                    if (preview.isNotBlank()) {
-                        Text(
-                            text = preview,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
                     }
                 }
             }
         }
     }
+}
+
+/**
+ * Тон состояния сессии. Готовый ответ — успех, всё промежуточное — работа в
+ * процессе, поэтому информационный тон. Неизвестное слово красить успехом
+ * нельзя: статус приходит строкой из сервиса.
+ */
+private fun sessionTone(status: String): StatusTone = when (status) {
+    "Ответ" -> StatusTone.Success
+    "Отправка", "Размышление" -> StatusTone.Info
+    else -> StatusTone.Neutral
 }
 
 /**

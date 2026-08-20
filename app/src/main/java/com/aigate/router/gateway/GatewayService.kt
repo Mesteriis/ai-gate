@@ -1531,7 +1531,7 @@ val baseAttempts: List<AiModel> = if (allEnabled.isNotEmpty()) {
             val session = LiveSession(
                 modelName = rawModelName,
                 requestPreview = displayPreview,
-                status = "📤 Отправка",
+                status = "Отправка",
                 responsePreview = ""
             )
             GatewayForegroundService.addLiveSession(session)
@@ -1568,7 +1568,7 @@ val baseAttempts: List<AiModel> = if (allEnabled.isNotEmpty()) {
 
                     recordSessionModel(call, primaryModel.modelId)
                     GatewayScheduler.recordModelResult(primaryModel.modelId, primaryModel.providerId, true)
-                    GatewayForegroundService.updateLiveSession(session.id, "📥 Ответ", "✅ Успешно")
+                    GatewayForegroundService.updateLiveSession(session.id, "Ответ", "Успешно")
                     return
                 } catch (e: Exception) {
                     failCount++
@@ -1620,7 +1620,7 @@ val baseAttempts: List<AiModel> = if (allEnabled.isNotEmpty()) {
                     GatewayScheduler.recordModelResult(matchedModel.modelId, matchedModel.providerId, true)
 
                     // ★★ 更新会话状态为 📥 回复 ★★
-                    GatewayForegroundService.updateLiveSession(session.id, "📥 Ответ", "✅ Успешно")
+                    GatewayForegroundService.updateLiveSession(session.id, "Ответ", "Успешно")
                     return
                 } catch (e: Exception) {
                     failCount++

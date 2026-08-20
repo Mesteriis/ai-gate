@@ -1,5 +1,7 @@
 package com.aigate.router.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pause
@@ -59,6 +62,7 @@ import com.aigate.router.ui.design.HelpSection
 import com.aigate.router.ui.design.QuotaBar
 import com.aigate.router.ui.design.SectionHeader
 import com.aigate.router.ui.design.StatusTone
+import com.aigate.router.ui.design.appear
 import com.aigate.router.quota.ResourcePressure
 import com.aigate.router.ui.viewmodel.GatewayViewModel
 import com.aigate.router.ui.viewmodel.GatewayViewModel.CatalogSearchState
@@ -182,13 +186,17 @@ fun LocalModelsScreen(
                 if (state.result.entries.isEmpty()) {
                     item { EmptyState(icon = Icons.Outlined.SearchOff, text = "Ничего не найдено") }
                 } else {
-                    items(state.result.entries, key = { it.id }) { entry ->
+                    itemsIndexed(
+                        items = state.result.entries,
+                        key = { _, entry -> entry.id },
+                    ) { index, entry ->
                         EntityCard(
                             title = entry.displayName,
                             subtitle = entryMeta(entry),
                             statusText = if (entry.anyVariantDownloaded) "загружена" else null,
                             statusTone = if (entry.anyVariantDownloaded) StatusTone.Success else null,
                             onClick = { variantsFor = entry },
+                            modifier = Modifier.appear(index.coerceAtMost(APPEAR_STAGGER_LIMIT)),
                         )
                     }
                 }
@@ -209,7 +217,7 @@ fun LocalModelsScreen(
         if (ready.isEmpty()) {
             item { EmptyState(icon = Icons.Outlined.SmartToy, text = "Загруженных моделей нет") }
         } else {
-            items(ready, key = { it.id }) { model ->
+            itemsIndexed(items = ready, key = { _, model -> model.id }) { index, model ->
                 EntityCard(
                     title = model.displayName,
                     subtitle = listOf(
@@ -218,6 +226,7 @@ fun LocalModelsScreen(
                         engineLabel(model.engine),
                     ).filter { it.isNotBlank() }.joinToString(" · "),
                     onClick = { detailsFor = model },
+                    modifier = Modifier.appear(index.coerceAtMost(APPEAR_STAGGER_LIMIT)),
                 )
             }
         }
@@ -242,6 +251,12 @@ fun LocalModelsScreen(
 
 /** Пауза между вводом и запросом к реестру. */
 private const val SEARCH_DEBOUNCE_MS = 400L
+
+/**
+ * Предел ступени появления карточек. Дальше задержка index*stagger превратилась
+ * бы в ожидание, а карточки всё равно за краем экрана.
+ */
+private const val APPEAR_STAGGER_LIMIT = 6
 
 /** Человеческое имя движка: в базе он лежит расширением файла, а не названием. */
 internal fun engineLabel(engine: String): String = when (engine) {
@@ -347,8 +362,17 @@ private fun DownloadRow(
         if (indeterminate) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         } else {
+            // Байты приходят порциями на тик воркера: без анимации полоса
+            // прыгала бы рывками, поэтому доезжает основной длительностью.
+            val fraction = (model.downloadedBytes.toFloat() / model.sizeBytes.toFloat())
+                .coerceIn(0f, 1f)
+            val progress by animateFloatAsState(
+                targetValue = fraction,
+                animationSpec = tween(Gateway.motion.normal, easing = Gateway.motion.emphasized),
+                label = "download",
+            )
             LinearProgressIndicator(
-                progress = { model.downloadedBytes.toFloat() / model.sizeBytes.toFloat() },
+                progress = { progress },
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -377,24 +401,27 @@ private fun downloadStateText(model: LocalModel): String = when (model.state) {
 }
 
 /**
- * Место на диске. Полоса считается от суммы «занято моделями + свободно»: весь
- * раздел брать нельзя, в него входят система и чужие данные, освободить которые
- * пользователь всё равно не может.
+ * Место на диске — витрина раздела: сколько устройство отдало моделям, это то
+ * число, за которым сюда возвращаются, поэтому тон Hero и крупное значение.
+ * Единственная Hero-карточка экрана.
+ *
+ * Полоса считается от суммы «занято моделями + свободно»: весь раздел брать
+ * нельзя, в него входят система и чужие данные, освободить которые пользователь
+ * всё равно не может.
  */
 @Composable
 private fun StorageCard(stats: LocalModelsRepository.StorageStats?) {
-    AppCard(tone = CardTone.Raised) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "Занято моделями",
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = stats?.let { Fmt.bytes(it.modelsBytes) } ?: "—",
-                style = MaterialTheme.typography.titleMedium,
-            )
-        }
+    AppCard(tone = CardTone.Hero) {
+        Text(
+            text = "Занято моделями",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.size(Gateway.spacing.xs))
+        Text(
+            text = stats?.let { Fmt.bytes(it.modelsBytes) } ?: "—",
+            style = MaterialTheme.typography.displayLarge,
+        )
         Text(
             text = "свободно ${stats?.let { Fmt.bytes(it.freeBytes) } ?: "—"}",
             style = MaterialTheme.typography.labelMedium,

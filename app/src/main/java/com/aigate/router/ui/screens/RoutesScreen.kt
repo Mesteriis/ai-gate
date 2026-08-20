@@ -1,5 +1,12 @@
 package com.aigate.router.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxWidth
 import com.aigate.router.service.GatewayForegroundService
@@ -18,7 +25,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Bolt
-import androidx.compose.material.icons.outlined.Diamond
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.outlined.Savings
@@ -54,6 +60,7 @@ import com.aigate.router.ui.design.Gateway
 import com.aigate.router.ui.design.HelpSection
 import com.aigate.router.ui.design.SectionHeader
 import com.aigate.router.ui.design.StatusTone
+import com.aigate.router.ui.design.appear
 import com.aigate.router.ui.design.charts.BarDatum
 import com.aigate.router.ui.design.charts.HorizontalBarChart
 import com.aigate.router.ui.viewmodel.GatewayViewModel
@@ -140,6 +147,12 @@ private val presetIds: Set<String> = routePresets.map { it.id }.toSet()
 /** Сколько моделей показывать в ручном списке до раскрытия. */
 private const val MANUAL_LIST_LIMIT = 8
 
+/** Ручной список идёт шестым блоком экрана — с этого места продолжается волна входа. */
+private const val MANUAL_APPEAR_BASE = 6
+
+/** Потолок задержки: дальше волна перестаёт читаться и превращается в ожидание. */
+private const val APPEAR_INDEX_MAX = 10
+
 /** Доступная модель с человеческим именем и измеримыми характеристиками. */
 private data class ModelChoice(
     val routeKey: String,
@@ -170,10 +183,10 @@ private fun ModelChoice.details(): String = buildList {
  * другие модели, то есть отвечать не тем, что просил клиент.
  */
 @Composable
-private fun FailoverRow(viewModel: GatewayViewModel) {
+private fun FailoverRow(viewModel: GatewayViewModel, modifier: Modifier = Modifier) {
     val enabled by viewModel.autoFailover.collectAsState()
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -194,7 +207,7 @@ private fun FailoverRow(viewModel: GatewayViewModel) {
  * маршрутизацию, а не про ресурсы.
  */
 @Composable
-private fun StrategyRow() {
+private fun StrategyRow(modifier: Modifier = Modifier) {
     var strategy by remember {
         mutableStateOf(
             RouteStrategy.fromName(
@@ -203,7 +216,7 @@ private fun StrategyRow() {
         )
     }
     Row(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        modifier = modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(Gateway.spacing.sm),
     ) {
         RouteStrategy.entries.forEach { item ->
@@ -316,9 +329,10 @@ fun RoutesScreen(viewModel: GatewayViewModel, modifier: Modifier = Modifier) {
             basis = RouteBasis.None,
             choices = emptyList(),
             onSelect = { selectPreset(null) },
+            modifier = Modifier.appear(index = 0),
         )
 
-        routePresets.forEach { preset ->
+        routePresets.forEachIndexed { index, preset ->
             PresetOption(
                 icon = preset.icon,
                 name = preset.name,
@@ -327,14 +341,15 @@ fun RoutesScreen(viewModel: GatewayViewModel, modifier: Modifier = Modifier) {
                 basis = preset.basis,
                 choices = choices,
                 onSelect = { selectPreset(preset) },
+                modifier = Modifier.appear(index = index + 1),
             )
         }
 
         SectionHeader("Автопереключение при сбое")
-        FailoverRow(viewModel)
+        FailoverRow(viewModel, modifier = Modifier.appear(index = 4))
 
         SectionHeader("Стратегия при автовыборе")
-        StrategyRow()
+        StrategyRow(modifier = Modifier.appear(index = 5))
 
         if (forcedKey.isNotBlank()) {
             SectionHeader(
@@ -353,22 +368,42 @@ fun RoutesScreen(viewModel: GatewayViewModel, modifier: Modifier = Modifier) {
             // Список не ленивый (он внутри verticalScroll), поэтому длинный
             // каталог моделей раскрывается по требованию, а не строится целиком.
             var expanded by remember { mutableStateOf(false) }
-            val shown = if (expanded) choices else choices.take(MANUAL_LIST_LIMIT)
-            shown.forEach { choice ->
-                val selected = choice.routeKey == forcedKey
-                val pick = { if (!selected) viewModel.forceModel(choice.modelId, choice.providerId) }
-                EntityCard(
-                    title = choice.name,
-                    subtitle = choice.details(),
-                    statusText = if (selected) "Активна" else null,
-                    statusTone = if (selected) StatusTone.Success else null,
-                    onClick = pick,
-                    trailing = { RadioButton(selected = selected, onClick = pick) },
+            val head = choices.take(MANUAL_LIST_LIMIT)
+            val tail = choices.drop(MANUAL_LIST_LIMIT)
+            head.forEachIndexed { index, choice ->
+                ManualModelCard(
+                    choice = choice,
+                    selected = choice.routeKey == forcedKey,
+                    onPick = { viewModel.forceModel(choice.modelId, choice.providerId) },
+                    modifier = Modifier.appear(
+                        index = (MANUAL_APPEAR_BASE + index).coerceAtMost(APPEAR_INDEX_MAX),
+                    ),
                 )
             }
-            if (choices.size > MANUAL_LIST_LIMIT) {
+            if (tail.isNotEmpty()) {
+                AnimatedVisibility(
+                    visible = expanded,
+                    // Хвост каталога выезжает вместе с ростом высоты: без этого
+                    // список дёргался бы на десятки строк за один кадр.
+                    enter = fadeIn(tween(Gateway.motion.normal)) +
+                        expandVertically(tween(Gateway.motion.normal)),
+                    exit = fadeOut(tween(Gateway.motion.normal)) +
+                        shrinkVertically(tween(Gateway.motion.normal)),
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(Gateway.spacing.md)) {
+                        // Своего appear у этих карточек нет: их появление уже
+                        // ведёт раскрытие, две анимации спорили бы друг с другом.
+                        tail.forEach { choice ->
+                            ManualModelCard(
+                                choice = choice,
+                                selected = choice.routeKey == forcedKey,
+                                onPick = { viewModel.forceModel(choice.modelId, choice.providerId) },
+                            )
+                        }
+                    }
+                }
                 TextButton(onClick = { expanded = !expanded }) {
-                    Text(if (expanded) "Свернуть" else "Ещё ${choices.size - MANUAL_LIST_LIMIT}")
+                    Text(if (expanded) "Свернуть" else "Ещё ${tail.size}")
                 }
             }
         }
@@ -385,8 +420,18 @@ private fun PresetOption(
     basis: RouteBasis,
     choices: List<ModelChoice>,
     onSelect: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
+    // Знак пресета переходит в брендовый цвет, а не переключается кадром: выбор
+    // одного из четырёх вариантов должен читаться как перетекание выделения.
+    val iconTint by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(Gateway.motion.normal, easing = Gateway.motion.emphasized),
+        label = "preset-icon",
+    )
     AppCard(
+        modifier = modifier,
         tone = if (selected) CardTone.Accent else CardTone.Plain,
         onClick = onSelect,
     ) {
@@ -394,8 +439,7 @@ private fun PresetOption(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (selected) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = iconTint,
                 modifier = Modifier.size(22.dp),
             )
             Spacer(Modifier.width(Gateway.spacing.md))
@@ -418,11 +462,46 @@ private fun PresetOption(
             Spacer(Modifier.width(Gateway.spacing.sm))
             RadioButton(selected = selected, onClick = onSelect)
         }
-        if (selected && basis != RouteBasis.None) {
-            Spacer(Modifier.size(Gateway.spacing.md))
-            BasisChart(basis = basis, choices = choices)
+        // Данные пресета не появляются рывком: карточка дорастает до графика,
+        // поэтому соседние карточки съезжают плавно, а не перескакивают.
+        AnimatedVisibility(
+            visible = selected && basis != RouteBasis.None,
+            enter = fadeIn(tween(Gateway.motion.normal)) +
+                expandVertically(tween(Gateway.motion.normal)),
+            exit = fadeOut(tween(Gateway.motion.fast)) +
+                shrinkVertically(tween(Gateway.motion.normal)),
+        ) {
+            Column {
+                Spacer(Modifier.size(Gateway.spacing.md))
+                BasisChart(basis = basis, choices = choices)
+            }
         }
     }
+}
+
+/**
+ * Строка ручного выбора модели. Вынесена из экрана, потому что рисуется дважды:
+ * в видимой части списка и в раскрываемом хвосте.
+ */
+@Composable
+private fun ManualModelCard(
+    choice: ModelChoice,
+    selected: Boolean,
+    onPick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Повторный выбор активной модели не пишется: это была бы запись без
+    // изменения, а сброс делается отдельной кнопкой «Сбросить».
+    val pick = { if (!selected) onPick() }
+    EntityCard(
+        title = choice.name,
+        modifier = modifier,
+        subtitle = choice.details(),
+        statusText = if (selected) "Активна" else null,
+        statusTone = if (selected) StatusTone.Success else null,
+        onClick = pick,
+        trailing = { RadioButton(selected = selected, onClick = pick) },
+    )
 }
 
 /** Сравнение доступных моделей по той величине, которой руководствуется пресет. */

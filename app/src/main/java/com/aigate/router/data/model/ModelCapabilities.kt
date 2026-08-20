@@ -21,15 +21,15 @@ data class ModelCapabilities(
     /** 转成 UI 标签列表，按固定顺序 */
     fun toTags(): List<CapabilityTag> {
         val list = mutableListOf<CapabilityTag>()
-        if (toolCall)   list += CapabilityTag("tool_call",  "Инструменты",  "🔧")
-        if (vision)     list += CapabilityTag("vision",     "Зрение",  "👁️")
-        if (thinking)   list += CapabilityTag("thinking",   "Рассуждение",  "🧠")
-        if (audioIn)    list += CapabilityTag("audio_in",   "Голос вход",  "🎤")
-        if (audioOut)   list += CapabilityTag("audio_out",  "Голос выход",  "🔊")
-        if (video)      list += CapabilityTag("video",      "Видео",      "🎬")
-        if (imageGen)   list += CapabilityTag("image_gen",  "Генерация изображений",  "🎨")
-        if (embeddings) list += CapabilityTag("embeddings", "Эмбеддинги",  "📐")
-        if (realtime)   list += CapabilityTag("realtime",   "Реалтайм",  "⚡")
+        if (toolCall)   list += CapabilityTag("tool_call",  "Инструменты")
+        if (vision)     list += CapabilityTag("vision",     "Зрение")
+        if (thinking)   list += CapabilityTag("thinking",   "Рассуждение")
+        if (audioIn)    list += CapabilityTag("audio_in",   "Голос вход")
+        if (audioOut)   list += CapabilityTag("audio_out",  "Голос выход")
+        if (video)      list += CapabilityTag("video",      "Видео")
+        if (imageGen)   list += CapabilityTag("image_gen",  "Генерация изображений")
+        if (embeddings) list += CapabilityTag("embeddings", "Эмбеддинги")
+        if (realtime)   list += CapabilityTag("realtime",   "Реалтайм")
         return list
     }
 
@@ -50,4 +50,4 @@ data class ModelCapabilities(
 }
 
 @Serializable
-data class CapabilityTag(val key: String, val label: String, val icon: String)
+data class CapabilityTag(val key: String, val label: String)

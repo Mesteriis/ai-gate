@@ -29,7 +29,7 @@ data class LiveSession(
     val id: Long = System.nanoTime(),
     val modelName: String,
     val requestPreview: String,
-    val status: String = "📤 Отправка",   // 📤 发送 | 💭 思考 | 📥 回复
+    val status: String = "Отправка",   // Отправка | Размышление | Ответ
     val responsePreview: String = "",
     val timestamp: Long = System.currentTimeMillis()
 )
@@ -187,18 +187,25 @@ class GatewayForegroundService : Service() {
         lastUploadBytes = upBytes
         lastDownloadBytes = downBytes
 
+        // Эмодзи в уведомлении запрещены дизайн-системой: состояние называем
+        // словом, а стрелки направления трафика — обычные типографские знаки.
         val text = buildString {
             append("Порт ").append(port)
-            append("\n📊 Текущая сессия ").append("↑${formatBytes(upBytes)} ↓${formatBytes(downBytes)}")
-            append("\n📈 Всего ").append("↑${formatBytes(totalUp)} ↓${formatBytes(totalDown)}")
+            append("\nСессия ").append("↑${formatBytes(upBytes)} ↓${formatBytes(downBytes)}")
+            append("\nВсего ").append("↑${formatBytes(totalUp)} ↓${formatBytes(totalDown)}")
             append("\n$proxyText")
         }
 
         val title = buildString {
             append(if (wakeEnabled) "AiGate (защита от сна)" else "AiGate")
             if (nodeName.isNotBlank()) {
-                val light = if (hasTraffic && isActive) " 🟢" else if (hasTraffic) " ⚪" else ""
-                append(" ·$light $nodeName")
+                val state = when {
+                    hasTraffic && isActive -> "активен"
+                    hasTraffic -> "простой"
+                    else -> null
+                }
+                append(" · $nodeName")
+                state?.let { append(" · $it") }
             }
         }
 

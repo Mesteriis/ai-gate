@@ -58,11 +58,11 @@ import com.aigate.router.data.model.ModelRouteKey
 import com.aigate.router.data.model.Provider
 import com.aigate.router.gateway.VirtualModel
 import com.aigate.router.ui.design.EmptyState
-import com.aigate.router.ui.design.Gateway
-import com.aigate.router.ui.theme.Error
-import com.aigate.router.ui.theme.Offline
-import com.aigate.router.ui.theme.Online
-import com.aigate.router.ui.theme.Warning
+import com.aigate.router.ui.design.StatusDot
+import com.aigate.router.ui.design.StatusTone
+import com.aigate.router.ui.design.accent
+import com.aigate.router.ui.design.container
+import com.aigate.router.ui.design.onContainer
 import com.aigate.router.ui.viewmodel.GatewayViewModel
 import com.aigate.router.ui.viewmodel.pipelineStatus
 import com.aigate.router.ui.viewmodel.pipelineRunning
@@ -79,6 +79,34 @@ import com.aigate.router.utils.localizeGeneratedName
 
 // Контейнер навигации переехал в ui/navigation/AppNavHost.kt (Navigation Compose
 // с настоящим back stack). Здесь остаются только экраны.
+
+// Маркеры исхода, которыми исторические строки результата помечают успех и
+// ошибку. Заданы кодами, чтобы в UI-коде не было ни одного знака-картинки.
+private const val CODE_CHECK_MARK = 0x2705
+private const val CODE_CROSS_MARK = 0x274C
+
+// Селектор начертания эмодзи — часть строк несёт его хвостом за маркером.
+private const val CODE_VARIATION_SELECTOR = 0xFE0F
+
+/**
+ * Разбирает строку результата теста/синхронизации: тон — по ведущему
+ * статус-маркеру, текст — уже без него. Данные могут приходить с
+ * эмодзи-префиксом, но показывать его нельзя: исход передают цвет и точка.
+ */
+private fun parseTestResult(text: String): Pair<StatusTone, String> {
+    val trimmed = text.trimStart()
+    val tone = when (trimmed.firstOrNull()?.code) {
+        CODE_CHECK_MARK -> StatusTone.Success
+        CODE_CROSS_MARK -> StatusTone.Error
+        else -> StatusTone.Neutral
+    }
+    val cleaned = if (tone == StatusTone.Neutral) {
+        trimmed
+    } else {
+        trimmed.drop(1).trimStart { it.code == CODE_VARIATION_SELECTOR || it.isWhitespace() }
+    }
+    return tone to cleaned
+}
 
 
 // ============================================================
@@ -188,21 +216,23 @@ fun ModelsScreen(viewModel: GatewayViewModel) {
         // 同步结果提示
             syncResult?.let { result ->
                 item {
+                    // Исход синхронизации показывают тон карточки и точка,
+                    // поэтому статус-маркер из текста срезается при разборе.
+                    val (tone, message) = parseTestResult(localizeRuntimeText(result))
                     Card(
                         colors = CardDefaults.cardColors(
-                            containerColor = when {
-                                result.startsWith("✅") -> Gateway.colors.successContainer
-                                result.startsWith("❌") -> Gateway.colors.errorContainer
-                                else -> Gateway.colors.warningContainer
-                            }
+                            containerColor = tone.container(),
+                            contentColor = tone.onContainer(),
                         )
                     ) {
                         Row(
                             modifier = Modifier.padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            StatusDot(tone = tone)
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = localizeRuntimeText(result),
+                                text = message,
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.weight(1f)
                             )
@@ -296,7 +326,9 @@ fun ModelsScreen(viewModel: GatewayViewModel) {
         var selectedProviderId by remember { mutableStateOf(providers.firstOrNull()?.id ?: 0L) }
         var newModelId by remember { mutableStateOf("") }
         var newModelName by remember { mutableStateOf("") }
-        var addResult by remember { mutableStateOf<String?>(null) }
+        // Исход приходит из колбэка отдельным флагом — угадывать его по тексту
+        // сообщения не нужно.
+        var addResult by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
         var providerExpanded by remember { mutableStateOf(false) }
 
         AlertDialog(
@@ -347,9 +379,17 @@ fun ModelsScreen(viewModel: GatewayViewModel) {
                     )
 
                     // 结果提示
-                    addResult?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall,
-                            color = if (it.startsWith("✅")) Gateway.colors.success else MaterialTheme.colorScheme.error)
+                    addResult?.let { (ok, message) ->
+                        val tone = if (ok) StatusTone.Success else StatusTone.Error
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            StatusDot(tone = tone)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = message,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = tone.accent(),
+                            )
+                        }
                     }
                 }
             },
@@ -358,7 +398,7 @@ fun ModelsScreen(viewModel: GatewayViewModel) {
                     onClick = {
                         if (newModelId.isNotBlank()) {
                             viewModel.manualAddModel(selectedProviderId, newModelId.trim(), newModelName.trim()) { success, msg ->
-                                addResult = msg
+                                addResult = success to msg
                                 if (success) {
                                     newModelId = ""
                                     newModelName = ""
@@ -399,7 +439,7 @@ private fun ModelCard(model: AiModel, viewModel: GatewayViewModel) {
             containerColor = if (model.isEnabled)
                 MaterialTheme.colorScheme.surface
             else
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                MaterialTheme.colorScheme.surfaceContainerHigh
         )
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -416,13 +456,13 @@ private fun ModelCard(model: AiModel, viewModel: GatewayViewModel) {
                         if (!model.isEnabled) {
                             Spacer(modifier = Modifier.width(6.dp))
                             Surface(
-                                color = Error.copy(alpha = 0.15f),
+                                color = MaterialTheme.colorScheme.errorContainer,
                                 shape = MaterialTheme.shapes.small
                             ) {
                                 Text(
                                     text = "Выключено",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Error,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
                                 )
                             }

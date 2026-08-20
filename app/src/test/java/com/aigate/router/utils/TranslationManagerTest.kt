@@ -25,15 +25,37 @@ class TranslationManagerTest {
     fun runtimeLocalizationChangesAppGeneratedStatusesInBothDirections() {
         withLanguage(AppLanguage.EN) {
             assertEquals(
-                "✅ Gateway port set to 8889",
-                localizeRuntimeText("✅ 网关端口已设置为 8889"),
+                "Gateway port set to 8889",
+                localizeRuntimeText("网关端口已设置为 8889"),
             )
         }
         withLanguage(AppLanguage.ZH_CN) {
             assertEquals(
-                "✅ 网关端口已设置为 8889",
-                localizeRuntimeText("✅ Gateway port set to 8889"),
+                "网关端口已设置为 8889",
+                localizeRuntimeText("Gateway port set to 8889"),
             )
+        }
+    }
+
+    /**
+     * Строка из кэша прежней версии несёт знак-картинку в начале. Перевод обязан
+     * её проглотить: эмодзи в интерфейсе запрещены дизайн-системой.
+     */
+    @Test
+    fun legacyStatusMarkIsDroppedByLocalization() {
+        withLanguage(AppLanguage.EN) {
+            assertEquals(
+                "Gateway port set to 8889",
+                localizeRuntimeText("✅ 网关端口已设置为 8889"),
+            )
+        }
+    }
+
+    /** Значащие пробелы вокруг подстановок не должны съедаться переводом. */
+    @Test
+    fun localizationKeepsSpacingAroundSubstitutions() {
+        withLanguage(AppLanguage.EN) {
+            assertEquals("Testing gpt-4o", localizeRuntimeText("正在测试 gpt-4o"))
         }
     }
 
