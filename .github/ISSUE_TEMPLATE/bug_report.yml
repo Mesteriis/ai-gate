@@ -1,0 +1,50 @@
+name: Ошибка
+description: Что-то работает не так
+title: "bug: "
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: Что происходит
+      description: Опишите проблему и приложите скриншот, если она видна в интерфейсе.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги воспроизведения
+      placeholder: |
+        1. Открыть …
+        2. Нажать …
+        3. Увидеть …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидаемое поведение
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия AiGate
+      placeholder: "0.2.0 (Настройки → О программе)"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Устройство и версия Android
+      placeholder: "Samsung Z Fold, Android 16"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Логи
+      description: >
+        Вкладка «Активность → Журнал» или logcat. Проверьте, что в логах нет
+        ваших API-ключей и токенов.
+      render: text

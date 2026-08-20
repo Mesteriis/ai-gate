@@ -1,0 +1,26 @@
+name: Идея / улучшение
+description: Предложить новую возможность
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Какую задачу это решает
+      description: Опишите проблему или сценарий, а не только желаемую кнопку.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Предлагаемое решение
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Вписывается ли в рамки проекта
+      description: >
+        AiGate — шлюз, менеджер AI-ресурсов и роутер. Чат, агенты, память,
+        OCR и другие «потребительские» функции в проект сознательно не входят —
+        см. README «Позиционирование».
