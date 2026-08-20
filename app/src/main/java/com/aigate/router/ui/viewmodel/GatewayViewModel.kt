@@ -21,6 +21,7 @@ import com.aigate.router.data.model.ApiKeyUsageRow
 import com.aigate.router.data.db.BackupManager
 import com.aigate.router.network.Socks5SocketFactory
 import com.aigate.router.network.UpstreamClient
+import com.aigate.router.gateway.GatewayStart
 import com.aigate.router.service.GatewayForegroundService
 import com.aigate.router.service.LiveSession
 import com.aigate.router.gateway.GatewayService
@@ -628,12 +629,40 @@ companion object {
     /** 启动网关服务 */
     fun startGateway() {
         try {
+            // Прошлый отказ забываем до попытки: иначе о повторной неудаче с той
+            // же причиной сверка промолчит, приняв её за уже показанную.
+            GatewayForegroundService.startFailure = null
+            reportedStartFailure = null
             GatewayForegroundService.start()
             _serviceRunning.value = true
             GatewayForegroundService.isServiceRunning = true
             GatewayForegroundService.saveGatewayRunningState(true)
         } catch (e: Exception) {
             _snackbarMessage.value = "Не удалось запустить шлюз: ${e.message}"
+        }
+    }
+
+    /** Отказ запуска, о котором уже сообщили снекбаром. */
+    private var reportedStartFailure: GatewayStart.Failure? = null
+
+    /**
+     * Сверка переключателя с действительностью.
+     *
+     * Шлюз поднимается в сервисе и может не подняться вовсе — например, порт
+     * занят. Переключатель к этому моменту уже показал «включено», поэтому без
+     * сверки он врал бы до следующего открытия экрана.
+     */
+    fun refreshServiceState() {
+        _serviceRunning.value = GatewayForegroundService.isServiceRunning
+        val failure = GatewayForegroundService.startFailure
+        if (failure == null) {
+            reportedStartFailure = null
+            return
+        }
+        // Сверка идёт по тику экрана, а снекбар об одном отказе нужен один раз.
+        if (failure != reportedStartFailure) {
+            reportedStartFailure = failure
+            _snackbarMessage.value = failure.shortText
         }
     }
 

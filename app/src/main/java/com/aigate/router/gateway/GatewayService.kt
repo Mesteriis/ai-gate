@@ -54,8 +54,11 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.net.SocketTimeoutException
 import java.net.ConnectException
 import java.util.UUID
+import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.serialization.json.JsonNull
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
@@ -77,17 +80,58 @@ class GatewayService(private val database: AppDatabase) {
     private var server: EmbeddedServer<*, *>? = null
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = false }
 
+    /** Порт, который слушает движок. Нужен, чтобы отчитаться о повторном запуске. */
+    @Volatile private var boundPort: Int = 0
+
     /**
      * 启动网关服务器
      * @param port 监听端口，默认 8889
+     *
+     * Ничего не бросает: неудачный запуск — обычный исход, о котором вызывающий
+     * узнаёт из результата. Раньше исключение уходило в обработчик
+     * необработанных исключений корутины и убивало процесс.
      */
-    fun start(port: Int = 8889) {
-        if (server != null) return
+    fun start(port: Int = 8889): GatewayStart = try {
+        startChecked(port)
+    } catch (e: Throwable) {
+        failed(GatewayStart.failure(port, e))
+    }
+
+    /**
+     * Единая реакция на неудачный запуск: состояние возвращается в «шлюз
+     * стоит», причина попадает в журнал, в уведомление и на экран. Вызывается
+     * и из синхронного пути, и из обработчика движка — у асинхронного отказа
+     * нет вызывающего, которому можно вернуть результат.
+     */
+    private fun failed(failure: GatewayStart.Failure): GatewayStart.Failure {
+        server = null
+        boundPort = 0
+        GatewayForegroundService.addDebugLog(failure.logLine)
+        // Флаги обязаны отражать действительность: иначе в интерфейсе остаётся
+        // включённый переключатель, а запросы никто не принимает. Сохранённое
+        // состояние сбрасываем тоже — из него автозапуск берёт своё решение.
+        GatewayForegroundService.isServiceRunning = false
+        GatewayForegroundService.saveGatewayRunningState(false)
+        GatewayForegroundService.startFailure = failure
+        // Свободнее порт не стал, но инвариант «шлюз стоит → порт держит тихий
+        // приёмник» восстанавливаем. Занять порт приёмник может и не суметь —
+        // об этом он молчит сам.
+        QuietListener.start(failure.port)
+        return failure
+    }
+
+    private fun startChecked(port: Int): GatewayStart {
+        if (server != null) return GatewayStart.Started(boundPort)
         // Тихий приёмник держал порт, пока шлюз стоял — освобождаем его.
         QuietListener.stop()
         GatewayForegroundService.blockedAttempts.set(0)
+        // Прошлый отказ к новой попытке отношения не имеет.
+        GatewayForegroundService.startFailure = null
 
         // ★★★ 端口占用提前检测：启动前确认端口可用，避免 BindException 崩溃 ★★★
+        // Проверка остаётся первой линией: только она умеет подобрать резервный
+        // порт. Но между проверкой и bind порт может занять кто-то ещё, поэтому
+        // отказ bind ниже разбирается, а не считается невозможным.
         if (!isPortAvailable(port)) {
             GatewayForegroundService.addDebugLog("⚠️ Порт $port уже занят, пробую резервный порт…")
             // 检测到端口占用：尝试备选端口（8889+1 起，最多试20个）
@@ -103,16 +147,13 @@ class GatewayService(private val database: AppDatabase) {
                 // ★★ 自动切换备选端口并持久化，避免下次再冲突 ★★
                 GatewayForegroundService.addDebugLog("✅ Порт $port занят, автоматически переключился на резервный порт $found")
                 GatewayForegroundService.saveGatewayPort(found)
-                startWithPort(found)
-            } else {
-                GatewayForegroundService.addDebugLog("❌ Порт $port и резервные порты заняты, измените порт шлюза в разделе управления данными и повторите")
-                GatewayForegroundService.addDebugLog("❌ Порт занят: $port используется другим процессом, шлюз не запущен")
-                return
+                return startWithPort(found)
             }
-            return
+            GatewayForegroundService.addDebugLog("❌ Порт $port и резервные порты заняты, измените порт шлюза в разделе управления данными и повторите")
+            return failed(GatewayStart.PortBusy(port))
         }
 
-        startWithPort(port)
+        return startWithPort(port)
     }
 
     /**
@@ -133,7 +174,7 @@ class GatewayService(private val database: AppDatabase) {
     /**
      * 使用指定端口实际启动网关服务
      */
-    private fun startWithPort(port: Int) {
+    private fun startWithPort(port: Int): GatewayStart {
         // ★★ 启动会话清理协程（闲置超时自动断开）★★
         startSessionCleanup()
 
@@ -170,7 +211,25 @@ class GatewayService(private val database: AppDatabase) {
             if (bindHost == "0.0.0.0") "🌐 LAN-режим: слушаю 0.0.0.0:$port (нужен токен)"
             else "🔒 Loopback: слушаю 127.0.0.1:$port"
         )
-        val embedded = embeddedServer(CIO, host = bindHost, port = port) {
+        // Ktor CIO сообщает о неудачном bind двумя путями сразу: start() бросает
+        // служебное исключение отмены, в котором настоящей причины нет, а сам
+        // BindException уходит в обработчик исключений корутины движка. Без
+        // обработчика он попадал в общий обработчик необработанных исключений,
+        // то есть убивал процесс. Ловим оба пути и сводим к одному исходу.
+        val reported = AtomicBoolean(false)
+        val engineFailure = ArrayBlockingQueue<Throwable>(1)
+        val engineHandler = CoroutineExceptionHandler { _, cause ->
+            engineFailure.offer(cause)
+            // Движок может упасть и после успешного start(): тогда об отказе не
+            // узнает никто, кроме этого обработчика.
+            if (reported.compareAndSet(false, true)) failed(GatewayStart.failure(port, cause))
+        }
+        val embedded = sessionCleanupScope.embeddedServer(
+            CIO,
+            host = bindHost,
+            port = port,
+            parentCoroutineContext = engineHandler,
+        ) {
             // ★★ 安装 WebSocket 支持 ★★★
             install(io.ktor.server.websocket.WebSockets)
             routing {
@@ -785,7 +844,18 @@ class GatewayService(private val database: AppDatabase) {
                 }
             }
         }
-        server = embedded.start(wait = false)
+        return try {
+            server = embedded.start(wait = false)
+            boundPort = port
+            GatewayStart.Started(port)
+        } catch (e: Throwable) {
+            // Настоящая причина приходит в обработчик, иногда чуть позже отказа
+            // start(): ждём её ограниченное время, чтобы не выдавать служебное
+            // исключение отмены за диагноз.
+            val cause = engineFailure.poll(ENGINE_FAILURE_TIMEOUT_SEC, TimeUnit.SECONDS) ?: e
+            val failure = GatewayStart.failure(port, cause)
+            if (reported.compareAndSet(false, true)) failed(failure) else failure
+        }
     }
 
     fun stop() {
@@ -793,12 +863,20 @@ class GatewayService(private val database: AppDatabase) {
             server?.stop(1000, 2000)
         } catch (_: Exception) { }
         server = null
+        boundPort = 0
+        // Остановка по воле пользователя: прошлый отказ запуска больше не новость.
+        GatewayForegroundService.startFailure = null
         // Если включён тихий приёмник, порт остаётся занят: так видно попытки
         // подключения к остановленному шлюзу.
         QuietListener.start(GatewayForegroundService.getGatewayPort())
     }
 
     val isRunning: Boolean get() = server != null
+
+    private companion object {
+        /** Сколько ждём причину от обработчика движка, прежде чем сдаться. */
+        const val ENGINE_FAILURE_TIMEOUT_SEC = 2L
+    }
 }
 
 // ================== 通用代理转发核心 ==================

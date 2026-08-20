@@ -12,6 +12,7 @@ import com.aigate.router.MainActivity
 import com.aigate.router.R
 import com.aigate.router.utils.localizedText
 import com.aigate.router.gateway.GatewayService
+import com.aigate.router.gateway.GatewayStart
 import com.aigate.router.gateway.VirtualModel
 import com.aigate.router.quota.QuotaRefresher
 import kotlinx.coroutines.CoroutineScope
@@ -115,8 +116,16 @@ class GatewayForegroundService : Service() {
         serviceScope.launch {
             val port = getGatewayPort()
             if (getGatewayWasRunning()) {
-                gatewayService.start(port = port)
-                addDebugLog("🔁 Автозапуск → шлюз запущен (был активен)")
+                // Занятый порт — обычный исход, а не повод падать: start() не
+                // бросает, сам возвращает состояние в «шлюз стоит» и пишет
+                // причину в журнал. Об успехе сообщаем только если он есть:
+                // раньше строка «шлюз запущен» появлялась и после отказа.
+                if (gatewayService.start(port = port) is GatewayStart.Started) {
+                    addDebugLog("🔁 Автозапуск → шлюз запущен (был активен)")
+                }
+                // Причина отказа должна попасть в уведомление сразу, а не через
+                // секунду, когда до неё доберётся цикл обновления.
+                updateNotification()
             } else {
                 addDebugLog("🔁 Автозапуск → шлюз не запущен (был выключен)")
             }
@@ -204,9 +213,14 @@ class GatewayForegroundService : Service() {
         lastUploadBytes = upBytes
         lastDownloadBytes = downBytes
 
+        // Отказ запуска показываем первой строкой и в заголовке: без этого
+        // уведомление уверяет, что шлюз слушает порт, которого у него нет.
+        val failure = startFailure
+
         // Эмодзи в уведомлении запрещены дизайн-системой: состояние называем
         // словом, а стрелки направления трафика — обычные типографские знаки.
         val text = buildString {
+            failure?.let { append(it.shortText).append("\n") }
             append("Порт ").append(port)
             append("\nСессия ").append("↑${formatBytes(upBytes)} ↓${formatBytes(downBytes)}")
             append("\nВсего ").append("↑${formatBytes(totalUp)} ↓${formatBytes(totalDown)}")
@@ -215,7 +229,11 @@ class GatewayForegroundService : Service() {
 
         val title = buildString {
             append(if (wakeEnabled) "AiGate (защита от сна)" else "AiGate")
-            if (nodeName.isNotBlank()) {
+            if (failure != null) {
+                // Имя узла и трафик рядом с отказом сбивают с толку: пока шлюз
+                // не поднялся, в заголовке важно только это.
+                append(" · шлюз не запущен")
+            } else if (nodeName.isNotBlank()) {
                 val state = when {
                     hasTraffic && isActive -> "активен"
                     hasTraffic -> "простой"
@@ -380,6 +398,13 @@ val trafficDownloadBytes = java.util.concurrent.atomic.AtomicLong(0L) // ★ 通
 val totalUploadBytes = java.util.concurrent.atomic.AtomicLong(0L)     // ★ APP内总统计（持久化不重置）
 val totalDownloadBytes = java.util.concurrent.atomic.AtomicLong(0L)   // ★ APP内总统计（持久化不重置）
         @Volatile var isServiceRunning: Boolean = false  // 由 start/stop 同步更新
+
+        /**
+         * Последний отказ запуска шлюза — например, занятый порт. Живёт рядом с
+         * остальным состоянием времени выполнения: уведомление и экраны читают
+         * его тем же способом, что и счётчик заблокированных попыток.
+         */
+        @Volatile var startFailure: GatewayStart.Failure? = null
 
         /**
          * Попытки подключиться к остановленному шлюзу. Считаются только при

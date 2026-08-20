@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.aigate.router.data.db.AppDatabase
 import com.aigate.router.diag.ConnectivityCheck
+import com.aigate.router.gateway.GatewayStart
 import com.aigate.router.notify.QuotaTriggers
 import com.aigate.router.ui.design.AppCard
 import com.aigate.router.ui.design.CardTone
@@ -93,13 +94,26 @@ fun AttentionBlock(
     gatewayStopped: Boolean,
     blockedAttempts: Int,
     modifier: Modifier = Modifier,
+    startFailure: GatewayStart.Failure? = null,
 ) {
     val hasAttempts = gatewayStopped && blockedAttempts > 0
-    if (alerts.isEmpty() && !hasAttempts) return
+    if (alerts.isEmpty() && !hasAttempts && startFailure == null) return
 
     // sortedBy устойчива, поэтому внутри одного тона сохраняется исходный
     // порядок пулов — строки не перескакивают между обновлениями.
     val items = buildList {
+        // Неудачный запуск идёт отдельной строкой от «шлюз остановлен»: остановил
+        // шлюз пользователь, а тут шлюз встать не смог, и причина другая.
+        if (startFailure != null) {
+            add(
+                AttentionItem(
+                    tone = StatusTone.Error,
+                    title = "Шлюз не запущен",
+                    detail = startFailure.shortText,
+                    verdict = startFailure.verdict,
+                )
+            )
+        }
         if (hasAttempts) {
             add(
                 AttentionItem(

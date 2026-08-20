@@ -152,6 +152,10 @@ fun OverviewScreen(
         }
     }
 
+    // Состояние шлюза сверяем на тике: подняться он может и не суметь (занятый
+    // порт), а переключатель к этому моменту уже показал «включено».
+    LaunchedEffect(ticker) { viewModel.refreshServiceState() }
+
     // Расход и прогноз пересчитываем на тике — оба запроса тяжёлые, поэтому в IO.
     val usage by produceState<Pair<UsageHistory.Forecast, List<UsageHistory.DayUsage>>?>(initialValue = null, ticker / 15) {
         value = withContext(Dispatchers.IO) {
@@ -218,6 +222,7 @@ fun OverviewScreen(
             alerts = attention,
             gatewayStopped = !serviceRunning,
             blockedAttempts = GatewayForegroundService.blockedAttempts.get(),
+            startFailure = GatewayForegroundService.startFailure,
             modifier = Modifier.appear(index = 1),
         )
 
