@@ -38,6 +38,17 @@ interface QuotaSnapshotDao {
     @Query("SELECT * FROM quota_snapshots WHERE pool_id = :poolId ORDER BY updated_at ASC")
     suspend fun getHistoryForPool(poolId: Long): List<QuotaSnapshot>
 
+    /**
+     * История пула начиная с момента. Расчёту расхода за период вся история не
+     * нужна, а при обновлении раз в пять минут она хранит до нескольких тысяч
+     * строк на пул.
+     */
+    @Query(
+        "SELECT * FROM quota_snapshots WHERE pool_id = :poolId AND updated_at >= :since " +
+            "ORDER BY updated_at ASC"
+    )
+    suspend fun getHistoryForPoolSince(poolId: Long, since: Long): List<QuotaSnapshot>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(snapshot: QuotaSnapshot): Long
 

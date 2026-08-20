@@ -101,4 +101,23 @@ object Fmt {
     /** День для оси графика: 18.08 */
     fun day(timestamp: Long): String =
         SimpleDateFormat("dd.MM", Locale.getDefault()).format(Date(timestamp))
+
+    /**
+     * Откуда взято показание квоты. Разные источники отвечают на разные вопросы:
+     * поставщик знает весь расход, включая запросы мимо шлюза, а собственный
+     * учёт видит только то, что прошло через шлюз. Без подписи эти числа
+     * выглядели одинаково убедительно.
+     */
+    fun sourceCaption(source: String, updatedAt: Long, now: Long = System.currentTimeMillis()): String =
+        when (source.uppercase(Locale.ROOT)) {
+            "PROVIDER_API" -> "по данным поставщика · обновлено ${age(now - updatedAt)}"
+            "LOCAL_USAGE" -> "по локальному подсчёту — только через шлюз"
+            "USER_CONFIGURED" -> "бюджет задан вами"
+            "ESTIMATED" -> "оценка по прошлому расходу"
+            else -> "источник данных неизвестен"
+        }
+
+    /** Возраст показания: «только что» вместо «0 мин назад». */
+    private fun age(ms: Long): String =
+        if (ms < 60_000) "только что" else "${duration(ms)} назад"
 }

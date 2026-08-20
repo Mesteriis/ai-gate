@@ -43,8 +43,15 @@ object QuotaBurn {
         // в долларах, а потом провайдер начал отдавать проценты — переход 0 USD →
         // 33 % не расход, а смена шкалы, и без этого фильтра он давал бы
         // мгновенный «конец квоты через полчаса».
-        val unit = all.lastOrNull()?.unit
-        val ordered = all.filter { it.unit.equals(unit, ignoreCase = true) }
+        val latest = all.lastOrNull()
+        val unit = latest?.unit
+        // Источник тоже закрепляем. Данные поставщика учитывают расход мимо шлюза,
+        // а локальный подсчёт — нет, поэтому в одной шкале они всё равно
+        // описывают разные величины: чередование давало бы пилу и ложный темп.
+        val source = latest?.source
+        val ordered = all.filter {
+            it.unit.equals(unit, ignoreCase = true) && it.source == source
+        }
         if (ordered.size < 2) return null
 
         val windowStart = now - (RATE_WINDOW_HOURS * HOUR_MS).toLong()

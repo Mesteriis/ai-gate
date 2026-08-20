@@ -47,6 +47,9 @@ import com.aigate.router.GatewayApplication
 import com.aigate.router.data.model.Provider
 import com.aigate.router.data.model.SpeedHistory
 import com.aigate.router.data.model.TokenUsage
+import com.aigate.router.quota.ProviderSpend
+import com.aigate.router.quota.QuotaRepository
+import com.aigate.router.quota.ResourcePoolKind
 import com.aigate.router.service.GatewayForegroundService
 import com.aigate.router.ui.design.AppCard
 import com.aigate.router.ui.design.ChartCard
@@ -160,6 +163,9 @@ internal fun StatsSegment(viewModel: GatewayViewModel, modifier: Modifier = Modi
                             " · в среднем ${Fmt.compact(avgPerCall)}",
                         "передано ${Fmt.bytes(snap.uploadBytes)} · " +
                             "получено ${Fmt.bytes(snap.downloadBytes)}",
+                        // Собственный учёт видит только запросы через шлюз;
+                        // расход мимо него — в карточке данных поставщиков.
+                        "по локальному подсчёту — только запросы через шлюз",
                     ),
                     modifier = Modifier.parallax(scroll, fadeDistance = 300.dp),
                 )
@@ -177,8 +183,9 @@ internal fun StatsSegment(viewModel: GatewayViewModel, modifier: Modifier = Modi
                         verticalArrangement = Arrangement.spacedBy(Gateway.spacing.md),
                     ) {
                         DailyUsageCard(daily, snapshot, periodDays, Modifier.appear(1))
-                        ProviderSharesCard(snapshot, providers, periodDays, Modifier.appear(3))
-                        RecentCallsCard(allTokenUsage, providers, Modifier.appear(5))
+                        ProviderSpendCard(periodDays, Modifier.appear(3))
+                        ProviderSharesCard(snapshot, providers, periodDays, Modifier.appear(5))
+                        RecentCallsCard(allTokenUsage, providers, Modifier.appear(7))
                     }
                     Column(
                         modifier = Modifier.weight(1f),
@@ -192,12 +199,13 @@ internal fun StatsSegment(viewModel: GatewayViewModel, modifier: Modifier = Modi
                 }
             } else {
                 DailyUsageCard(daily, snapshot, periodDays, Modifier.appear(1))
-                ProviderSharesCard(snapshot, providers, periodDays, Modifier.appear(2))
-                TopModelsCard(snapshot, providers, Modifier.appear(3))
-                SpeedTrendCard(viewModel, periodDays, providers, Modifier.appear(4))
-                ApiKeysCard(snapshot, Modifier.appear(5))
-                RecentCallsCard(allTokenUsage, providers, Modifier.appear(6))
-                ClearSection(onClear = { pendingClear = it }, Modifier.appear(7))
+                ProviderSpendCard(periodDays, Modifier.appear(2))
+                ProviderSharesCard(snapshot, providers, periodDays, Modifier.appear(3))
+                TopModelsCard(snapshot, providers, Modifier.appear(4))
+                SpeedTrendCard(viewModel, periodDays, providers, Modifier.appear(5))
+                ApiKeysCard(snapshot, Modifier.appear(6))
+                RecentCallsCard(allTokenUsage, providers, Modifier.appear(7))
+                ClearSection(onClear = { pendingClear = it }, Modifier.appear(8))
             }
         }
     }
@@ -705,6 +713,68 @@ private fun ApiKeysCard(snapshot: UsageStats.Snapshot?, modifier: Modifier = Mod
             barHeight = 8.dp,
             showShare = true,
         )
+    }
+}
+
+/**
+ * «Расход по данным поставщиков»: то, что израсходовано на самом деле.
+ *
+ * Остальные карточки этого экрана считают расход по собственному учёту, а он
+ * записывает только запросы, прошедшие через шлюз. Если запросы идут к
+ * поставщику напрямую, они видны лишь здесь — по приростам счётчиков самого
+ * поставщика. Карточка молчит целиком, когда таких данных нет: у большинства
+ * поставщиков публичного API расхода не существует, и это нормально.
+ */
+@Composable
+private fun ProviderSpendCard(periodDays: Int, modifier: Modifier = Modifier) {
+    val db = remember { GatewayApplication.getInstance().database }
+    val ticker by rememberTicker(2_000L)
+
+    data class Row(val name: String, val spend: ProviderSpend.PeriodSpend?, val kind: ResourcePoolKind)
+
+    val rows by produceState(initialValue = emptyList<Row>(), periodDays, ticker / 30) {
+        value = withContext(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+            val from = now - periodDays * 24L * 3600 * 1000
+            db.resourcePoolDao().getAll()
+                .filter { it.enabled && ResourcePoolKind.fromName(it.kind) != ResourcePoolKind.FREE }
+                .map { pool ->
+                    Row(
+                        name = pool.name,
+                        spend = QuotaRepository.providerReportedSpend(db, pool, from, now),
+                        kind = ResourcePoolKind.fromName(pool.kind),
+                    )
+                }
+                .filter { it.spend != null }
+        }
+    }
+
+    if (rows.isEmpty()) return
+    AppCard(modifier) {
+        CardEyebrow("Расход по данным поставщиков")
+        Spacer(Modifier.height(Gateway.spacing.sm))
+        rows.forEachIndexed { index, row ->
+            if (index > 0) HorizontalDivider(Modifier.padding(vertical = Gateway.spacing.sm))
+            val spend = row.spend ?: return@forEachIndexed
+            Text(row.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            // Проценты загрузки окна в деньги не переводятся, поэтому у подписок
+            // показываем израсходованную долю и не выдумываем сумму.
+            Text(
+                text = "израсходовано ${Fmt.quota(spend.amount, spend.unit)} за ${periodDays} дн",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            val from = spend.coveredFromMs
+            val expectedFrom = System.currentTimeMillis() - periodDays * 24L * 3600 * 1000
+            Text(
+                text = if (from > expectedFrom + 3_600_000L) {
+                    "данные есть с ${Fmt.dateTime(from)}"
+                } else {
+                    "учтён расход мимо шлюза"
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

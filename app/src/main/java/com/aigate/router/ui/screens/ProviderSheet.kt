@@ -32,8 +32,10 @@ import com.aigate.router.auth.CliSessionManager
 import com.aigate.router.auth.CodexAccount
 import com.aigate.router.data.model.Provider
 import com.aigate.router.data.model.ResourcePool
+import com.aigate.router.data.model.QuotaSnapshot
 import com.aigate.router.quota.QuotaBurn
 import com.aigate.router.quota.QuotaRefresher
+import com.aigate.router.quota.QuotaSource
 import com.aigate.router.quota.QuotaRepository
 import com.aigate.router.quota.QuotaWindows
 import com.aigate.router.quota.RefreshTrigger
@@ -308,6 +310,47 @@ private fun ResourceSummary(pq: QuotaRepository.PoolQuota, kind: ResourcePoolKin
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+    }
+
+    // Откуда взято число. Данные поставщика учитывают расход мимо шлюза,
+    // собственный учёт — только запросы через шлюз, и без подписи эти два
+    // числа выглядели одинаково достоверно.
+    if (kind != ResourcePoolKind.FREE && snapshot != null) {
+        Text(
+            text = Fmt.sourceCaption(snapshot.source, snapshot.updatedAt),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        // Если сейчас показан локальный подсчёт, а данные поставщика когда-то
+        // были, показываем и их: молча подменять одно другим нечестно.
+        val fallbackFrom by produceState<QuotaSnapshot?>(null, pq.pool.id, snapshot.updatedAt) {
+            value = if (snapshot.source == QuotaSource.PROVIDER_API.name) null
+            else withContext(Dispatchers.IO) {
+                db.quotaSnapshotDao()
+                    .getLatestForPoolBySource(pq.pool.id, QuotaSource.PROVIDER_API.name)
+            }
+        }
+        fallbackFrom?.let { last ->
+            val value = last.remaining ?: last.used
+            Text(
+                text = listOfNotNull(
+                    value?.let { "${kind.remainingLabel} ${Fmt.quota(it, last.unit)}" },
+                    Fmt.sourceCaption(last.source, last.updatedAt),
+                ).joinToString(" · "),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        val refreshStatus by QuotaRefresher.status.collectAsState()
+        refreshStatus[pq.pool.id]?.lastError?.let { reason ->
+            Text(
+                text = "Не удалось обновить: $reason",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
         }
     }
 }

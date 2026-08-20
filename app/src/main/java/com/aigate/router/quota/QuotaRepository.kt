@@ -11,7 +11,6 @@ import com.aigate.router.pricing.CostCalculator
 import com.aigate.router.service.GatewayForegroundService
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import java.util.Calendar
 
 /**
  * Оркестратор квот. Источники честные и раздельные:
@@ -293,6 +292,33 @@ object QuotaRepository {
         }
     }
 
+    /**
+     * Расход пула за период по данным поставщика. null, если поставщик такие
+     * данные не отдаёт или снимков ещё слишком мало.
+     *
+     * Это единственный расчёт, который видит потребление в обход шлюза:
+     * собственный учёт записывает только запросы, прошедшие через него.
+     */
+    suspend fun providerReportedSpend(
+        db: AppDatabase,
+        pool: ResourcePool,
+        fromMs: Long,
+        toMs: Long = System.currentTimeMillis(),
+    ): ProviderSpend.PeriodSpend? {
+        // Берём с запасом: снимок чуть раньше начала периода служит базой отсчёта,
+        // без него расход на стыке периодов потерялся бы.
+        val history = db.quotaSnapshotDao()
+            .getHistoryForPoolSince(pool.id, fromMs - BASELINE_MARGIN_MS)
+        return ProviderSpend.periodSpend(history, fromMs, toMs)
+    }
+
+    /** Насколько раньше начала периода искать базовый снимок. */
+    private const val BASELINE_MARGIN_MS = 6 * 3_600_000L
+
+    /** Начало текущего расчётного периода пула. */
+    fun periodStartOf(pool: ResourcePool, now: Long = System.currentTimeMillis()): Long =
+        QuotaPeriods.periodStart(now, pool.resetDayOfMonth)
+
     /** Недавний темп расхода (USD/час) за последние 24ч. null, если данных нет. */
     private suspend fun recentSpendPerHour(db: AppDatabase, pool: ResourcePool): Double? {
         val now = System.currentTimeMillis()
@@ -306,32 +332,12 @@ object QuotaRepository {
     }
 
     // ---- Границы периода/сброса -------------------------------------------
+    // Живут в QuotaPeriods: расход по данным поставщика считается по тем же
+    // границам, что и локальный, иначе два числа на экране разошлись бы.
 
-    /** Начало текущего периода: последний прошедший день сброса в 00:00. */
-    private fun periodStart(now: Long, resetDay: Int?): Long {
-        val day = (resetDay ?: 1).coerceIn(1, 28)
-        val cal = midnight(now)
-        return if (cal.get(Calendar.DAY_OF_MONTH) >= day) {
-            cal.set(Calendar.DAY_OF_MONTH, day); cal.timeInMillis
-        } else {
-            cal.add(Calendar.MONTH, -1); cal.set(Calendar.DAY_OF_MONTH, day); cal.timeInMillis
-        }
-    }
+    private fun periodStart(now: Long, resetDay: Int?): Long =
+        QuotaPeriods.periodStart(now, resetDay)
 
-    /** Следующий сброс: ближайший будущий день сброса в 00:00. */
-    private fun nextReset(now: Long, resetDay: Int?): Long {
-        val day = (resetDay ?: 1).coerceIn(1, 28)
-        val cal = midnight(now)
-        return if (cal.get(Calendar.DAY_OF_MONTH) < day) {
-            cal.set(Calendar.DAY_OF_MONTH, day); cal.timeInMillis
-        } else {
-            cal.add(Calendar.MONTH, 1); cal.set(Calendar.DAY_OF_MONTH, day); cal.timeInMillis
-        }
-    }
-
-    private fun midnight(now: Long): Calendar = Calendar.getInstance().apply {
-        timeInMillis = now
-        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-    }
+    private fun nextReset(now: Long, resetDay: Int?): Long =
+        QuotaPeriods.nextReset(now, resetDay)
 }

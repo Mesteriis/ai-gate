@@ -795,6 +795,14 @@ private fun MonthSpendCard(
                             fontWeight = FontWeight.Medium,
                         )
                     }
+                    // Расход по токенам считается из собственного учёта, а он
+                    // записывает только запросы через шлюз. Настоящие суммы
+                    // поставщиков — на экране статистики.
+                    Text(
+                        text = "токены — по локальному подсчёту, только через шлюз",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
             if (days.size >= 2) {

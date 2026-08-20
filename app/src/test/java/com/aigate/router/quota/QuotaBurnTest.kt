@@ -106,6 +106,30 @@ class QuotaBurnTest {
     }
 
     @Test
+    fun `локальная оценка и данные поставщика не смешиваются в один темп`() {
+        // Данные поставщика учитывают расход мимо шлюза, локальный подсчёт — нет.
+        // В одной шкале это всё равно разные величины: чередование давало бы
+        // пилу и завышенный темп там, где расхода не было.
+        val local = { used: Double, ago: Long -> snap(used, ago).copy(source = "LOCAL_USAGE") }
+        val history = listOf(
+            snap(50.0, 6), local(0.0, 5), snap(50.0, 4), local(0.0, 3), snap(50.0, 0),
+        )
+        assertNull("прыжки между источниками не расход", QuotaBurn.rate(history, now))
+    }
+
+    @Test
+    fun `пропуск в ряду поставщика не мешает считать темп`() {
+        val history = listOf(
+            snap(10.0, 24),
+            snap(0.0, 12).copy(source = "LOCAL_USAGE"),
+            snap(58.0, 0),
+        )
+        val rate = QuotaBurn.rate(history, now)
+        assertNotNull(rate)
+        assertEquals(2.0, rate!!.perHour, 0.01)
+    }
+
+    @Test
     fun `смена единицы измерения не считается расходом`() {
         // Пул считался локально в долларах, потом провайдер начал отдавать
         // проценты. Переход 0 USD → 33 % — смена шкалы, а не расход: иначе
