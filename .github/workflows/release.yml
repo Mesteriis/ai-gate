@@ -82,7 +82,7 @@ jobs:
 
       - name: GitHub Release с APK
         if: github.ref_type == 'tag'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*
           generate_release_notes: true
