@@ -43,7 +43,13 @@ object CredentialStore {
         loaded = true
     }
 
-    private suspend fun ensureLoaded(db: AppDatabase) {
+    /**
+     * Загрузить кэш, если он ещё не загружен. Обновление квот обязано звать это
+     * первым делом: `load` запускается из GatewayApplication асинхронно, и
+     * фоновое обновление на холодном старте обгоняло его — адаптеры получали
+     * пустые ключи и молча возвращали «нет данных».
+     */
+    suspend fun ensureLoaded(db: AppDatabase) {
         if (!loaded) load(db)
     }
 

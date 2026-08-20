@@ -56,7 +56,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.aigate.router.GatewayApplication
+import com.aigate.router.quota.QuotaRefresher
 import com.aigate.router.quota.QuotaRepository
+import com.aigate.router.quota.RefreshTrigger
 import com.aigate.router.quota.QuotaBurn
 import com.aigate.router.quota.QuotaWindow
 import com.aigate.router.quota.QuotaWindows
@@ -141,6 +143,14 @@ fun OverviewScreen(
     val providers by viewModel.providers.collectAsState()
     val pools by remember { QuotaRepository.observe(db) }.collectAsState(initial = emptyList())
     val ticker by rememberTicker(2_000L)
+
+    // Открытие обзора обновляет квоты. Экран только показывал то, что успел
+    // записать фоновый воркер; частые открытия отсекает троттлинг RefreshPolicy.
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            runCatching { QuotaRefresher.refresh(context, db, RefreshTrigger.SCREEN_OPEN) }
+        }
+    }
 
     // Расход и прогноз пересчитываем на тике — оба запроса тяжёлые, поэтому в IO.
     val usage by produceState<Pair<UsageHistory.Forecast, List<UsageHistory.DayUsage>>?>(initialValue = null, ticker / 15) {

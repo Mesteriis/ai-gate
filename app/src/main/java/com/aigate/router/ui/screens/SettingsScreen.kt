@@ -337,7 +337,20 @@ fun SettingsScreen(
     }
 
     if (showBackgroundSheet) {
+        val powerManager = remember(context) {
+            context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+        }
         BackgroundWorkSheet(
+            batteryExempt = powerManager.isIgnoringBatteryOptimizations(context.packageName),
+            onRequestBatteryExemption = {
+                runCatching {
+                    context.startActivity(
+                        android.content.Intent(
+                            android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                        ).setData(android.net.Uri.fromParts("package", context.packageName, null)),
+                    )
+                }
+            },
             onBindPermissions = { viewModel.bindBackgroundPermissions() },
             onOpenAppSettings = {
                 runCatching {
@@ -560,6 +573,8 @@ private fun LanModeSheet(
 /** Автозапуск и работа в фоне — три системных перехода, которые раньше висели инлайном. */
 @Composable
 private fun BackgroundWorkSheet(
+    batteryExempt: Boolean,
+    onRequestBatteryExemption: () -> Unit,
     onBindPermissions: () -> Unit,
     onOpenAppSettings: () -> Unit,
     onOpenBatterySettings: () -> Unit,
@@ -572,7 +587,24 @@ private fun BackgroundWorkSheet(
         dismissText = "Закрыть",
         onConfirm = onDismiss,
     ) {
-        Button(
+        // Состояние показываем прямо здесь: подсказка о разрешениях выводится
+        // один раз за установку, и после неё узнать текущее положение дел было негде.
+        Text(
+            text = if (batteryExempt) {
+                "Оптимизация батареи отключена. Квоты обновляются каждые пять минут."
+            } else {
+                "Оптимизация батареи включена. В спящем режиме обновление квот откладывается системой."
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (!batteryExempt) {
+            Button(
+                onClick = { onRequestBatteryExemption(); onDismiss() },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Отключить оптимизацию батареи") }
+        }
+        OutlinedButton(
             onClick = { onBindPermissions(); onDismiss() },
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Настроить разрешения автозапуска") }

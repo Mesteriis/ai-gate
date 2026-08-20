@@ -21,6 +21,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- WakeLock权限（防止CPU休眠导致网关掉线） -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Диалог исключения из оптимизации батареи: без этого разрешения система
+         отклоняет ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, и запрос молча
+         подменялся страницей приложения. Нужен, чтобы квоты обновлялись в фоне. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- 开机自启 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- 通知权限 (Android 13+) -->

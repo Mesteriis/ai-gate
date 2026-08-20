@@ -13,7 +13,14 @@ Android 15 / One UI). Загрузка/Doze/battery-saver зависят от OE
 - Уведомление: `IMPORTANCE_LOW`, `ONGOING_EVENT|NO_CLEAR|FOREGROUND_SERVICE`, канал
   `aigate_service_channel`. Подтверждено в `dumpsys`.
 - Разрешения: `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`,
-  `RECEIVE_BOOT_COMPLETED`, `WAKE_LOCK`, `POST_NOTIFICATIONS`.
+  `RECEIVE_BOOT_COMPLETED`, `WAKE_LOCK`, `POST_NOTIFICATIONS`,
+  `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`.
+- Обновление квот: цикл в `serviceScope` с шагом 60 с, момент обновления выбирает
+  `quota/RefreshPolicy` (раз в 5 минут по стенным часам). Шаг короткий потому, что
+  `delay` считает монотонное время и в Doze останавливается: длинный сон растянулся
+  бы непредсказуемо, а частый тик догоняет пропущенное сразу после пробуждения.
+  Когда шлюз выключен, работает запасной `QuotaRefreshWorker` (15 минут — минимум
+  WorkManager).
 - Восстановление состояния: `GatewayApplication.onCreate` читает `getGatewayWasRunning()`
   из SharedPreferences и восстанавливает флаг при пересоздании процесса.
 
@@ -32,7 +39,7 @@ Android 15 / One UI). Загрузка/Doze/battery-saver зависят от OE
 | 9 | Wi-Fi ↔ LTE | активные соединения корректно рвутся/переустанавливаются | ⏳ ручной QA (нужен live upstream) |
 | 10 | Длинный SSE-стрим | не обрывается по таймауту раньше времени | ✅ проверено e2e (Ollama upstream: 200 SSE-чанков + [DONE] через шлюз) |
 | 11 | Параллельные стримы | потокобезопасность session-кэшей (ConcurrentHashMap — из Фазы 6) | ✅ проверено e2e (3 одновременных стрима, все [DONE], без крашей) |
-| 12 | Нет злоупотребления WakeLock/AlarmManager | WakeLock только под «唤醒保活»/keep-alive; AlarmManager не используется для поллинга | ✅ проверено по коду (квоты — WorkManager 6ч, не поллинг) |
+| 12 | Нет злоупотребления WakeLock/AlarmManager | WakeLock только под «唤醒保活»/keep-alive; AlarmManager не используется для поллинга | ✅ проверено по коду (квоты — тик сервиса раз в 5 мин + WorkManager 15 мин как запасной, AlarmManager не задействован) |
 
 ## Команды для ручного QA
 

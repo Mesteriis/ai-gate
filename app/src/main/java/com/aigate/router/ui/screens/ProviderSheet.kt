@@ -13,6 +13,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,6 +23,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -31,8 +33,10 @@ import com.aigate.router.auth.CodexAccount
 import com.aigate.router.data.model.Provider
 import com.aigate.router.data.model.ResourcePool
 import com.aigate.router.quota.QuotaBurn
+import com.aigate.router.quota.QuotaRefresher
 import com.aigate.router.quota.QuotaRepository
 import com.aigate.router.quota.QuotaWindows
+import com.aigate.router.quota.RefreshTrigger
 import com.aigate.router.quota.ResourcePoolKind
 import com.aigate.router.quota.ResourcePressure
 import com.aigate.router.ui.design.ConfirmDialog
@@ -64,10 +68,19 @@ fun ProviderSheet(
     onSyncModels: () -> Unit,
 ) {
     val db = remember { GatewayApplication.getInstance().database }
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val pools by remember { QuotaRepository.observe(db) }.collectAsState(initial = emptyList())
     val pq = pools.firstOrNull { it.pool.providerId == provider.id }
     val kind = pq?.let { ResourcePoolKind.fromName(it.pool.kind) }
+
+    // Открытие карточки обновляет квоту: раньше здесь показывалось то, что успел
+    // записать фоновый воркер. Частые открытия отсекает троттлинг RefreshPolicy.
+    LaunchedEffect(provider.id) {
+        withContext(Dispatchers.IO) {
+            runCatching { QuotaRefresher.refresh(context, db, RefreshTrigger.SCREEN_OPEN) }
+        }
+    }
 
     // Вход учётной записью или ключ API — от этого зависят и блок сессии,
     // и то, что вообще можно изменить.
@@ -406,6 +419,7 @@ private fun PlanPriceSheet(provider: Provider, onDismiss: () -> Unit) {
 @Composable
 private fun BudgetSheet(pool: ResourcePool, onDismiss: () -> Unit) {
     val db = remember { GatewayApplication.getInstance().database }
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var limit by remember {
         mutableStateOf(pool.configuredLimit?.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() } ?: "")
@@ -425,7 +439,7 @@ private fun BudgetSheet(pool: ResourcePool, onDismiss: () -> Unit) {
                             resetDayOfMonth = resetDay.toIntOrNull()?.coerceIn(1, 28) ?: 1,
                         )
                     )
-                    QuotaRepository.refreshAll(db)
+                    QuotaRefresher.refresh(context, db, RefreshTrigger.USER_ACTION)
                 }
             }
             onDismiss()

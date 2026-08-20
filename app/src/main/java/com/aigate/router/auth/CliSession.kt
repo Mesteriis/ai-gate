@@ -249,7 +249,11 @@ object CliSessionManager {
             // Список моделей запрашиваем у сервера сразу после входа.
             syncCodexModels(db, providerId)
             // Сразу пересчитать пулы/квоты, чтобы Codex появился на экране ресурсов.
-            runCatching { com.aigate.router.quota.QuotaRepository.refreshAll(db) }
+            runCatching {
+                com.aigate.router.quota.QuotaRefresher.refresh(
+                    context, db, com.aigate.router.quota.RefreshTrigger.USER_ACTION
+                )
+            }
             providerId
         }
     }
@@ -287,7 +291,11 @@ object CliSessionManager {
             }
             // Список моделей запрашиваем сразу после входа.
             runCatching { syncClaudeModels(db, providerId) }
-            runCatching { com.aigate.router.quota.QuotaRepository.refreshAll(db) }
+            runCatching {
+                com.aigate.router.quota.QuotaRefresher.refresh(
+                    context, db, com.aigate.router.quota.RefreshTrigger.USER_ACTION
+                )
+            }
             providerId
         }
     }

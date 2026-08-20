@@ -1200,7 +1200,11 @@ companion object {
                 }
                 // Имя ресурса следует за именем провайдера — обновляем пулы сразу,
                 // иначе плитка на «Обзоре» осталась бы с прежним именем до сброса.
-                runCatching { com.aigate.router.quota.QuotaRepository.refreshAll(database) }
+                runCatching {
+                    com.aigate.router.quota.QuotaRefresher.refresh(
+                        appContext, database, com.aigate.router.quota.RefreshTrigger.USER_ACTION
+                    )
+                }
                 _showEditProviderDialog.value = null
                 _snackbarMessage.value = "Провайдер обновлён"
             } catch (e: Exception) {

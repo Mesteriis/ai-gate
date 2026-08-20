@@ -36,7 +36,13 @@ class GatewayApplication : Application() {
             try { com.aigate.router.auth.CliSessionManager.ensureCodexModels(database) } catch (_: Exception) { }
             // Засев встроенной таблицы цен + первичный расчёт квот (локальный usage).
             try { com.aigate.router.pricing.PricingTable.seedIfNeeded(database) } catch (_: Exception) { }
-            try { com.aigate.router.quota.QuotaRepository.refreshAll(database) } catch (_: Exception) { }
+            try {
+                com.aigate.router.quota.QuotaRefresher.refresh(
+                    this@GatewayApplication,
+                    database,
+                    com.aigate.router.quota.RefreshTrigger.APP_START,
+                )
+            } catch (_: Exception) { }
             restoreLocalModels()
         }
         // Реальные адаптеры квот (документированные публичные endpoint'ы).

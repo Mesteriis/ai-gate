@@ -13,6 +13,7 @@ import com.aigate.router.R
 import com.aigate.router.utils.localizedText
 import com.aigate.router.gateway.GatewayService
 import com.aigate.router.gateway.VirtualModel
+import com.aigate.router.quota.QuotaRefresher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,6 +43,7 @@ class GatewayForegroundService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var gatewayService: GatewayService
     private var notificationJob: Job? = null
+    private var quotaJob: Job? = null
     private var wakeEnabled = false // 是否开启唤醒保活
     private var wakeLock: PowerManager.WakeLock? = null
     private var alarmKeepAliveJob: Job? = null
@@ -127,6 +129,21 @@ class GatewayForegroundService : Service() {
                 updateNotification()
                 // ★★★ 每10秒持久化流量统计 ★★★
                 if (System.currentTimeMillis() % 10000 < 1000) saveTraffic()
+            }
+        }
+
+        // Квоты обновляются раз в пять минут, пока живёт сервис. Шаг цикла
+        // короткий намеренно: delay считает монотонное время, которое в Doze
+        // останавливается, поэтому один долгий сон растянулся бы непредсказуемо.
+        // Частый опрос сам решает по стенным часам, пора ли, и первый же тик
+        // после пробуждения догоняет пропущенное.
+        quotaJob?.cancel()
+        quotaJob = serviceScope.launch {
+            while (isActive) {
+                delay(QUOTA_TICK_MS)
+                runCatching {
+                    QuotaRefresher.tick(applicationContext, GatewayApplication.getInstance().database)
+                }
             }
         }
 
@@ -264,6 +281,7 @@ class GatewayForegroundService : Service() {
 
     override fun onDestroy() {
         notificationJob?.cancel()
+        quotaJob?.cancel()
         alarmKeepAliveJob?.cancel()
         releaseWakeLock()
         cancelAlarmKeepAlive()
@@ -329,6 +347,9 @@ class GatewayForegroundService : Service() {
 
     companion object {
         const val NOTIFICATION_ID = 1001
+        /** Шаг цикла обновления квот; сам момент обновления выбирает RefreshPolicy. */
+        private const val QUOTA_TICK_MS = 60_000L
+
         private const val PREF_NAME = "aigate_config"
         private const val KEY_GATEWAY_PORT = "gateway_port"
         private const val KEY_PROXY_ENABLED = "proxy_enabled"

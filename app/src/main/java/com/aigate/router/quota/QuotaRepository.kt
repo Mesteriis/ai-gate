@@ -1,9 +1,14 @@
 package com.aigate.router.quota
 
+import android.util.Log
+import com.aigate.router.auth.AuthRegistry
+import com.aigate.router.data.credential.CredentialStore
 import com.aigate.router.data.db.AppDatabase
+import com.aigate.router.data.db.QuotaSnapshotDao
 import com.aigate.router.data.model.QuotaSnapshot
 import com.aigate.router.data.model.ResourcePool
 import com.aigate.router.pricing.CostCalculator
+import com.aigate.router.service.GatewayForegroundService
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import java.util.Calendar
@@ -11,11 +16,14 @@ import java.util.Calendar
 /**
  * Оркестратор квот. Источники честные и раздельные:
  *  - LOCAL_USAGE — сколько израсходовано (реальные данные из token_usage × pricing).
+ *    Видит только трафик через шлюз, поэтому расход мимо шлюза сюда не попадает.
  *  - USER_CONFIGURED — когда пользователь задал лимит бюджета (тогда есть remaining).
- *  - PROVIDER_API — если зарегистрирован адаптер провайдера (в v0.1.0 их нет → баланс
- *    провайдера остаётся неизвестным, а не выдуманным).
+ *  - PROVIDER_API — ответ адаптера провайдера. Единственный источник, который
+ *    учитывает потребление в обход шлюза, поэтому локальная оценка его не подменяет.
  */
 object QuotaRepository {
+
+    private const val TAG = "QuotaRepository"
 
     /** Пул + последний снимок + вычисленное давление. */
     data class PoolQuota(
@@ -71,51 +79,152 @@ object QuotaRepository {
     /**
      * Пересчитать квоты всех пулов. Автосоздаёт по одному пулу расхода на каждого
      * включённого провайдера (если ещё нет), затем считает снимок для каждого пула.
+     *
+     * @param trigger кто инициировал обновление — от этого зависит, не рано ли
+     *   идти к провайдеру повторно
+     * @param remoteAllowed false, когда сети нет: к провайдеру не ходим вовсе
+     * @param lastAttemptAt время предыдущей попытки по каждому пулу (живёт в
+     *   процессе, поэтому передаётся снаружи)
+     * @param onPoolResult исход по каждому пулу — для журнала и показа в интерфейсе
      */
-    suspend fun refreshAll(db: AppDatabase) {
+    suspend fun refreshAll(
+        db: AppDatabase,
+        trigger: RefreshTrigger = RefreshTrigger.USER_ACTION,
+        remoteAllowed: Boolean = true,
+        lastAttemptAt: (Long) -> Long? = { null },
+        onPoolResult: ((Long, PoolRefreshOutcome, String?) -> Unit)? = null,
+    ) {
+        // Кэш секретов загружается асинхронно на старте приложения. Фоновое
+        // обновление обгоняло его, и адаптеры получали пустые ключи.
+        CredentialStore.ensureLoaded(db)
+
         val now = System.currentTimeMillis()
         ensureProviderPools(db)
         val providers = db.providerDao().getAllProvidersOnce().associateBy { it.id }
         val pools = db.resourcePoolDao().getAll().filter { it.enabled }
+        val dao = db.quotaSnapshotDao()
 
         for (pool in pools) {
             // 1) Попробовать реальный адаптер провайдера (PROVIDER_API).
             val provider = providers[pool.providerId]
-            if (provider != null) {
-                val remote = QuotaProviderRegistry.resolve(provider)
-                if (remote != null) {
-                    val remoteSnap = runCatching { remote.fetch(db, provider, pool) }.getOrNull()
-                    if (remoteSnap != null) {
-                        db.quotaSnapshotDao().insert(remoteSnap.copy(poolId = pool.id, updatedAt = now))
-                        continue
-                    }
+            val remote = provider?.let { QuotaProviderRegistry.resolve(it) }
+            val lastProviderApiAt =
+                dao.getLatestForPoolBySource(pool.id, QuotaSource.PROVIDER_API.name)?.updatedAt
+
+            if (provider != null && remote != null) {
+                // Свежий ответ провайдера трогать незачем: обновлять нечего.
+                if (RefreshPolicy.shouldFetchRemote(
+                        trigger, lastProviderApiAt, lastAttemptAt(pool.id), now
+                    ).not()
+                ) {
+                    onPoolResult?.invoke(pool.id, PoolRefreshOutcome.SKIPPED_THROTTLED, null)
+                    continue
                 }
+
+                // Без сети к провайдеру не ходим, но локальный расчёт ей и не
+                // нужен: если данных провайдера нет или они давно мертвы, пул
+                // всё равно получит честную локальную оценку ниже.
+                if (!remoteAllowed) {
+                    onPoolResult?.invoke(pool.id, PoolRefreshOutcome.OFFLINE, null)
+                    if (!RefreshPolicy.shouldWriteLocalFallback(true, lastProviderApiAt, now)) continue
+                    writeLocalSnapshot(db, dao, pool, now)
+                    continue
+                }
+
+                // Токены Codex и Claude живут около часа. Без обновления перед
+                // запросом провайдер отвечал 401, ошибка терялась, и поверх
+                // реальных данных ложилась локальная оценка.
+                val authFresh = runCatching { AuthRegistry.ensureFreshForProvider(db, provider) }
+                    .getOrDefault(false)
+
+                var failure: String? = null
+                val remoteSnap = try {
+                    remote.fetch(db, provider, pool)
+                } catch (e: Exception) {
+                    failure = e.message ?: e::class.java.simpleName
+                    null
+                }
+
+                if (remoteSnap != null) {
+                    save(dao, remoteSnap.copy(poolId = pool.id, updatedAt = now), now)
+                    onPoolResult?.invoke(pool.id, PoolRefreshOutcome.OK_PROVIDER, null)
+                    continue
+                }
+
+                val reason = failure ?: if (!authFresh) "не удалось обновить токен доступа" else null
+                val outcomeOnMiss =
+                    if (!authFresh) PoolRefreshOutcome.AUTH_EXPIRED else PoolRefreshOutcome.FETCH_FAILED
+                logFailure(pool.name, reason)
+                onPoolResult?.invoke(pool.id, outcomeOnMiss, reason)
+
+                // Пока в базе лежит свежий ответ провайдера, локальная оценка его
+                // не подменяет: устаревшее показание честнее выдуманной свежести.
+                if (!RefreshPolicy.shouldWriteLocalFallback(true, lastProviderApiAt, now)) continue
             }
+
             // 2) Локальный расчёт: израсходовано за текущий период × pricing.
-            val periodStart = periodStart(now, pool.resetDayOfMonth)
-            val agg = CostCalculator.totalCostSince(
-                db, periodStart,
-                providerId = if (pool.providerId != 0L) pool.providerId else null
-            )
-            val used = agg.usd
-            val limit = pool.configuredLimit
-            val remaining = limit?.let { (it - used).coerceAtLeast(0.0) }
-            val source = if (limit != null) QuotaSource.USER_CONFIGURED else QuotaSource.LOCAL_USAGE
-            db.quotaSnapshotDao().insert(
-                QuotaSnapshot(
-                    poolId = pool.id,
-                    used = used,
-                    remaining = remaining,
-                    limit = limit,
-                    unit = QuotaUnit.USD.name,
-                    resetsAt = nextReset(now, pool.resetDayOfMonth),
-                    updatedAt = now,
-                    source = source.name
-                )
-            )
+            writeLocalSnapshot(db, dao, pool, now)
+            if (remote == null) onPoolResult?.invoke(pool.id, PoolRefreshOutcome.OK_LOCAL, null)
         }
         // Ограничить историю (90 дней).
-        db.quotaSnapshotDao().deleteOlderThan(now - 90L * 24 * 3600 * 1000)
+        dao.deleteOlderThan(now - 90L * 24 * 3600 * 1000)
+    }
+
+    /**
+     * Снимок из собственного учёта: израсходовано за текущий период × pricing.
+     * Видит только трафик через шлюз, поэтому применяется там, где данных
+     * провайдера нет или они давно не обновлялись.
+     */
+    private suspend fun writeLocalSnapshot(
+        db: AppDatabase,
+        dao: QuotaSnapshotDao,
+        pool: ResourcePool,
+        now: Long,
+    ) {
+        val periodStart = periodStart(now, pool.resetDayOfMonth)
+        val agg = CostCalculator.totalCostSince(
+            db, periodStart,
+            providerId = if (pool.providerId != 0L) pool.providerId else null
+        )
+        val used = agg.usd
+        val limit = pool.configuredLimit
+        val remaining = limit?.let { (it - used).coerceAtLeast(0.0) }
+        val source = if (limit != null) QuotaSource.USER_CONFIGURED else QuotaSource.LOCAL_USAGE
+        save(
+            dao,
+            QuotaSnapshot(
+                poolId = pool.id,
+                used = used,
+                remaining = remaining,
+                limit = limit,
+                unit = QuotaUnit.USD.name,
+                resetsAt = nextReset(now, pool.resetDayOfMonth),
+                updatedAt = now,
+                source = source.name
+            ),
+            now,
+        )
+    }
+
+    /**
+     * Записать снимок. Неизменившееся показание только обновляет метку времени:
+     * при обновлении раз в пять минут вставка каждого повтора раздувала бы
+     * историю примерно до 288 строк на пул в сутки.
+     */
+    private suspend fun save(dao: QuotaSnapshotDao, snapshot: QuotaSnapshot, now: Long) {
+        val previous = dao.getLatestForPool(snapshot.poolId)
+        if (RefreshPolicy.sameReading(previous, snapshot)) {
+            dao.touchUpdatedAt(previous!!.id, now)
+        } else {
+            dao.insert(snapshot)
+        }
+    }
+
+    /** Отказ провайдера виден в журнале: раньше он терялся молча. */
+    private fun logFailure(poolName: String, reason: String?) {
+        val text = "Квота «$poolName»: ${reason ?: "провайдер не вернул данные"}"
+        Log.w(TAG, text)
+        GatewayForegroundService.addDebugLog(text)
     }
 
     /** Прежние имена типов пула — их нужно переклассифицировать один раз. */
