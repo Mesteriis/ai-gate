@@ -35,3 +35,7 @@ app/build/
 
 # Local Claude Code project config
 /.claude/
+
+# Local agent/tool state — not part of the project
+/.serena/
+/.lazyweb/
