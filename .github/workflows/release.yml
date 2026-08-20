@@ -26,7 +26,7 @@ jobs:
           java-version: '17'
 
       - name: Gradle (с кэшем)
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: CMake 3.31.6 из Android SDK
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "cmake;3.31.6"

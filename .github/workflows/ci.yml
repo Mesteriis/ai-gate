@@ -31,7 +31,7 @@ jobs:
           java-version: '17'
 
       - name: Gradle (с кэшем)
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       # AGP требует ровно ту версию CMake, что указана в llamacpp/build.gradle.kts.
       - name: CMake 3.31.6 из Android SDK
