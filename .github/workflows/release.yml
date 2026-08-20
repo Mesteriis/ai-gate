@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout (с подмодулем llama.cpp)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -26,7 +26,7 @@ jobs:
           java-version: '17'
 
       - name: Gradle (с кэшем)
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: CMake 3.31.6 из Android SDK
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "cmake;3.31.6"
@@ -74,7 +74,7 @@ jobs:
           (cd dist && sha256sum *.apk > SHA256SUMS.txt)
 
       - name: Артефакт workflow
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: aigate-release
           path: dist/*
@@ -82,7 +82,7 @@ jobs:
 
       - name: GitHub Release с APK
         if: github.ref_type == 'tag'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*
           generate_release_notes: true

@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout (с подмодулем llama.cpp)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -31,7 +31,7 @@ jobs:
           java-version: '17'
 
       - name: Gradle (с кэшем)
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       # AGP требует ровно ту версию CMake, что указана в llamacpp/build.gradle.kts.
       - name: CMake 3.31.6 из Android SDK
@@ -47,7 +47,7 @@ jobs:
         run: ./gradlew --no-daemon assembleRelease
 
       - name: Артефакт — debug APK (готов к установке)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: aigate-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
@@ -55,7 +55,7 @@ jobs:
 
       - name: Отчёты (при падении)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reports
           path: |

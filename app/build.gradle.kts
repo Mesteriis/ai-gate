@@ -13,8 +13,8 @@ android {
         applicationId = "com.aigate.router"
         minSdk = 24
         targetSdk = 37
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.2.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
@@ -149,7 +149,7 @@ dependencies {
     testImplementation(libs.okhttp.mockwebserver)
     // Real org.json on the JVM test classpath (android.jar ships only a stub that
     // throws "not mocked" in unit tests).
-    testImplementation("org.json:json:20240303")
+    testImplementation("org.json:json:20260814")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
