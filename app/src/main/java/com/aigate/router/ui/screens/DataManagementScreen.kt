@@ -166,6 +166,30 @@ fun AboutScreen(
             InfoRow("Получено", Fmt.bytes(downloaded))
         }
 
+        SectionHeader("Поддержать")
+        AppCard(tone = CardTone.Raised) {
+            Text(
+                "AiGate — открытый проект и развивается в свободное время.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.size(Gateway.spacing.md))
+            // Пожертвования — только внешняя страница, платежей в приложении нет.
+            OutlinedButton(
+                onClick = {
+                    runCatching {
+                        context.startActivity(
+                            android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse("https://buymeacoffee.com/mesteriis"),
+                            ),
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Угостить кофе — buymeacoffee.com/mesteriis") }
+        }
+
         if (CrashHandler.hasCrashLog()) {
             SectionHeader("Диагностика")
             AppCard(tone = CardTone.Raised) {

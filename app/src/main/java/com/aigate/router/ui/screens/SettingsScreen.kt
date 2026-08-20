@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.outlined.Rule
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.BatterySaver
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.Coffee
 import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Info
@@ -297,6 +298,24 @@ fun SettingsScreen(
                     subtitle = appVersion.takeIf { it.isNotBlank() }?.let { "Версия $it" },
                     icon = Icons.Outlined.Info,
                     onClick = onOpenAbout,
+                )
+                SettingsSeparator()
+                // Пожертвования — только внешняя страница: никаких платёжных
+                // механизмов внутри приложения.
+                SettingsRow(
+                    title = "Поддержать проект",
+                    subtitle = "buymeacoffee.com/mesteriis",
+                    icon = Icons.Outlined.Coffee,
+                    onClick = {
+                        runCatching {
+                            context.startActivity(
+                                android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("https://buymeacoffee.com/mesteriis"),
+                                ),
+                            )
+                        }
+                    },
                 )
             }
 

@@ -4,6 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/Mesteriis/ai-gate?include_prereleases&label=release)](https://github.com/Mesteriis/ai-gate/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 ![Android](https://img.shields.io/badge/Android%207.0%2B-API%2024-3DDC84?logo=android&logoColor=white)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-mesteriis-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/mesteriis)
 
 Локальный OpenAI-совместимый **AI-шлюз, менеджер AI-ресурсов и policy-роутер** для
 Android. Приложение превращает телефон в маршрутизатор запросов к разным провайдерам
@@ -233,6 +234,12 @@ APK появится в `app/build/outputs/apk/debug/`. Для релизной 
   (OpenRouter/Codex/Claude/DeepSeek/Cursor).
 - Добавлены локальные модели (LiteRT-LM, llama.cpp/GGUF, Gemini Nano/AICore)
   и комплект из двенадцати домашних виджетов.
+
+## Поддержать проект
+
+AiGate — открытый проект и развивается в свободное время. Если шлюз оказался
+полезен — можно [угостить разработчика кофе](https://buymeacoffee.com/mesteriis).
+Та же ссылка есть в приложении: Настройки → «Поддержать проект».
 
 ## Лицензия
 

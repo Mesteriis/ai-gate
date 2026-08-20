@@ -17,6 +17,7 @@ NavigationRail). Темы — системные светлая и тёмная.
 | Активность · Журнал | ![Журнал](images/app/07-journal-light.png) | — |
 | Настройки | ![Настройки](images/app/05-settings-light.png) | ![Настройки, тёмная](images/app/05-settings-dark.png) |
 | Настройки (низ) | ![Настройки, низ](images/app/08-settings2-light.png) | — |
+| О программе | ![О программе](images/app/09-about-light.png) | — |
 
 ## Большой экран (Z Fold развёрнут)
 
