@@ -44,7 +44,7 @@ androidx-navigation-compose = { group = "androidx.navigation", name = "navigatio
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxingCore" }
 mlkit-genai-prompt = { group = "com.google.mlkit", name = "genai-prompt", version.ref = "mlkitGenaiPrompt" }
 litertlm-android = { group = "com.google.ai.edge.litertlm", name = "litertlm-android", version.ref = "litertlm" }
-androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version = "1.7.0" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version = "1.8.0" }
 
 # Ktor Server
 ktor-server-cio = { group = "io.ktor", name = "ktor-server-cio", version.ref = "ktor" }
